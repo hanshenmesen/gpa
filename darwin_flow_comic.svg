@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" font-family="'Comic Sans MS','Segoe Print','Bradley Hand',cursive">
+  <defs>
+    <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="roughSoft" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="8" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 L4,6 z" fill="#2b2b2b"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="14" markerHeight="14" refX="8" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 L4,6 z" fill="#255f75"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="14" markerHeight="14" refX="8" refY="6" orient="auto">
+      <path d="M1,1 L11,6 L1,11 L4,6 z" fill="#a53a2a"/>
+    </marker>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0 L0 0 0 34" fill="none" stroke="#e5e9ee" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- paper -->
+  <rect width="1600" height="1080" fill="#fbf9f2"/>
+  <rect width="1600" height="1080" fill="url(#grid)"/>
+  <line x1="70" y1="0" x2="70" y2="1080" stroke="#e7b0a6" stroke-width="2" opacity="0.7"/>
+  <circle cx="40" cy="150" r="8" fill="none" stroke="#c9d3dc" stroke-width="2"/>
+  <circle cx="40" cy="430" r="8" fill="none" stroke="#c9d3dc" stroke-width="2"/>
+  <circle cx="40" cy="700" r="8" fill="none" stroke="#c9d3dc" stroke-width="2"/>
+  <circle cx="40" cy="930" r="8" fill="none" stroke="#c9d3dc" stroke-width="2"/>
+
+  <!-- ===== Title ===== -->
+  <text x="110" y="80" font-size="50" font-weight="bold" fill="#1f2328">Replay</text>
+  <text x="315" y="80" font-size="30" fill="#255f75">— 录一遍，人人可复现的 AI 工作流社区</text>
+  <path d="M110 100 Q 650 114 1080 96" stroke="#e8c14c" stroke-width="8" fill="none" filter="url(#rough)" opacity="0.85"/>
+  <text x="1150" y="72" font-size="19" fill="#a65f1a" transform="rotate(-6 1150 72)">※ 产品流程图 / lab notebook</text>
+
+  <!-- ============ STEP 1 ============ -->
+  <g filter="url(#rough)">
+    <rect x="95" y="155" width="340" height="300" rx="14" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.5"/>
+  </g>
+  <rect x="118" y="142" width="180" height="34" rx="7" fill="#e8c14c" filter="url(#roughSoft)"/>
+  <text x="132" y="166" font-size="20" font-weight="bold" fill="#4a3a10">STEP 1 · 录一遍</text>
+
+  <g stroke="#2b2b2b" stroke-width="2.6" fill="none" filter="url(#roughSoft)">
+    <circle cx="168" cy="245" r="22" fill="#fdf0d5"/>
+    <path d="M168 267 L168 320"/>
+    <path d="M168 280 L136 305"/>
+    <path d="M168 280 L205 300"/>
+    <path d="M168 320 L150 362"/>
+    <path d="M168 320 L188 362"/>
+  </g>
+  <circle cx="161" cy="242" r="2.6" fill="#2b2b2b"/>
+  <circle cx="175" cy="242" r="2.6" fill="#2b2b2b"/>
+  <path d="M160 253 Q168 259 177 253" stroke="#2b2b2b" stroke-width="2.2" fill="none"/>
+  <text x="118" y="352" font-size="18" fill="#667085">贡献者</text>
+
+  <g filter="url(#roughSoft)">
+    <rect x="238" y="212" width="180" height="128" rx="8" fill="#eef4f6" stroke="#255f75" stroke-width="2.2"/>
+  </g>
+  <circle cx="258" cy="232" r="7" fill="#a53a2a"/>
+  <text x="272" y="238" font-size="16" fill="#a53a2a" font-weight="bold">REC</text>
+  <path d="M255 262 h146 M255 282 h116 M255 302 h136" stroke="#9fb3bd" stroke-width="3.2" filter="url(#roughSoft)"/>
+  <path d="M342 312 l0 24 l7 -7 l6 11 l6 -3 l-6 -11 l10 0 z" fill="#2b2b2b" filter="url(#roughSoft)"/>
+
+  <text x="118" y="405" font-size="19" fill="#1f2328">正常把一件事做一遍</text>
+  <text x="118" y="436" font-size="19" fill="#a65f1a">👆 用户唯一要做的事</text>
+
+  <path d="M440 300 H 560" stroke="#2b2b2b" stroke-width="3.2" fill="none" marker-end="url(#arrow)" filter="url(#roughSoft)"/>
+  <text x="458" y="288" font-size="17" fill="#667085">录屏</text>
+
+  <!-- ============ STEP 2 ============ -->
+  <g filter="url(#rough)">
+    <rect x="565" y="155" width="490" height="300" rx="14" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.5"/>
+  </g>
+  <rect x="588" y="142" width="300" height="34" rx="7" fill="#255f75" filter="url(#roughSoft)"/>
+  <text x="602" y="166" font-size="20" font-weight="bold" fill="#ffffff">STEP 2 · Agent 理解 &amp; 拆分</text>
+
+  <g filter="url(#roughSoft)">
+    <rect x="600" y="210" width="96" height="86" rx="12" fill="#e9f3f6" stroke="#255f75" stroke-width="2.6"/>
+    <line x1="648" y1="210" x2="648" y2="192" stroke="#255f75" stroke-width="2.6"/>
+    <circle cx="648" cy="188" r="5.5" fill="#e8c14c" stroke="#255f75" stroke-width="2"/>
+  </g>
+  <circle cx="626" cy="246" r="8" fill="#255f75"/>
+  <circle cx="670" cy="246" r="8" fill="#255f75"/>
+  <path d="M623 272 Q648 285 673 272" stroke="#255f75" stroke-width="2.8" fill="none"/>
+  <text x="600" y="318" font-size="16" fill="#255f75">our agent</text>
+
+  <g font-size="19" fill="#1f2328">
+    <text x="720" y="222">看懂意图，自动：</text>
+    <circle cx="728" cy="252" r="5" fill="#27745a"/><text x="744" y="258">过滤手滑 / 点错 / 犹豫</text>
+    <circle cx="728" cy="282" r="5" fill="#27745a"/><text x="744" y="288">零散动作 → 任务级步骤</text>
+    <circle cx="728" cy="312" r="5" fill="#27745a"/><text x="744" y="318">抽出可变参数 {{收件人}}</text>
+  </g>
+  <g filter="url(#roughSoft)">
+    <rect x="600" y="335" width="435" height="102" rx="8" fill="#fdf6e3" stroke="#a65f1a" stroke-width="2"/>
+  </g>
+  <text x="616" y="360" font-size="17" font-weight="bold" fill="#a65f1a">→ 结构化工作流 (workflow)</text>
+  <g font-size="16" fill="#7a5a2a">
+    <text x="616" y="388">1. 打开应用</text>
+    <text x="760" y="388">2. 点击「＋」</text>
+    <text x="905" y="388">3. 输入 {{标题}}</text>
+    <text x="616" y="416">4. 粘贴 {{正文}}</text>
+    <text x="760" y="416">5. 点击发布 ✓</text>
+  </g>
+
+  <path d="M810 460 V 520" stroke="#255f75" stroke-width="3.2" fill="none" marker-end="url(#arrowBlue)" filter="url(#roughSoft)"/>
+  <text x="824" y="498" font-size="17" fill="#255f75">发布到社区</text>
+
+  <!-- ============ STEP 4 ============ -->
+  <g filter="url(#rough)">
+    <rect x="1160" y="155" width="410" height="300" rx="14" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.5"/>
+  </g>
+  <rect x="1183" y="142" width="320" height="34" rx="7" fill="#27745a" filter="url(#roughSoft)"/>
+  <text x="1197" y="166" font-size="20" font-weight="bold" fill="#ffffff">STEP 4 · 跨环境一键复刻</text>
+
+  <g stroke="#2b2b2b" stroke-width="2.6" fill="none" filter="url(#roughSoft)">
+    <circle cx="1212" cy="245" r="22" fill="#e7f0e9"/>
+    <path d="M1212 267 L1212 320"/>
+    <path d="M1212 280 L1180 300"/>
+    <path d="M1212 280 L1245 305"/>
+    <path d="M1212 320 L1194 362"/>
+    <path d="M1212 320 L1231 362"/>
+  </g>
+  <circle cx="1205" cy="242" r="2.6" fill="#2b2b2b"/>
+  <circle cx="1219" cy="242" r="2.6" fill="#2b2b2b"/>
+  <path d="M1204 250 Q1212 257 1221 250" stroke="#2b2b2b" stroke-width="2.2" fill="none"/>
+  <text x="1160" y="352" font-size="17" fill="#667085">复刻者（自己的 agent）</text>
+
+  <g filter="url(#roughSoft)">
+    <rect x="1275" y="205" width="272" height="132" rx="8" fill="#eaf5ee" stroke="#27745a" stroke-width="2.2"/>
+  </g>
+  <text x="1288" y="228" font-size="15" fill="#27745a">不同机器 / 分辨率 / 账号 / 版本</text>
+  <path d="M1290 254 h150 M1290 274 h120 M1290 294 h140" stroke="#9fc4ab" stroke-width="3.2" filter="url(#roughSoft)"/>
+  <circle cx="1470" cy="305" r="16" fill="none" stroke="#a53a2a" stroke-width="2.6" filter="url(#roughSoft)"/>
+  <path d="M1470 285 v-9 M1470 325 v9 M1450 305 h-9 M1490 305 h9" stroke="#a53a2a" stroke-width="2.6"/>
+
+  <text x="1180" y="400" font-size="18" fill="#1f2328">✋ 靠「看懂界面」定位，不记死坐标</text>
+  <text x="1180" y="428" font-size="18" fill="#27745a">→ 换环境也能跑</text>
+  <text x="1315" y="428" font-size="16" fill="#a53a2a">⏹ 可见 · 可停 · 不失控</text>
+
+  <!-- ============ STEP 3 ============ -->
+  <g filter="url(#rough)">
+    <rect x="520" y="530" width="580" height="245" rx="18" fill="#ffffff" stroke="#2b2b2b" stroke-width="3"/>
+  </g>
+  <rect x="545" y="517" width="360" height="34" rx="7" fill="#a53a2a" filter="url(#roughSoft)"/>
+  <text x="559" y="541" font-size="20" font-weight="bold" fill="#ffffff">STEP 3 · Replay 社区（工作流市场）</text>
+
+  <g>
+    <g filter="url(#roughSoft)"><rect x="548" y="572" width="120" height="158" rx="8" fill="#eef4f6" stroke="#255f75" stroke-width="2"/></g>
+    <g filter="url(#roughSoft)"><rect x="682" y="572" width="120" height="158" rx="8" fill="#fdf6e3" stroke="#a65f1a" stroke-width="2"/></g>
+    <g filter="url(#roughSoft)"><rect x="816" y="572" width="120" height="158" rx="8" fill="#eaf5ee" stroke="#27745a" stroke-width="2"/></g>
+    <g filter="url(#roughSoft)"><rect x="950" y="572" width="120" height="158" rx="8" fill="#f6eef5" stroke="#7a3a6a" stroke-width="2"/></g>
+  </g>
+  <g font-size="16" fill="#33414d" text-anchor="middle" font-weight="bold">
+    <text x="608" y="602">批量改表</text>
+    <text x="742" y="602">素材整理</text>
+    <text x="876" y="602">跨平台搬运</text>
+    <text x="1010" y="602">下载归档</text>
+  </g>
+  <g stroke="#b9c6cf" stroke-width="2.6" filter="url(#roughSoft)">
+    <path d="M568 622 h80 M568 640 h62 M568 658 h76"/>
+    <path d="M702 622 h80 M702 640 h62 M702 658 h76"/>
+    <path d="M836 622 h80 M836 640 h62 M836 658 h76"/>
+    <path d="M970 622 h80 M970 640 h62 M970 658 h76"/>
+  </g>
+  <g font-size="15" fill="#a65f1a" text-anchor="middle">
+    <text x="608" y="712">▷ 复刻 128</text>
+    <text x="742" y="712">▷ 复刻 342</text>
+    <text x="876" y="712">▷ 复刻 87</text>
+    <text x="1010" y="712">▷ 复刻 210</text>
+  </g>
+
+  <!-- slogan callout moved to LEFT empty area, no overlap -->
+  <g transform="rotate(-7 300 640)">
+    <text x="300" y="620" font-size="34" font-weight="bold" fill="#a53a2a" text-anchor="middle">一人录，万人用！</text>
+  </g>
+  <path d="M415 650 Q 470 675 515 660" stroke="#a53a2a" stroke-width="3" fill="none" stroke-dasharray="8 6" marker-end="url(#arrowRed)" filter="url(#roughSoft)"/>
+
+  <!-- arrow community -> step4 (right, up) -->
+  <path d="M1105 610 H 1210 V 300" stroke="#2b2b2b" stroke-width="3.2" fill="none" marker-end="url(#arrow)" filter="url(#roughSoft)"/>
+  <text x="1118" y="598" font-size="17" fill="#667085">别人下载</text>
+
+  <!-- feedback loop -->
+  <path d="M1310 470 Q 1380 640 1110 725" stroke="#a65f1a" stroke-width="3" fill="none" stroke-dasharray="9 7" marker-end="url(#arrow)" filter="url(#roughSoft)"/>
+  <text x="1360" y="560" font-size="17" fill="#a65f1a" transform="rotate(76 1360 560)">复刻反馈 → 工作流更稳</text>
+
+  <!-- ============ bottom banner ============ -->
+  <g filter="url(#rough)">
+    <rect x="95" y="810" width="1420" height="215" rx="16" fill="#fffdf5" stroke="#2b2b2b" stroke-width="2.5"/>
+  </g>
+  <rect x="118" y="797" width="170" height="34" rx="7" fill="#e8c14c" filter="url(#roughSoft)"/>
+  <text x="132" y="821" font-size="20" font-weight="bold" fill="#4a3a10">为什么能成</text>
+
+  <g transform="translate(250,912)">
+    <circle r="74" fill="none" stroke="#255f75" stroke-width="3" stroke-dasharray="10 8" filter="url(#roughSoft)"/>
+    <path d="M0 -74 A74 74 0 0 1 64 37" fill="none" stroke="#255f75" stroke-width="3" marker-end="url(#arrowBlue)" filter="url(#roughSoft)"/>
+    <text x="0" y="-46" font-size="15" fill="#1f2328" text-anchor="middle">更多人上传</text>
+    <text x="56" y="22" font-size="15" fill="#1f2328" text-anchor="middle">更有用</text>
+    <text x="-52" y="34" font-size="15" fill="#1f2328" text-anchor="middle">更多复刻</text>
+    <text x="0" y="8" font-size="18" fill="#a53a2a" text-anchor="middle" font-weight="bold">飞轮</text>
+  </g>
+
+  <g font-size="18">
+    <g filter="url(#roughSoft)"><rect x="400" y="848" width="262" height="72" rx="9" fill="#eef4f6" stroke="#255f75" stroke-width="2"/></g>
+    <text x="416" y="878" font-weight="bold" fill="#255f75">① 跨用户复现</text>
+    <text x="416" y="905" font-size="14.5" fill="#33414d">A 录、B 也能跑 → 社区地基</text>
+
+    <g filter="url(#roughSoft)"><rect x="682" y="848" width="262" height="72" rx="9" fill="#fdeeee" stroke="#a53a2a" stroke-width="2"/></g>
+    <text x="698" y="878" font-weight="bold" fill="#a53a2a">② Replay 社区</text>
+    <text x="698" y="905" font-size="14.5" fill="#33414d">操作技能市场（像 App Store）</text>
+
+    <g filter="url(#roughSoft)"><rect x="964" y="848" width="262" height="72" rx="9" fill="#eaf5ee" stroke="#27745a" stroke-width="2"/></g>
+    <text x="980" y="878" font-weight="bold" fill="#27745a">③ 更快复刻</text>
+    <text x="980" y="905" font-size="14.5" fill="#33414d">顺手到愿意天天用</text>
+
+    <g filter="url(#roughSoft)"><rect x="1246" y="848" width="250" height="72" rx="9" fill="#f6eef5" stroke="#7a3a6a" stroke-width="2"/></g>
+    <text x="1262" y="878" font-weight="bold" fill="#7a3a6a">④ 开源</text>
+    <text x="1262" y="905" font-size="14.5" fill="#33414d">可见可审计 = 信任 + 标准</text>
+  </g>
+
+  <text x="400" y="965" font-size="18" fill="#1f2328">现状：录制 → agent 理解拆分 → 跨环境复刻 → 可分享打包，<tspan fill="#a53a2a" font-weight="bold">整条链路已跑通</tspan>（非纸面 idea）。</text>
+  <text x="400" y="995" font-size="16" fill="#667085">冷启动：小红书站内海量创作者 / 商家 / 运营的高频重复操作 = 天然场景池 + 种子内容。</text>
+
+  <g filter="url(#roughSoft)" opacity="0.85">
+    <path d="M1330 42 l6 15 l16 1 l-12 11 l4 16 l-14 -9 l-14 9 l4 -16 l-12 -11 l16 -1 z" fill="none" stroke="#e8c14c" stroke-width="2.6"/>
+  </g>
+</svg>

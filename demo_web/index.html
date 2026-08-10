@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPA Console</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #fff;
+    --line: #dfe3e8;
+    --line-strong: #c8d0d9;
+    --text: #1f2328;
+    --muted: #667085;
+    --accent: #255f75;
+    --accent-soft: #e9f3f6;
+    --green: #27745a;
+    --orange: #a65f1a;
+    --red: #a53a2a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    color: var(--text);
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .header-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; color: inherit; text-decoration: none; }
+  .mark {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background:
+      linear-gradient(135deg, var(--accent) 0 50%, transparent 50%),
+      linear-gradient(135deg, transparent 54%, #d17a44 54%),
+      #e8c14c;
+    flex: 0 0 auto;
+  }
+  h1 { margin: 0; font-size: 18px; line-height: 1.2; }
+  .sub { margin-top: 2px; color: var(--muted); font-size: 12px; }
+  .topbar { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .product-nav { display: flex; align-items: center; gap: 4px; }
+  .product-nav a {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 11px;
+    border-radius: 999px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .product-nav a.active { color: var(--accent); background: var(--accent-soft); }
+  .product-nav a:hover { color: var(--text); }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fbfcfd;
+    white-space: nowrap;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 99px; margin-right: 7px; background: var(--green); }
+  .dot.recording { background: var(--red); }
+  .dot.running { background: var(--orange); }
+
+  main {
+    display: grid;
+    grid-template-columns: 340px minmax(540px, 1fr) 340px;
+    gap: 16px;
+    padding: 16px;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .panel {
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .panel > .body {
+    min-height: 0;
+  }
+  .detail-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .detail-panel > .body {
+    min-height: 0;
+    overflow: auto;
+    padding-bottom: 28px;
+  }
+  .panel-head {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-title { font-size: 13px; font-weight: 800; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .body { padding: 14px; }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 2px;
+    padding-bottom: 16px;
+  }
+  .stack > .panel {
+    flex: 0 0 auto;
+  }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .metric {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fcfcfd;
+    padding: 10px;
+    min-height: 74px;
+  }
+  .metric span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+  .metric strong { display: block; font-size: 21px; }
+  .metric small { color: var(--muted); font-size: 11px; }
+
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+  input, textarea, select {
+    width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    padding: 9px 10px;
+    color: var(--text);
+    background: #fff;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+  textarea { min-height: 72px; resize: vertical; line-height: 1.45; }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 95, 117, .12); }
+  label { display: block; margin: 0 0 6px; color: #344054; font-size: 12px; font-weight: 750; }
+  .field { margin-bottom: 10px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button {
+    min-height: 34px;
+    border: 1px solid var(--accent);
+    border-radius: 7px;
+    padding: 0 12px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  button.secondary { background: #fff; color: var(--accent); }
+  button.danger { background: var(--red); border-color: var(--red); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .button-link {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--accent);
+    border-radius: 7px;
+    padding: 0 12px;
+    background: #fff;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 750;
+  }
+  .button-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .action-row {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    background: transparent;
+  }
+
+  .workflow-list { display: grid; gap: 9px; max-height: 430px; overflow: auto; padding-right: 2px; }
+  .workflow-card {
+    text-align: left;
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfcfd;
+    color: var(--text);
+    padding: 11px;
+    cursor: pointer;
+  }
+  .workflow-card.active { border-color: var(--accent); background: var(--accent-soft); }
+  .workflow-card strong { display: block; font-size: 13px; margin-bottom: 5px; }
+  .workflow-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+  .section-title { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 10px; }
+  .section-title h2 { margin: 0; font-size: 18px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: #fff;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .badge.visual { color: var(--orange); border-color: #e8c9a8; background: #fff8ef; }
+  .badge.ready { color: var(--green); border-color: #b8d8c9; background: #effaf4; }
+  .badge.warn { color: var(--orange); border-color: #e8c9a8; background: #fff8ef; }
+  .description { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+  .step-list { display: grid; gap: 8px; max-height: 410px; overflow: auto; padding-right: 2px; }
+  .step {
+    display: grid;
+    grid-template-columns: 36px 86px 1fr auto;
+    gap: 8px;
+    align-items: start;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px;
+    background: #fcfcfd;
+    font-size: 13px;
+  }
+  .num { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .type { font-weight: 800; color: var(--accent); }
+  .value { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; margin-top: 3px; }
+  .editor { display: grid; gap: 12px; }
+  .editor-section {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fcfcfd;
+    padding: 12px;
+  }
+  .editor-section h3 { margin: 0 0 10px; font-size: 13px; }
+  .edit-step {
+    display: grid;
+    grid-template-columns: 42px 92px minmax(0, 1fr) 74px 74px auto;
+    gap: 8px;
+    align-items: end;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    padding: 9px;
+    margin-bottom: 8px;
+  }
+  .edit-step textarea { min-height: 38px; }
+  .edit-var {
+    display: grid;
+    grid-template-columns: minmax(100px, .8fr) minmax(130px, 1fr) minmax(130px, 1fr) auto;
+    gap: 8px;
+    align-items: end;
+    margin-bottom: 8px;
+  }
+  .mini-label { color: var(--muted); font-size: 10px; font-weight: 800; margin-bottom: 4px; }
+  .manifest-panel { border-radius: 12px; background: #f6faf9; }
+  .manifest-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .manifest-fact { padding: 10px; border-radius: 9px; background: #fff; border: 1px solid var(--line); }
+  .manifest-fact span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+  .cap-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+  .var-list { display: grid; gap: 10px; margin-bottom: 12px; max-height: 300px; overflow: auto; padding-right: 2px; }
+  .var-help { color: var(--muted); font-size: 11px; margin-top: 4px; line-height: 1.35; }
+  .empty { color: var(--muted); font-size: 13px; line-height: 1.5; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+  .status-box {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfcfd;
+    padding: 11px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .status-box strong { display: block; margin-bottom: 3px; }
+  .status-box span { color: var(--muted); }
+  .dependency-box {
+    display: none;
+    margin-bottom: 10px;
+    border: 1px solid #e8c9a8;
+    border-left: 4px solid var(--orange);
+    border-radius: 8px;
+    background: #fff8ef;
+    padding: 10px;
+    color: #6f3f10;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .dependency-box strong { display: block; margin-bottom: 4px; color: #4f2f10; }
+  .feedback {
+    margin-bottom: 10px;
+    border: 1px solid #b8d8c9;
+    border-left: 4px solid var(--green);
+    border-radius: 8px;
+    background: #effaf4;
+    padding: 9px 10px;
+    color: #1e6049;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .feedback.warn { border-color: #e8c9a8; border-left-color: var(--orange); background: #fff8ef; color: #6f3f10; }
+  .feedback.error { border-color: #e4afa7; border-left-color: var(--red); background: #fff4f2; color: var(--red); }
+  .permission-box {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .permission-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfcfd;
+    padding: 8px 9px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .permission-row strong { color: var(--text); }
+  .permission-row.blocked { border-color: #e4afa7; background: #fff4f2; color: var(--red); }
+  .permission-row.unknown { border-color: #e8c9a8; background: #fff8ef; color: var(--orange); }
+  .log-list { display: grid; gap: 8px; max-height: calc(100vh - 210px); overflow: auto; padding-right: 2px; }
+  .log-item {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 9px;
+    background: #fbfcfd;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .log-item.error { border-left-color: var(--red); }
+  .log-item.warn { border-left-color: var(--orange); }
+  .log-item time { color: var(--muted); display: block; margin-bottom: 3px; }
+  .run-list { display: grid; gap: 8px; max-height: 260px; overflow: auto; padding-right: 2px; }
+  .run-item {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfcfd;
+    padding: 9px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .run-item strong { display: block; margin-bottom: 3px; }
+  .run-steps { color: var(--muted); margin-top: 5px; }
+
+  @media (max-width: 1160px) {
+    body { overflow: hidden; }
+    main {
+      grid-template-columns: 1fr;
+      height: calc(100vh - 64px);
+      overflow: auto;
+      scroll-padding-bottom: 96px;
+    }
+    .stack {
+      height: auto;
+      max-height: none;
+      overflow: visible;
+    }
+    .panel {
+      overflow: visible;
+    }
+    .detail-panel {
+      max-height: calc(100vh - 96px);
+      overflow: hidden;
+    }
+    .detail-panel > .body {
+      overflow: auto;
+    }
+    .workflow-list, .step-list, .log-list, .var-list { max-height: none; }
+  }
+  @media (max-width: 680px) {
+    header { height: auto; align-items: flex-start; flex-direction: column; padding: 14px; }
+    .header-left { width: 100%; align-items: flex-start; flex-direction: column; gap: 10px; }
+    .product-nav { width: 100%; }
+    .product-nav a { flex: 1; justify-content: center; }
+    main { height: calc(100vh - 91px); padding: 10px; }
+    .topbar { width: 100%; flex-wrap: wrap; }
+    .button-row button { flex: 1 1 132px; }
+    .metrics, .grid2 { grid-template-columns: 1fr; }
+    .step { grid-template-columns: 32px 74px 1fr; }
+    .step .badge { grid-column: 3; justify-self: start; }
+    .edit-step, .edit-var { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <a class="brand" href="/" aria-label="GPA 我的回放首页">
+      <div class="mark" aria-hidden="true"></div>
+      <div>
+        <h1>Replay Studio</h1>
+        <div class="sub">录制、理解并安全重放</div>
+      </div>
+    </a>
+    <nav class="product-nav" aria-label="产品导航">
+      <a href="/store">Replay Store</a>
+      <a class="active" href="/">Replay Studio</a>
+    </nav>
+  </div>
+  <div class="topbar">
+    <span class="chip"><span class="dot" id="recordDot"></span><span id="recordChip">Ready</span></span>
+    <span class="chip"><span class="dot" id="runDot"></span><span id="runChip">Idle</span></span>
+    <span class="chip" id="serverTime">--</span>
+  </div>
+</header>
+
+<main>
+  <aside class="stack">
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">录制</div>
+        <div class="hint" id="recordHint">idle</div>
+      </div>
+      <div class="body">
+        <div class="field">
+          <label for="recordWorkflowId">Workflow ID</label>
+          <input id="recordWorkflowId" placeholder="web_20260708_170000">
+        </div>
+        <div class="field">
+          <label for="recordTaskDescription">任务描述</label>
+          <textarea id="recordTaskDescription" placeholder="例如：打开本地表格，筛选本月订单并导出 CSV"></textarea>
+        </div>
+        <div id="dependencyStatus" class="dependency-box"></div>
+        <div id="permissionStatus" class="permission-box"></div>
+        <div class="button-row action-row">
+          <button id="startRecord">开始录制</button>
+          <button id="stopRecord" class="secondary" disabled>停止并构建</button>
+        </div>
+        <div style="height:10px"></div>
+        <div class="status-box" id="recordStatus">
+          <strong>未录制</strong>
+          <span>点击开始后，GPA 会捕捉鼠标、键盘和截图，停止后构建 workflow。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">我的 Replay</div>
+        <div class="hint" id="workflowCount">0</div>
+      </div>
+      <div class="body">
+        <div class="toolbar">
+          <input id="search" placeholder="搜索 Replay">
+          <button class="secondary" id="refresh">刷新</button>
+        </div>
+        <div id="workflowList" class="workflow-list"></div>
+      </div>
+    </section>
+
+  </aside>
+
+  <section class="panel detail-panel">
+    <div class="panel-head">
+      <div class="panel-title" id="detailTitle">Replay 详情</div>
+      <div class="hint" id="selectedId">未选择</div>
+    </div>
+    <div class="body">
+      <div class="metrics" id="detailMetrics">
+        <div class="metric"><span>Workflows</span><strong id="metricWorkflows">0</strong><small>local storage</small></div>
+        <div class="metric"><span>Steps</span><strong id="metricSteps">0</strong><small>selected</small></div>
+        <div class="metric"><span>Variables</span><strong id="metricVars">0</strong><small>runtime inputs</small></div>
+        <div class="metric"><span>Subgraphs</span><strong id="metricSubgraphs">0</strong><small>visual context</small></div>
+      </div>
+      <div id="detail"></div>
+    </div>
+  </section>
+
+  <aside class="stack">
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">回放</div>
+        <div class="hint" id="runHint">idle</div>
+      </div>
+      <div class="body">
+        <div id="variables" class="var-list"></div>
+        <div class="grid2">
+          <div class="field">
+            <label for="threshold">Readiness threshold</label>
+            <input id="threshold" value="0.5">
+          </div>
+          <div class="field">
+            <label for="retries">Retries</label>
+            <input id="retries" value="5">
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="countdown">Countdown</label>
+            <input id="countdown" value="3">
+          </div>
+          <div class="field">
+            <label for="maxRuntime">Max runtime</label>
+            <input id="maxRuntime" value="300">
+          </div>
+        </div>
+        <div class="button-row action-row">
+          <button id="runWorkflow" disabled>运行 Replay</button>
+          <button id="stopReplay" class="secondary" disabled>停止回放</button>
+          <button id="deleteWorkflow" class="danger" disabled>删除</button>
+        </div>
+        <div style="height:10px"></div>
+        <div class="status-box" id="runStatus">
+          <strong>未运行</strong>
+          <span>回放会真实控制桌面，请先确认目标应用处在正确状态。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">日志</div>
+        <div class="hint">latest first</div>
+      </div>
+      <div class="body">
+        <div id="logs" class="log-list"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Run History</div>
+        <div class="hint" id="runHistoryCount">0</div>
+      </div>
+      <div class="body">
+        <div id="runHistory" class="run-list"></div>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<script>
+let status = null;
+let workflows = [];
+let runHistories = [];
+let selected = null;
+let selectedMode = 'workflow';
+let selectedDetail = null;
+let selectedReplay = null;
+let selectedReplayError = '';
+let recordFeedback = null;
+let runFeedback = null;
+let selectionVersion = 0;
+const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8765' : '';
+const REQUESTED_WORKFLOW_ID = new URLSearchParams(window.location.search).get('workflow_id') || '';
+let deepLinkApplied = false;
+const HEARTBEAT_INTERVAL_MS = 1000;
+const ACTIVE_STATUS_POLL_MS = 1000;
+const IDLE_STATUS_POLL_MS = 3000;
+const CLIENT_ID = (() => {
+  try {
+    const key = 'gpa_console_client_id';
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const id = globalThis.crypto?.randomUUID?.() || `client_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return `client_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  }
+})();
+let heartbeatTimer = null;
+let heartbeatInFlight = false;
+let statusPollTimer = null;
+let workflowRenderToken = '';
+let runHistoryRenderToken = '';
+let lastRunPollToken = '';
+let disconnectSent = false;
+
+const els = {
+  list: document.getElementById('workflowList'),
+  count: document.getElementById('workflowCount'),
+  search: document.getElementById('search'),
+  refresh: document.getElementById('refresh'),
+  detail: document.getElementById('detail'),
+  detailTitle: document.getElementById('detailTitle'),
+  detailMetrics: document.getElementById('detailMetrics'),
+  vars: document.getElementById('variables'),
+  startRecord: document.getElementById('startRecord'),
+  stopRecord: document.getElementById('stopRecord'),
+  recordWorkflowId: document.getElementById('recordWorkflowId'),
+  recordTaskDescription: document.getElementById('recordTaskDescription'),
+  recordStatus: document.getElementById('recordStatus'),
+  recordHint: document.getElementById('recordHint'),
+  recordDot: document.getElementById('recordDot'),
+  recordChip: document.getElementById('recordChip'),
+  runWorkflow: document.getElementById('runWorkflow'),
+  deleteWorkflow: document.getElementById('deleteWorkflow'),
+  threshold: document.getElementById('threshold'),
+  retries: document.getElementById('retries'),
+  runStatus: document.getElementById('runStatus'),
+  runHint: document.getElementById('runHint'),
+  runDot: document.getElementById('runDot'),
+  runChip: document.getElementById('runChip'),
+  logs: document.getElementById('logs'),
+  runHistory: document.getElementById('runHistory'),
+  runHistoryCount: document.getElementById('runHistoryCount'),
+  serverTime: document.getElementById('serverTime'),
+  selectedId: document.getElementById('selectedId'),
+  metricWorkflows: document.getElementById('metricWorkflows'),
+  metricSteps: document.getElementById('metricSteps'),
+  metricVars: document.getElementById('metricVars'),
+  metricSubgraphs: document.getElementById('metricSubgraphs'),
+  dependencyStatus: document.getElementById('dependencyStatus'),
+  permissionStatus: document.getElementById('permissionStatus'),
+  countdown: document.getElementById('countdown'),
+  maxRuntime: document.getElementById('maxRuntime'),
+  stopReplay: document.getElementById('stopReplay'),
+};
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
+async function getJson(url, options) {
+  const response = await fetch(`${API_BASE}${url}`, options);
+  const data = await response.json();
+  if (!response.ok || data.ok === false) throw new Error(data.error || response.statusText);
+  return data;
+}
+
+async function postJson(url, payload = {}) {
+  return getJson(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function sendHeartbeat() {
+  if (heartbeatInFlight) return;
+  heartbeatInFlight = true;
+  try {
+    disconnectSent = false;
+    await postJson('/api/client/heartbeat', { client_id: CLIENT_ID });
+  } catch {
+    // Status polling renders server/API failures; heartbeat is a safety lease.
+  } finally {
+    heartbeatInFlight = false;
+  }
+}
+
+function postBeacon(path, payload = {}) {
+  const body = JSON.stringify({ client_id: CLIENT_ID, ...payload });
+  const url = `${API_BASE}${path}`;
+  if (navigator.sendBeacon) {
+    const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
+    if (navigator.sendBeacon(url, blob)) return;
+  }
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+function startClientHeartbeat() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  sendHeartbeat();
+  heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+}
+
+function sendClientDisconnect() {
+  if (disconnectSent) return;
+  disconnectSent = true;
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  postBeacon('/api/client/disconnect');
+}
+
+async function loadStatus() {
+  status = await getJson('/api/status');
+  els.serverTime.textContent = status.server_time;
+  els.metricWorkflows.textContent = status.workflow_count;
+  renderRuntimeStatus();
+  renderDependencyStatus();
+  renderPermissionStatus();
+  renderLogs();
+}
+
+function showRecordFeedback(message, kind = '') {
+  recordFeedback = { message, kind };
+  const klass = kind ? ` ${kind}` : '';
+  els.recordStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(message)}</div>`;
+}
+
+function showRunFeedback(message, kind = '') {
+  runFeedback = { message, kind };
+  const klass = kind ? ` ${kind}` : '';
+  els.runStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(message)}</div>`;
+}
+
+async function loadWorkflows() {
+  await loadStatus();
+  const data = await getJson('/api/workflows');
+  workflows = data.workflows;
+  renderWorkflowList();
+  const requested = !deepLinkApplied && REQUESTED_WORKFLOW_ID
+    ? workflows.find(item => item.id === REQUESTED_WORKFLOW_ID)
+    : null;
+  if (!deepLinkApplied) deepLinkApplied = true;
+  if (requested) {
+    await selectWorkflow(requested.id);
+  } else if (!selected && status.preview) {
+    await selectPreview();
+  } else if (!selected && workflows.length) {
+    await selectWorkflow(workflows[0].id);
+  } else if (selectedMode === 'workflow' && selected && !workflows.some(item => item.id === selected)) {
+    selected = null;
+    selectedDetail = null;
+    renderEmptyDetail();
+  }
+  await loadRunHistory();
+}
+
+function renderRuntimeStatus() {
+  const rec = status.recording;
+  const run = status.run;
+  const health = status.health || { groups: {} };
+  const recordReady = health.groups?.record?.ready !== false;
+  const replayReady = health.groups?.replay?.ready !== false;
+  const desktopAutomationEnabled = health.desktop_automation?.enabled === true;
+  const clientConnected = status.client?.connected !== false;
+  const workflowRunnable = selectedDetail?.quality?.runnable !== false;
+  const localWorkflowSelected = selectedMode === 'workflow' && Boolean(selectedDetail?.id);
+  const permissions = health.permissions?.items || {};
+  const recordPermissionReady = !['screen_recording', 'input_monitoring'].some(key => permissions[key]?.ready === false);
+  const replayPermissionReady = !['accessibility', 'screen_recording'].some(key => permissions[key]?.ready === false);
+  els.startRecord.disabled = rec.active || !recordReady || !recordPermissionReady || !desktopAutomationEnabled;
+  els.stopRecord.disabled = !rec.active;
+  els.recordDot.classList.toggle('recording', rec.active);
+  els.recordChip.textContent = rec.active ? 'Recording' : 'Ready';
+  els.recordHint.textContent = rec.active ? `${rec.status} · ${rec.event_count} events` : rec.status;
+  const recordBusyMessages = {
+    starting: '正在启动录制...',
+    stopping: '正在停止录制...',
+    building: '正在调用大模型过滤、合并并保存预览...',
+  };
+  els.stopRecord.textContent = rec.status === 'stopping' || rec.status === 'building' ? '处理中...' : '停止并预览';
+  if (rec.active) {
+    if (recordBusyMessages[rec.status]) {
+      els.recordStatus.innerHTML = `<div class="feedback warn">${escapeHtml(recordBusyMessages[rec.status])}<br>ID: ${escapeHtml(rec.workflow_id)} · Events: ${escapeHtml(rec.event_count)}</div>`;
+    } else {
+      recordFeedback = null;
+      els.recordStatus.innerHTML = `<strong>正在录制</strong><span>ID: ${escapeHtml(rec.workflow_id)}<br>Goal: ${escapeHtml(rec.task_description || '未填写')}<br>Started: ${escapeHtml(rec.started_at)}<br>Events: ${escapeHtml(rec.event_count)}</span>`;
+    }
+  } else if (recordFeedback) {
+    const klass = recordFeedback.kind ? ` ${recordFeedback.kind}` : '';
+    els.recordStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(recordFeedback.message)}</div>`;
+  } else {
+    els.recordStatus.innerHTML = `<strong>${rec.status === 'failed' ? '录制失败' : '未录制'}</strong><span>${escapeHtml(rec.error || '点击开始后，GPA 会捕捉鼠标、键盘和截图，停止后进入结果预览。')}</span>`;
+  }
+
+  els.runDot.classList.toggle('running', run.active);
+  els.runChip.textContent = run.active ? run.status : 'Idle';
+  els.runHint.textContent = run.active ? run.workflow_id : run.status;
+  els.runWorkflow.disabled = !localWorkflowSelected || run.active || !replayReady || !replayPermissionReady || !clientConnected || !desktopAutomationEnabled || !workflowRunnable;
+  els.stopReplay.disabled = !run.active;
+  els.deleteWorkflow.disabled = !localWorkflowSelected || rec.active || run.active;
+  const current = run.current_step
+    ? `<br>Step ${escapeHtml(run.current_step.number)}/${escapeHtml(run.total_steps)} · ${escapeHtml(run.current_step.action_type)}${run.current_step.agent_decision ? `<br>Agent: ${escapeHtml(run.current_step.agent_decision.action_type)} · ${escapeHtml(run.current_step.agent_decision.reason || '')}` : ''}`
+    : '';
+  const countdown = run.status === 'countdown' ? `<br>Starting in ${escapeHtml(run.countdown_remaining)}s` : '';
+  if (run.active) {
+    runFeedback = null;
+    els.runStatus.innerHTML = `<strong>${escapeHtml(run.status)}</strong><span>ID: ${escapeHtml(run.workflow_id)}<br>Elapsed: ${escapeHtml(run.elapsed_seconds)}s / ${escapeHtml(run.max_runtime_seconds)}s${countdown}${current}</span>`;
+  } else if (runFeedback && run.success == null) {
+    const klass = runFeedback.kind ? ` ${runFeedback.kind}` : '';
+    els.runStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(runFeedback.message)}</div>`;
+  } else {
+    const clientNote = clientConnected ? '' : '<br>控制台连接未建立，回放已锁定。';
+    const automationNote = desktopAutomationEnabled ? '' : '<br>桌面自动化已禁用，录制和回放被锁定。';
+    const qualityNote = workflowRunnable ? '' : '<br>Workflow 有阻塞项，回放已锁定。';
+    els.runStatus.innerHTML = `<strong>${run.success === false ? statusLabel(run.status) : run.success === true ? '上次运行成功' : '未运行'}</strong><span>Steps: ${escapeHtml(run.steps_run)} · Failed: ${escapeHtml(run.steps_failed)}${run.error ? `<br>${escapeHtml(run.error)}` : ''}${clientNote}${automationNote}${qualityNote}</span>`;
+  }
+}
+
+function statusLabel(value) {
+  return {
+    failed: '上次运行失败',
+    cancelled: '上次运行已停止',
+    timed_out: '上次运行超时',
+    panic_stopped: '上次运行已紧急停止',
+    client_disconnected: '控制台断开，回放已停止',
+  }[value] || '未运行';
+}
+
+function renderDependencyStatus() {
+  const groups = Object.entries(status?.health?.groups || {}).filter(([, item]) => !item.ready);
+  const automation = status?.health?.desktop_automation;
+  const rows = groups.map(([name, item]) => {
+    const missing = (item.missing || []).map(dep => dep.package).join(', ');
+    return `<div><strong>${escapeHtml(name)}</strong>${escapeHtml(missing)}</div>`;
+  });
+  if (automation && automation.enabled === false) {
+    rows.unshift(`<div><strong>Desktop Automation Locked</strong>${escapeHtml(automation.message || '')}</div>`);
+  }
+  els.dependencyStatus.style.display = rows.length ? 'block' : 'none';
+  els.dependencyStatus.innerHTML = rows.join('');
+}
+
+function renderPermissionStatus() {
+  const items = status?.health?.permissions?.items || {};
+  els.permissionStatus.innerHTML = ['accessibility', 'screen_recording', 'input_monitoring'].map(key => {
+    const item = items[key];
+    if (!item) return '';
+    const klass = item.status === 'blocked' ? 'blocked' : item.status === 'unknown' ? 'unknown' : '';
+    const text = item.status === 'ready' ? 'ready' : item.status;
+    return `<div class="permission-row ${klass}" title="${escapeHtml(item.message || '')}">
+      <strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(text)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderLogs() {
+  els.logs.innerHTML = (status.logs || []).map(item => `
+    <div class="log-item ${escapeHtml(item.level)}">
+      <time>${escapeHtml(item.time)} · ${escapeHtml(item.level)}</time>
+      ${escapeHtml(item.message)}
+    </div>
+  `).join('') || '<div class="empty">暂无日志。</div>';
+}
+
+function workflowListToken() {
+  return JSON.stringify({
+    query: els.search.value.trim().toLowerCase(),
+    selected,
+    selectedMode,
+    preview: status?.preview
+      ? {
+        id: status.preview.preview_id,
+        title: status.preview.workflow?.title,
+        name: status.preview.workflow?.name,
+        steps: status.preview.workflow?.steps?.length,
+      }
+      : null,
+    workflows: workflows.map(item => ({
+      id: item.id,
+      name: item.name,
+      title: item.title,
+      description: item.description,
+      task_description: item.task_description,
+      steps: item.steps,
+    })),
+  });
+}
+
+function renderWorkflowList() {
+  const token = workflowListToken();
+  if (token === workflowRenderToken) return;
+  workflowRenderToken = token;
+  const q = els.search.value.trim().toLowerCase();
+  const previewCard = status?.preview ? `
+    <button class="workflow-card ${selectedMode === 'preview' ? 'active' : ''}" data-preview="1">
+      <strong>Recording Preview</strong>
+      <p>${escapeHtml(status.preview.workflow.title || status.preview.workflow.name)} · ${escapeHtml(status.preview.workflow.steps.length)} steps</p>
+      <p>未保存，确认后才会进入 workflow 列表。</p>
+    </button>
+  ` : '';
+  const filtered = workflows.filter(item => (
+    item.id + ' ' + item.name + ' ' + item.title + ' ' + item.description + ' ' + (item.task_description || '')
+  ).toLowerCase().includes(q));
+  els.count.textContent = String(filtered.length + (status?.preview ? 1 : 0));
+  els.list.innerHTML = previewCard + (filtered.map(item => `
+    <button class="workflow-card ${selectedMode === 'workflow' && selected === item.id ? 'active' : ''}" data-id="${escapeHtml(item.id)}">
+      <strong>${escapeHtml(item.title || item.name)}</strong>
+      <p>${escapeHtml(item.id)} · ${escapeHtml(item.steps)} steps</p>
+      <p>${escapeHtml(item.description || 'No description')}</p>
+    </button>
+  `).join('') || (!previewCard ? '<div class="empty">没有匹配的 workflow。</div>' : ''));
+  els.list.querySelectorAll('[data-id]').forEach(card => {
+    card.addEventListener('click', () => selectWorkflow(card.dataset.id));
+  });
+  const preview = els.list.querySelector('[data-preview]');
+  if (preview) preview.addEventListener('click', () => selectPreview());
+}
+
+async function selectWorkflow(id) {
+  const requestVersion = ++selectionVersion;
+  selectedMode = 'workflow';
+  selected = id;
+  els.detailTitle.textContent = 'Replay 详情';
+  els.detailMetrics.style.display = 'grid';
+  renderWorkflowList();
+  els.selectedId.textContent = id;
+  els.detail.innerHTML = '<div class="empty">正在加载 workflow...</div>';
+  let data;
+  let replayData = null;
+  let replayError = '';
+  try {
+    data = await getJson(`/api/workflows/${encodeURIComponent(id)}`);
+    try {
+      replayData = await getJson(`/api/replays/${encodeURIComponent(id)}`);
+    } catch (error) {
+      replayError = error.message;
+    }
+  } catch (error) {
+    if (requestVersion !== selectionVersion || selectedMode !== 'workflow' || selected !== id) return;
+    throw error;
+  }
+  if (requestVersion !== selectionVersion || selectedMode !== 'workflow' || selected !== id) return;
+  selectedDetail = data.workflow;
+  selectedReplay = replayData?.replay || null;
+  selectedReplayError = replayError;
+  renderDetail();
+  renderVariables();
+  renderRuntimeStatus();
+  await loadRunHistory();
+}
+
+async function selectPreview() {
+  const requestVersion = ++selectionVersion;
+  const data = await getJson('/api/preview');
+  if (requestVersion !== selectionVersion) return;
+  if (!data.preview) return;
+  selectedMode = 'preview';
+  selected = '__preview__';
+  selectedDetail = data.preview.workflow;
+  selectedReplay = null;
+  selectedReplayError = '';
+  els.detailTitle.textContent = 'Replay 详情';
+  els.detailMetrics.style.display = 'grid';
+  els.selectedId.textContent = `preview:${data.preview.preview_id.slice(0, 8)}`;
+  renderWorkflowList();
+  renderDetail();
+  renderVariables();
+  renderRuntimeStatus();
+  await loadRunHistory();
+}
+
+function renderEmptyDetail() {
+  els.detailTitle.textContent = 'Replay 详情';
+  els.detailMetrics.style.display = 'grid';
+  els.selectedId.textContent = '未选择';
+  els.metricSteps.textContent = '0';
+  els.metricVars.textContent = '0';
+  els.metricSubgraphs.textContent = '0';
+  els.detail.innerHTML = '<div class="empty">选择一个 Replay 查看意图与步骤，或停止录制进入预览。</div>';
+  els.vars.innerHTML = '<div class="empty">未选择 Replay。</div>';
+  renderRunHistory();
+}
+
+function renderQualityPanel(quality) {
+  if (!quality || !quality.issue_count) return '';
+  const klass = quality.status === 'blocking' ? 'error' : quality.status === 'warn' ? 'warn' : '';
+  const title = quality.status === 'blocking'
+    ? 'Workflow 有阻塞项'
+    : quality.status === 'warn'
+      ? 'Workflow 有风险项'
+      : 'Workflow 可优化';
+  const issues = (quality.issues || []).slice(0, 8).map(item =>
+    `<div>${escapeHtml(item.severity)} · ${escapeHtml(item.message)}</div>`
+  ).join('');
+  return `
+    <div class="editor-section">
+      <div class="feedback ${klass}">
+        <strong>${escapeHtml(title)}</strong>
+        <div>${issues}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderReplayManifest(replay) {
+  if (!replay) return selectedReplayError
+    ? `<div class="editor-section"><div class="feedback error"><strong>Replay manifest 加载失败</strong><div>${escapeHtml(selectedReplayError)}</div></div></div>`
+    : '';
+  const intent = replay.intent || {};
+  const capabilities = (intent.capabilities || []).map(item => `<span class="badge ready">${escapeHtml(item)}</span>`).join('');
+  const permissions = (intent.permissions || []).map(item => `<span class="badge warn">${escapeHtml(item)}</span>`).join('');
+  return `
+    <div class="editor-section manifest-panel">
+      <div class="section-title">
+        <div><div class="mini-label">Replay plugin</div><h3>意图与可移植性</h3></div>
+        <span class="badge ${intent.irreversible ? 'warn' : 'ready'}">${intent.irreversible ? '需安全确认' : '可预检'}</span>
+      </div>
+      <p>${escapeHtml(intent.summary || '尚未解析意图')}</p>
+      <div class="manifest-grid">
+        <div class="manifest-fact"><span>应用</span><strong>${escapeHtml((intent.apps || []).join(' · ') || '通用')}</strong></div>
+        <div class="manifest-fact"><span>变量</span><strong>${escapeHtml((intent.variables || []).join(' · ') || '无')}</strong></div>
+        <div class="manifest-fact"><span>Schema</span><strong>${escapeHtml(replay.schema)}</strong></div>
+        <div class="manifest-fact"><span>Digest</span><strong>${escapeHtml((replay.digest || '').slice(0, 22))}…</strong></div>
+      </div>
+      <div class="cap-row">${capabilities}${permissions}</div>
+      <div class="grid2" style="margin-top:12px">
+        <div class="field"><label for="planPlatform">兼容性目标</label><select id="planPlatform"><option value="darwin">macOS</option><option value="windows">Windows</option><option value="linux">Linux</option></select></div>
+        <div class="field"><label>隔离 Space</label><button class="secondary" id="planReplay">创建预检计划</button></div>
+      </div>
+      <div id="planResult" aria-live="polite"></div>
+    </div>
+  `;
+}
+
+function renderDetail() {
+  const wf = selectedDetail;
+  els.metricSteps.textContent = wf.steps.length;
+  els.metricVars.textContent = wf.variables.length;
+  els.metricSubgraphs.textContent = wf.subgraph_count;
+  const vars = wf.variables.map((item, index) => `
+    <div class="edit-var" data-var-index="${index}">
+      <div><div class="mini-label">Name</div><input data-var-field="name" value="${escapeHtml(item.name)}"></div>
+      <div><div class="mini-label">Default</div><input data-var-field="default_value" value="${escapeHtml(item.default_value || '')}"></div>
+      <div><div class="mini-label">Description</div><input data-var-field="description" value="${escapeHtml(item.description || '')}"></div>
+      <button class="secondary" data-remove-var="${index}">删除</button>
+    </div>
+  `).join('');
+  const steps = wf.steps.map((step, index) => {
+    const coords = step.click_coordinates || ['', ''];
+    return `
+      <div class="edit-step" data-step-id="${escapeHtml(step.id)}">
+        <div><div class="mini-label">#</div><input data-step-field="number" value="${escapeHtml(index + 1)}" disabled></div>
+        <div><div class="mini-label">Type</div><input data-step-field="action_type" value="${escapeHtml(step.action_type)}"></div>
+        <div><div class="mini-label">Action</div><textarea data-step-field="action">${escapeHtml(step.action)}</textarea></div>
+        <div><div class="mini-label">X</div><input data-step-field="x" value="${escapeHtml(coords[0])}"></div>
+        <div><div class="mini-label">Y</div><input data-step-field="y" value="${escapeHtml(coords[1])}"></div>
+        <button class="secondary" data-remove-step="${escapeHtml(step.id)}">删除</button>
+        <div style="grid-column: 1 / -1">
+          <div class="grid2">
+            <div>
+              <div class="mini-label">Value / Typed text / Hotkey</div>
+              <textarea data-step-field="value">${escapeHtml(step.value || '')}</textarea>
+            </div>
+            <div>
+              <div class="mini-label">Target App</div>
+              <input data-step-field="active_app_name" value="${escapeHtml(step.active_app_name || '')}" placeholder="Google Chrome / REDcity">
+            </div>
+          </div>
+          <input type="hidden" data-step-field="pause_duration" value="${escapeHtml(step.pause_duration || 0)}">
+        </div>
+      </div>
+    `;
+  }).join('');
+  els.detail.innerHTML = `
+    <div class="editor">
+      <div class="section-title">
+        <h2>${selectedMode === 'preview' ? 'Recording Preview' : 'Replay Editor'}</h2>
+        <span class="badge ${selectedMode === 'preview' ? 'warn' : 'ready'}">${selectedMode === 'preview' ? 'preview' : 'saved'}</span>
+      </div>
+      ${renderQualityPanel(wf.quality)}
+      ${renderReplayManifest(selectedReplay)}
+      <div class="editor-section">
+        <h3>Metadata</h3>
+        <div class="grid2">
+          <div class="field"><label>Name</label><input id="wfName" value="${escapeHtml(wf.name)}"></div>
+          <div class="field"><label>Title</label><input id="wfTitle" value="${escapeHtml(wf.title)}"></div>
+        </div>
+        <div class="field"><label>Description</label><textarea id="wfDesc">${escapeHtml(wf.description || '')}</textarea></div>
+        <div class="field"><label>Task Goal</label><textarea id="wfTask">${escapeHtml(wf.task_description || '')}</textarea></div>
+      </div>
+      <div class="editor-section">
+        <div class="section-title"><h3>Variables</h3><button class="secondary" id="addVariable">新增变量</button></div>
+        <div id="variableEditor">${vars || '<div class="empty">没有变量。</div>'}</div>
+      </div>
+      <div class="editor-section">
+        <h3>Steps</h3>
+        <div id="stepEditor">${steps || '<div class="empty">没有步骤。</div>'}</div>
+      </div>
+      <div class="button-row action-row">
+        <button id="saveWorkflow">${selectedMode === 'preview' ? '保存为 Workflow' : '保存修改'}</button>
+        <button class="secondary" id="reloadWorkflow">${selectedMode === 'preview' ? '重新载入预览' : '重新载入'}</button>
+        ${selectedMode === 'workflow' ? `<a class="button-link" href="/store?publish=${encodeURIComponent(wf.id)}">发布到 Replay Store</a>` : ''}
+        ${selectedMode === 'preview' ? '<button class="danger" id="discardPreview">放弃预览</button>' : ''}
+      </div>
+    </div>
+  `;
+  bindEditorEvents();
+}
+
+function bindEditorEvents() {
+  document.getElementById('saveWorkflow')?.addEventListener('click', () => saveCurrentWorkflow().catch(alert));
+  document.getElementById('reloadWorkflow')?.addEventListener('click', () => {
+    if (selectedMode === 'preview') selectPreview().catch(alert);
+    else if (selected) selectWorkflow(selected).catch(alert);
+  });
+  document.getElementById('discardPreview')?.addEventListener('click', () => discardPreview().catch(alert));
+  document.getElementById('planReplay')?.addEventListener('click', () => planReplay().catch(error => showPlanError(error.message)));
+  document.getElementById('addVariable')?.addEventListener('click', () => {
+    selectedDetail.variables.push({ name: 'new_variable', default_value: '', description: '' });
+    renderDetail();
+  });
+  els.detail.querySelectorAll('[data-remove-var]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedDetail.variables.splice(Number(btn.dataset.removeVar), 1);
+      renderDetail();
+    });
+  });
+  els.detail.querySelectorAll('[data-remove-step]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedDetail.steps = selectedDetail.steps.filter(step => step.id !== btn.dataset.removeStep);
+      renderDetail();
+    });
+  });
+}
+
+function showPlanError(message) {
+  const target = document.getElementById('planResult');
+  if (target) target.innerHTML = `<div class="feedback error">${escapeHtml(message)}</div>`;
+}
+
+async function planReplay(platform = document.getElementById('planPlatform')?.value || '') {
+  if (!selectedDetail || selectedMode !== 'workflow') throw new Error('请先选择一个已保存的 Replay。');
+  const replayId = selectedDetail.id;
+  const data = await postJson(`/api/replays/${encodeURIComponent(replayId)}/plan`, platform ? { platform } : {});
+  if (selectedDetail?.id !== replayId) throw new Error('选择已变化，预检结果已丢弃。');
+  const report = data.plan.compatibility;
+  const target = document.getElementById('planResult');
+  if (target) target.innerHTML = `
+    <div class="feedback ${report.runnable ? '' : 'error'}">
+      <strong>${escapeHtml(report.status)} · ${escapeHtml(report.supported_steps)}/${escapeHtml(report.total_steps)} steps</strong>
+      <div>Space: ${escapeHtml(data.plan.space_id)}</div>
+      ${(report.warnings || []).map(item => `<div>${escapeHtml(item)}</div>`).join('')}
+      ${(report.missing_capabilities || []).map(item => `<div>缺少：${escapeHtml(item)}</div>`).join('')}
+    </div>`;
+  return data.plan;
+}
+
+function collectEditorPayload() {
+  const variables = [...els.detail.querySelectorAll('.edit-var')].map(row => ({
+    name: row.querySelector('[data-var-field="name"]').value.trim(),
+    default_value: row.querySelector('[data-var-field="default_value"]').value,
+    description: row.querySelector('[data-var-field="description"]').value,
+  })).filter(item => item.name);
+  const existingSteps = new Map((selectedDetail?.steps || []).map(step => [step.id, step]));
+  const steps = [...els.detail.querySelectorAll('.edit-step')].map(row => {
+    const x = row.querySelector('[data-step-field="x"]').value.trim();
+    const y = row.querySelector('[data-step-field="y"]').value.trim();
+    const existing = existingSteps.get(row.dataset.stepId) || {};
+    return {
+      id: row.dataset.stepId,
+      action_type: row.querySelector('[data-step-field="action_type"]').value.trim(),
+      action: row.querySelector('[data-step-field="action"]').value,
+      value: row.querySelector('[data-step-field="value"]').value,
+      pause_duration: row.querySelector('[data-step-field="pause_duration"]').value,
+      active_app_name: row.querySelector('[data-step-field="active_app_name"]').value,
+      click_coordinates: x && y ? [Number(x), Number(y)] : null,
+      metadata: existing.metadata || {},
+    };
+  });
+  return {
+    id: selectedDetail.id,
+    name: document.getElementById('wfName').value.trim(),
+    title: document.getElementById('wfTitle').value.trim(),
+    description: document.getElementById('wfDesc').value,
+    task_description: document.getElementById('wfTask').value,
+    variables,
+    steps,
+  };
+}
+
+async function saveCurrentWorkflow() {
+  const workflow = collectEditorPayload();
+  const saveButton = document.getElementById('saveWorkflow');
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent = selectedMode === 'preview' ? '正在保存...' : '正在更新...';
+  }
+  showRecordFeedback(selectedMode === 'preview' ? '正在保存 workflow...' : '正在保存修改...', 'warn');
+  if (selectedMode === 'preview') {
+    const result = await postJson('/api/preview/save', { workflow });
+    selectedMode = 'workflow';
+    selected = result.workflow_id;
+    selectedDetail = result.workflow;
+    await loadWorkflows();
+    await selectWorkflow(result.workflow_id);
+    showRecordFeedback(`预览已保存为 workflow：${result.workflow_id}`);
+  } else {
+    const result = await postJson(`/api/workflows/${encodeURIComponent(selectedDetail.id)}/update`, { workflow });
+    selectedDetail = result.workflow;
+    await loadWorkflows();
+    await selectWorkflow(result.workflow.id);
+    showRecordFeedback(`Workflow 已保存：${result.workflow.id}`);
+  }
+}
+
+async function discardPreview() {
+  await postJson('/api/preview/discard');
+  selectedMode = 'workflow';
+  selected = null;
+  selectedDetail = null;
+  await loadWorkflows();
+}
+
+function renderVariables() {
+  if (!selectedDetail || selectedMode !== 'workflow') {
+    els.vars.innerHTML = '<div class="empty">保存 workflow 后可配置回放变量。</div>';
+    return;
+  }
+  els.vars.innerHTML = selectedDetail.variables.map(item => `
+    <div>
+      <label for="var-${escapeHtml(item.name)}">${escapeHtml(item.name)}</label>
+      <textarea id="var-${escapeHtml(item.name)}" data-var="${escapeHtml(item.name)}">${escapeHtml(item.default_value || '')}</textarea>
+      ${item.description ? `<div class="var-help">${escapeHtml(item.description)}</div>` : ''}
+    </div>
+  `).join('') || '<div class="empty">这个 workflow 没有变量。</div>';
+}
+
+function runtimeVariables() {
+  const variables = {};
+  els.vars.querySelectorAll('[data-var]').forEach(input => {
+    variables[input.dataset.var] = input.value;
+  });
+  return variables;
+}
+
+async function loadRunHistory() {
+  const query = selectedMode === 'workflow' && selected ? `?workflow_id=${encodeURIComponent(selected)}` : '';
+  const data = await getJson(`/api/runs${query}`);
+  runHistories = data.runs;
+  renderRunHistory();
+}
+
+function renderRunHistory() {
+  const token = JSON.stringify({
+    selected,
+    selectedMode,
+    runs: runHistories,
+  });
+  if (token === runHistoryRenderToken) return;
+  runHistoryRenderToken = token;
+  els.runHistoryCount.textContent = String(runHistories.length);
+  els.runHistory.innerHTML = runHistories.map(item => {
+    const steps = (item.steps || []).slice(0, 4).map(step =>
+      `#${escapeHtml(step.step_number)} ${escapeHtml(step.state)} · ${escapeHtml(step.duration_seconds || 0)}s${step.retries ? ` · retry:${escapeHtml(step.retries)}` : ''}${step.localization?.method ? ` · ${escapeHtml(step.localization.method)}` : ''}${step.agent_decision ? ` · agent:${escapeHtml(step.agent_decision.action_type || '')}` : ''}${step.error ? ` · ${escapeHtml(step.error)}` : ''}`
+    ).join('<br>');
+    return `
+      <div class="run-item">
+        <strong>${escapeHtml(item.status || 'run')} · ${escapeHtml(item.workflow_id)}</strong>
+        <div>${escapeHtml(item.finished_at || item.started_at || '')} · ${escapeHtml(item.steps_run)} steps · ${escapeHtml(item.elapsed_seconds || 0)}s</div>
+        ${item.error ? `<div class="run-steps">${escapeHtml(item.error)}</div>` : ''}
+        ${steps ? `<div class="run-steps">${steps}</div>` : ''}
+      </div>
+    `;
+  }).join('') || '<div class="empty">暂无 run history。</div>';
+}
+
+async function startRecording() {
+  const workflowId = els.recordWorkflowId.value.trim();
+  const taskDescription = els.recordTaskDescription.value.trim();
+  els.startRecord.disabled = true;
+  showRecordFeedback('正在启动录制...', 'warn');
+  await postJson('/api/record/start', { workflow_id: workflowId, task_description: taskDescription });
+  await loadStatus();
+}
+
+async function stopRecording() {
+  const workflowId = els.recordWorkflowId.value.trim();
+  const taskDescription = els.recordTaskDescription.value.trim();
+  els.stopRecord.disabled = true;
+  els.stopRecord.textContent = '正在构建预览...';
+  showRecordFeedback('正在停止录制并调用大模型构建结果预览，请稍等。', 'warn');
+  const result = await postJson('/api/record/stop', { workflow_id: workflowId, task_description: taskDescription, build: true, preview: true });
+  await loadStatus();
+  renderWorkflowList();
+  if (result.preview_id) await selectPreview();
+  if (result.preview_id) {
+    const stepCount = selectedDetail?.steps?.length ?? 0;
+    showRecordFeedback(`构建结果预览已就绪：${stepCount} 个步骤。确认无误后点击“保存为 Workflow”。`);
+  } else if (result.built === false) {
+    showRecordFeedback(result.warning || '录制已停止，但没有生成预览。', 'warn');
+  }
+  if (result.warning) alert(result.warning);
+}
+
+async function runWorkflow() {
+  if (!selectedDetail || selectedMode !== 'workflow') return;
+  const workflowId = selectedDetail.id;
+  const runSelectionVersion = selectionVersion;
+  els.runWorkflow.disabled = true;
+  showRunFeedback('正在创建本机 Space 并执行兼容性预检。', 'warn');
+  const plan = await planReplay('');
+  if (!plan.compatibility.runnable) {
+    throw new Error(`Replay 与本机不兼容：${(plan.compatibility.missing_capabilities || []).join(', ')}`);
+  }
+  showRunFeedback('预检通过，正在启动回放；倒计时结束后会真实控制桌面。', 'warn');
+  const arm = await postJson('/api/run/arm', { workflow_id: workflowId });
+  if (runSelectionVersion !== selectionVersion || selectedMode !== 'workflow' || selectedDetail?.id !== workflowId) {
+    throw new Error('选择已变化，已取消本次回放启动。');
+  }
+  await postJson(`/api/workflows/${encodeURIComponent(workflowId)}/run`, {
+    arm_token: arm.arm_token,
+    space_id: plan.space_id,
+    variables: runtimeVariables(),
+    threshold: els.threshold.value,
+    retries: els.retries.value,
+    countdown_seconds: els.countdown.value,
+    max_runtime_seconds: els.maxRuntime.value,
+  });
+  await loadStatus();
+}
+
+async function stopReplay() {
+  els.stopReplay.disabled = true;
+  showRunFeedback('正在紧急停止回放，后续桌面动作会被拦截。', 'warn');
+  await postJson('/api/run/panic');
+  await loadStatus();
+}
+
+async function deleteWorkflow() {
+  if (!selectedDetail || selectedMode !== 'workflow') return;
+  const title = selectedDetail.title || selectedDetail.id;
+  if (!window.confirm(`删除 workflow「${title}」？`)) return;
+  await postJson(`/api/workflows/${encodeURIComponent(selectedDetail.id)}/delete`);
+  selected = null;
+  selectedDetail = null;
+  await loadWorkflows();
+}
+
+els.search.addEventListener('input', renderWorkflowList);
+els.refresh.addEventListener('click', loadWorkflows);
+els.startRecord.addEventListener('click', () => startRecording().catch(error => {
+  showRecordFeedback(error.message, 'error');
+  loadStatus().catch(() => {});
+}));
+els.stopRecord.addEventListener('click', () => stopRecording().catch(error => {
+  showRecordFeedback(error.message, 'error');
+  loadStatus().catch(() => {});
+}));
+els.runWorkflow.addEventListener('click', () => runWorkflow().catch(error => {
+  showRunFeedback(error.message, 'error');
+  loadStatus().catch(() => {});
+}));
+els.stopReplay.addEventListener('click', () => stopReplay().catch(error => {
+  showRunFeedback(error.message, 'error');
+  loadStatus().catch(() => {});
+}));
+els.deleteWorkflow.addEventListener('click', () => deleteWorkflow().catch(alert));
+
+window.addEventListener('pagehide', sendClientDisconnect);
+window.addEventListener('beforeunload', sendClientDisconnect);
+window.addEventListener('pageshow', () => {
+  disconnectSent = false;
+  startClientHeartbeat();
+  startStatusPolling();
+});
+
+function runPollToken() {
+  const run = status?.run || {};
+  return JSON.stringify({
+    id: run.run_id,
+    workflow_id: run.workflow_id,
+    status: run.status,
+    active: run.active,
+    finished_at: run.finished_at,
+    success: run.success,
+    steps_run: run.steps_run,
+    steps_failed: run.steps_failed,
+    error: run.error,
+  });
+}
+
+function statusPollDelay() {
+  return status?.recording?.active || status?.run?.active ? ACTIVE_STATUS_POLL_MS : IDLE_STATUS_POLL_MS;
+}
+
+function startStatusPolling() {
+  if (statusPollTimer) clearTimeout(statusPollTimer);
+  const tick = async () => {
+    try {
+      await loadStatus();
+      renderWorkflowList();
+      const token = runPollToken();
+      if (status?.run && !status.run.active && token !== lastRunPollToken) {
+        await loadRunHistory();
+      }
+      lastRunPollToken = token;
+    } catch {
+      // Keep the UI lease alive; visible errors are rendered by explicit actions.
+    } finally {
+      statusPollTimer = setTimeout(tick, statusPollDelay());
+    }
+  };
+  statusPollTimer = setTimeout(tick, statusPollDelay());
+}
+
+startClientHeartbeat();
+loadWorkflows().catch(error => {
+  if (!selectedDetail) {
+    els.detail.innerHTML = `<div class="empty">加载失败：${escapeHtml(error.message || error)}</div>`;
+  }
+});
+startStatusPolling();
+</script>
+</body>
+</html>

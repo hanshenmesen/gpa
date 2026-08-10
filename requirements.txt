@@ -1,0 +1,52 @@
+# Core ML
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.40.0
+ultralytics>=8.2.0
+huggingface-hub>=0.23.0
+sentence-transformers>=3.0.0
+
+# Vision
+Pillow>=10.0.0
+opencv-python>=4.8.0
+mss>=9.0.0
+
+# OCR (macOS native preferred)
+ocrmac>=0.3.0
+
+# NLP / Fuzzy matching
+rapidfuzz>=3.0.0
+
+# Graph
+networkx>=3.0
+
+# Numerical
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Input capture / playback
+pyobjc-core==11.1; platform_system == "Darwin" and python_version < "3.10"
+pyobjc-framework-Cocoa==11.1; platform_system == "Darwin" and python_version < "3.10"
+pyobjc-framework-Quartz==11.1; platform_system == "Darwin" and python_version < "3.10"
+pyobjc-framework-ApplicationServices==11.1; platform_system == "Darwin" and python_version < "3.10"
+pyobjc-framework-CoreText==11.1; platform_system == "Darwin" and python_version < "3.10"
+pynput>=1.7.6
+pyautogui>=0.9.54
+
+# Storage / serialization
+pyyaml>=6.0
+orjson>=3.9.0
+
+# LLM API
+openai>=1.30.0
+
+# MCP
+mcp>=1.0.0
+
+# CLI
+click>=8.1.0
+rich>=13.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.66.0

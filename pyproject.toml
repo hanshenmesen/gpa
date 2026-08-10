@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpa"
+version = "0.1.0"
+description = "GUI Process Automation - reproduce of Salesforce GPA paper (arXiv:2604.01676)"
+requires-python = ">=3.9"
+dependencies = [
+  "Pillow>=10.0.0",
+  "mss>=9.0.0",
+  "numpy>=1.24.0",
+  "networkx>=3.0",
+  "scipy>=1.10.0",
+  "rapidfuzz>=3.0.0",
+  "pynput>=1.7.6",
+  "pyautogui>=0.9.54",
+  "pyyaml>=6.0",
+  "orjson>=3.9.0",
+  "openai>=1.30.0",
+  "click>=8.1.0",
+  "rich>=13.0.0",
+  "python-dotenv>=1.0.0",
+  "tqdm>=4.66.0",
+  "pyobjc-core==11.1; platform_system == 'Darwin' and python_version < '3.10'",
+  "pyobjc-framework-Cocoa==11.1; platform_system == 'Darwin' and python_version < '3.10'",
+  "pyobjc-framework-Quartz==11.1; platform_system == 'Darwin' and python_version < '3.10'",
+  "pyobjc-framework-ApplicationServices==11.1; platform_system == 'Darwin' and python_version < '3.10'",
+  "pyobjc-framework-CoreText==11.1; platform_system == 'Darwin' and python_version < '3.10'",
+  "mcp>=1.0.0; python_version >= '3.10'",
+]
+
+[project.optional-dependencies]
+visual = [
+  "torch>=2.0.0",
+  "torchvision>=0.15.0",
+  "transformers>=4.40.0",
+  "ultralytics>=8.2.0",
+  "huggingface-hub>=0.23.0",
+  "sentence-transformers>=3.0.0",
+  "opencv-python>=4.8.0",
+  "ocrmac>=0.3.0",
+]
+
+[project.scripts]
+gpa = "gpa.integration.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gpa*"]
