@@ -68,7 +68,7 @@ visual = [
   "torch>=2.0.0",
   "torchvision>=0.15.0",
   "transformers>=4.40.0",
-  "ultralytics>=8.2.0",
+  "ultralytics>=8.4.120",
   "huggingface-hub>=0.23.0",
   "sentence-transformers>=3.0.0",
 ]
