@@ -36,7 +36,7 @@ dependencies = [
   "rich>=13.0.0",
   "python-dotenv>=1.0.0",
   "tqdm>=4.66.0",
-  "pyobjc-core==11.1; platform_system == 'Darwin'",
+  "pyobjc-core==12.2.2; platform_system == 'Darwin'",
   "pyobjc-framework-Cocoa==11.1; platform_system == 'Darwin'",
   "pyobjc-framework-Quartz==11.1; platform_system == 'Darwin'",
   "pyobjc-framework-ApplicationServices==11.1; platform_system == 'Darwin'",
