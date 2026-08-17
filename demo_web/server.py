@@ -6535,7 +6535,7 @@ def _publish_community_record(handler: BaseHTTPRequestHandler) -> None:
                     else {}
                 )
                 record = repository.publish_package(
-                    package_path,
+                    package_path.read_bytes(),
                     author=author,
                     tags=tags,
                     license_id=license_id,
