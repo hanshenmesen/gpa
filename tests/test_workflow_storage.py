@@ -32,6 +32,14 @@ class WorkflowStorageTests(unittest.TestCase):
             workflow_name="roundtrip_workflow",
             workflow_title="Roundtrip Workflow",
             description="Exercise persisted action fields.",
+            provenance={
+                "kind": "public-benchmark",
+                "benchmark": "AssistantBench",
+                "task_id": "abc123",
+            },
+            environment={"schema": "gpa.environment/v1", "system": {"name": "darwin"}},
+            understanding={"schema": "gpa.agent-understanding/v1", "goal": "Round trip"},
+            artifacts={"recording": {"path": "recording.webm", "mime_type": "video/webm"}},
             variables=[
                 WorkflowVariable(
                     name="message_text",
@@ -106,7 +114,7 @@ class WorkflowStorageTests(unittest.TestCase):
         self.assertEqual(loaded.workflow_id, wf.workflow_id)
         self.assertEqual(len(loaded.steps), len(wf.steps))
 
-        for expected, actual in zip(wf.steps, loaded.steps):
+        for expected, actual in zip(wf.steps, loaded.steps, strict=True):
             self.assertEqual(actual.step_number, expected.step_number)
             self.assertEqual(actual.action, expected.action)
             self.assertEqual(actual.id, expected.id)
@@ -117,6 +125,18 @@ class WorkflowStorageTests(unittest.TestCase):
             self.assertEqual(actual.metadata, expected.metadata)
 
         self.assertEqual(loaded.variables[0].description, "Text to type")
+        self.assertEqual(loaded.provenance, wf.provenance)
+        self.assertEqual(loaded.environment, wf.environment)
+        self.assertEqual(loaded.understanding, wf.understanding)
+        self.assertEqual(loaded.artifacts, wf.artifacts)
+        self.assertEqual(
+            json.loads((self.workflows_dir / "roundtrip" / "environment.json").read_text()),
+            wf.environment,
+        )
+        self.assertEqual(
+            json.loads((self.workflows_dir / "roundtrip" / "understanding.json").read_text()),
+            wf.understanding,
+        )
 
     def test_load_legacy_yaml_defaults_missing_step_action_fields(self):
         workflow_dir = self.workflows_dir / "legacy"
@@ -167,6 +187,48 @@ class WorkflowStorageTests(unittest.TestCase):
         self.assertEqual(loaded.steps[0].pause_duration, 0.5)
         self.assertEqual(loaded.steps[0].active_app_name, "")
         self.assertEqual(loaded.variables[0].description, "Display name")
+
+    def test_workflow_identity_cannot_escape_or_disagree_with_repository_path(self):
+        storage = WorkflowStorage()
+        with self.assertRaisesRegex(ValueError, "Unsafe workflow_id"):
+            storage.save(Workflow("../escape", "escape", "Escape", "Unsafe"), {})
+
+        workflow_dir = self.workflows_dir / "expected"
+        workflow_dir.mkdir()
+        with open(workflow_dir / "workflow.yaml", "w") as f:
+            yaml.safe_dump(
+                {
+                    "workflow_id": "different",
+                    "workflow_name": "different",
+                    "workflow_title": "Different",
+                    "description": "Mismatched identity",
+                    "steps": [],
+                },
+                f,
+            )
+
+        with self.assertRaisesRegex(ValueError, "identity mismatch"):
+            storage.load("expected")
+
+    def test_instance_storage_root_is_isolated_from_global_repository(self):
+        isolated_root = self.workflows_dir / "other-agent"
+        isolated = WorkflowStorage(isolated_root)
+        workflow = Workflow(
+            "portable",
+            "portable",
+            "Portable workflow",
+            "Imported into another Agent workspace.",
+            steps=[WorkflowStep(1, "Wait", action_type="wait", value="0")],
+        )
+
+        isolated.save(workflow, {})
+        loaded, _ = isolated.load("portable")
+
+        self.assertEqual(isolated.workflows_dir, isolated_root.resolve())
+        self.assertEqual(loaded.storage_dir, isolated_root.resolve() / "portable")
+        self.assertTrue((loaded.storage_dir / "workflow.yaml").is_file())
+        self.assertFalse((self.workflows_dir / "portable").exists())
+        self.assertEqual([item["id"] for item in isolated.list_workflows()], ["portable"])
 
 
 if __name__ == "__main__":

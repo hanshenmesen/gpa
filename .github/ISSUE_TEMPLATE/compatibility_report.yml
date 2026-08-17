@@ -1,0 +1,53 @@
+name: Replay compatibility report
+description: Explain why the same Replay differed on another safe test machine.
+title: "[Compatibility]: "
+labels: ["compatibility", "needs-triage"]
+body:
+  - type: input
+    id: replay
+    attributes:
+      label: Replay name and immutable version/hash
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source environment
+      description: Redacted OS, architecture, applications, browser/runtime, screen facts and permissions.
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: Target environment
+      description: Use the same fields as the source environment.
+    validations:
+      required: true
+  - type: dropdown
+    id: decision
+    attributes:
+      label: GPA preflight decision
+      options:
+        - Compatible
+        - Conditional / needs approval
+        - Blocked
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: difference
+    attributes:
+      label: Observed difference and step
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted compatibility or run evidence
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed host/user names, paths, secrets, cookies, and private content.
+          required: true

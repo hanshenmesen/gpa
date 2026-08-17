@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and product discussion
+    url: https://github.com/hanshenmesen/gpa/discussions
+    about: Ask for help or discuss an idea before filing implementation work.
+  - name: Private security report
+    url: https://github.com/hanshenmesen/gpa/security/advisories/new
+    about: Report vulnerabilities and privacy leaks privately, never in an Issue.

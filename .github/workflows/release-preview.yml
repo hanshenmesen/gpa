@@ -1,0 +1,87 @@
+name: Build technical preview
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*-preview.*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos-preview:
+    runs-on: macos-14
+    env:
+      GPA_ENABLE_DESKTOP_AUTOMATION: "0"
+      GPA_KEYBOARD_QUARANTINE_SECONDS: "0"
+      LC_ALL: C
+      LANG: C
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop,cloud,package,dev]"
+
+      - name: Validate source and safety contracts
+        run: |
+          python -m ruff check .
+          node scripts/verify_frontend.js
+          python scripts/verify_public_project.py
+          python -m unittest discover -s tests -p "test_*.py"
+
+      - name: Build wheel and unsigned macOS preview
+        run: |
+          python -m build --wheel
+          python scripts/verify_distribution.py dist
+          ./scripts/build_macos_app.sh
+          architecture="$(uname -m)"
+          cp artifacts/GPA-macOS.dmg "artifacts/GPA-macOS-${architecture}-unsigned.dmg"
+          shasum -a 256 "artifacts/GPA-macOS-${architecture}-unsigned.dmg" > "artifacts/GPA-macOS-${architecture}-unsigned.dmg.sha256"
+
+      - name: Write safety notice
+        run: |
+          architecture="$(uname -m)"
+          printf '%s\n' \
+            '## GPA unsigned technical preview' \
+            '' \
+            'This release is intended for technical evaluation and real-workflow feedback.' \
+            'The macOS DMG is not signed with Apple Developer ID and is not notarized.' \
+            'Prefer source installation, verify the SHA-256 file, and do not disable Gatekeeper globally.' \
+            'Desktop automation is disabled by default. Review every Replay before granting local authority.' \
+            '' \
+            "Build architecture: ${architecture}" \
+            '' \
+            'Report bugs, compatibility results, and safe real-world tasks using the repository Issue forms.' \
+            > artifacts/TECHNICAL_PREVIEW.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gpa-technical-preview
+          path: |
+            artifacts/GPA-macOS-*-unsigned.dmg
+            artifacts/GPA-macOS-*-unsigned.dmg.sha256
+            artifacts/TECHNICAL_PREVIEW.md
+            dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish prerelease for preview tags
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            artifacts/GPA-macOS-*-unsigned.dmg \
+            artifacts/GPA-macOS-*-unsigned.dmg.sha256 \
+            dist/*.whl \
+            --prerelease \
+            --title "GPA ${GITHUB_REF_NAME} — unsigned technical preview" \
+            --notes-file artifacts/TECHNICAL_PREVIEW.md

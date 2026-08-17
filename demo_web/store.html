@@ -3,23 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GPA Replay Store</title>
+  <title>GPA · Replay Store</title>
   <style>
     :root {
-      --ink: #172126;
-      --muted: #667277;
-      --teal: #245f68;
-      --teal-dark: #184a52;
-      --teal-soft: #e7f0f0;
-      --clay: #c87543;
-      --clay-soft: #fbefe7;
-      --paper: #fffdf9;
-      --canvas: #f4f2ec;
-      --line: #d9ddd9;
-      --success: #1f7454;
-      --danger: #9b3a32;
-      --shadow: 0 18px 48px rgba(28, 48, 51, 0.09);
-      --radius: 16px;
+      --ink: #1f2328;
+      --muted: #667085;
+      --teal: #255f75;
+      --teal-dark: #1e5063;
+      --teal-soft: #e9f3f6;
+      --clay: #a65f1a;
+      --clay-soft: #fff8ef;
+      --paper: #fff;
+      --canvas: #f6f7f9;
+      --line: #dfe3e8;
+      --line-strong: #c8d0d9;
+      --success: #27745a;
+      --danger: #a53a2a;
+      --shadow: none;
+      --radius: 8px;
     }
 
     * { box-sizing: border-box; }
@@ -27,10 +28,8 @@
     body {
       margin: 0;
       color: var(--ink);
-      background:
-        radial-gradient(circle at 85% 0%, rgba(200, 117, 67, 0.12), transparent 28rem),
-        linear-gradient(180deg, #f8f7f2 0, var(--canvas) 100%);
-      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--canvas);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       min-height: 100vh;
     }
 
@@ -38,115 +37,92 @@
     button, a { -webkit-tap-highlight-color: transparent; }
     a { color: inherit; }
     button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
-      outline: 3px solid rgba(36, 95, 104, 0.28);
+      outline: 3px solid rgba(37, 95, 117, 0.2);
       outline-offset: 3px;
     }
 
-    .site-header {
+    header {
       position: sticky;
       top: 0;
       z-index: 20;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 24px;
-      min-height: 76px;
-      padding: 14px clamp(20px, 5vw, 72px);
-      border-bottom: 1px solid rgba(112, 124, 121, 0.2);
-      background: rgba(255, 253, 249, 0.9);
-      backdrop-filter: blur(18px);
+      height: 64px;
+      padding: 0 22px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper);
     }
 
-    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .header-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; text-decoration: none; }
     .mark {
-      width: 42px;
-      height: 42px;
+      width: 34px;
+      height: 34px;
       flex: 0 0 auto;
-      border: 1px solid rgba(23, 33, 38, 0.18);
-      border-radius: 11px;
-      background: linear-gradient(135deg, var(--teal) 0 51%, #d0aa5c 51% 55%, var(--clay) 55%);
-      box-shadow: 0 3px 10px rgba(24, 74, 82, 0.14);
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--teal) 0 50%, transparent 50%), linear-gradient(135deg, transparent 54%, #d17a44 54%), #e8c14c;
     }
-    .brand strong { display: block; font-size: 18px; letter-spacing: -0.02em; }
-    .brand span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .brand h1 { margin: 0; font-size: 18px; line-height: 1.2; }
+    .sub { margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .topbar { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: #fbfcfd; white-space: nowrap; }
+    .dot { width: 7px; height: 7px; border-radius: 99px; margin-right: 7px; background: var(--success); }
+    .dot.recording { background: var(--danger); }
+    .dot.running { background: var(--clay); }
 
-    .product-nav { display: flex; align-items: center; gap: 6px; }
+    .product-nav { display: flex; align-items: center; gap: 4px; }
     .product-nav a {
-      min-height: 40px;
+      min-height: 34px;
       display: inline-flex;
       align-items: center;
-      padding: 0 14px;
+      padding: 0 11px;
       border-radius: 999px;
       text-decoration: none;
       color: var(--muted);
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 800;
     }
     .product-nav a.active { color: var(--teal-dark); background: var(--teal-soft); }
     .product-nav a:hover { color: var(--ink); }
 
-    .page { width: min(1460px, calc(100% - 40px)); margin: 0 auto; padding: 34px 0 72px; }
+    .page { width: min(1460px, calc(100% - 32px)); margin: 0 auto; padding: 16px 0 48px; }
     .hero {
       display: grid;
       grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
-      gap: 28px;
+      gap: 16px;
       align-items: center;
-      margin-bottom: 24px;
+      margin-bottom: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
     }
     .eyebrow {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 7px;
       color: var(--teal-dark);
       font-size: 12px;
       font-weight: 800;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
     .eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--clay); }
-    h1 { margin: 0; max-width: 680px; font-size: clamp(26px, 2.4vw, 36px); line-height: 1.14; letter-spacing: -0.03em; }
-    .hero-copy p { max-width: 620px; margin: 12px 0 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
-    .hero-note {
-      padding: 20px;
-      border: 1px solid rgba(36, 95, 104, 0.18);
-      border-radius: var(--radius);
-      background: rgba(231, 240, 240, 0.72);
-    }
-    .hero-note strong { display: block; margin-bottom: 7px; font-size: 14px; }
-    .hero-note span { color: var(--muted); font-size: 13px; line-height: 1.55; }
-
-    .search-shell {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 10px;
-      padding: 10px;
-      border: 1px solid rgba(36, 95, 104, 0.22);
-      border-radius: 18px;
-      background: var(--paper);
-      box-shadow: var(--shadow);
-    }
-    .search-shell input {
-      width: 100%;
-      min-height: 48px;
-      padding: 0 14px;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: var(--ink);
-      font-size: 16px;
-    }
+    h1 { margin: 0; max-width: 680px; font-size: 20px; line-height: 1.2; }
     .primary, .secondary, .ghost {
-      min-height: 44px;
-      border-radius: 11px;
-      padding: 0 17px;
+      min-height: 38px;
+      border-radius: 7px;
+      padding: 0 14px;
       border: 1px solid transparent;
       cursor: pointer;
       font-weight: 800;
-      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      transition: background .15s ease, border-color .15s ease;
     }
     .primary { color: white; background: var(--teal); }
-    .primary:hover { background: var(--teal-dark); transform: translateY(-1px); }
+    .primary:hover { background: var(--teal-dark); }
     .primary:disabled { cursor: not-allowed; opacity: .55; transform: none; }
     .secondary { color: var(--teal-dark); background: var(--teal-soft); border-color: rgba(36, 95, 104, .18); }
     .ghost { color: var(--muted); background: transparent; border-color: var(--line); }
@@ -156,7 +132,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 18px;
-      margin: 26px 0 18px;
+      margin: 12px 0;
     }
     .filters { display: flex; gap: 8px; flex-wrap: wrap; }
     .filter {
@@ -164,7 +140,7 @@
       padding: 0 13px;
       border: 1px solid var(--line);
       border-radius: 999px;
-      background: rgba(255, 253, 249, .72);
+      background: #fff;
       color: var(--muted);
       cursor: pointer;
       font-size: 13px;
@@ -173,80 +149,102 @@
     .filter.active { color: white; border-color: var(--teal); background: var(--teal); }
     .result-count { color: var(--muted); font-size: 13px; white-space: nowrap; }
 
-    .store-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 24px; align-items: start; }
-    .catalog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .store-layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 16px; align-items: start; }
+    .catalog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .record-card {
       position: relative;
       display: grid;
-      gap: 14px;
-      min-height: 245px;
-      padding: 20px;
+      gap: 11px;
+      min-height: 220px;
+      padding: 14px;
       text-align: left;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: rgba(255, 253, 249, .92);
+      background: #fff;
       color: inherit;
       cursor: pointer;
-      box-shadow: 0 7px 24px rgba(28, 48, 51, .04);
-      transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+      transition: border-color .15s ease, background .15s ease;
     }
-    .record-card:hover { transform: translateY(-2px); border-color: rgba(36, 95, 104, .42); box-shadow: var(--shadow); }
-    .record-card.active { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(36, 95, 104, .12); }
+    .record-card:hover { border-color: var(--line-strong); background: #fbfcfd; }
+    .record-card.active { border-color: var(--teal); background: var(--teal-soft); box-shadow: 0 0 0 2px rgba(37, 95, 117, .09); }
     .card-top { display: flex; justify-content: space-between; gap: 14px; }
     .category-mark {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       display: grid;
       place-items: center;
-      border-radius: 12px;
+      border-radius: 7px;
       background: var(--clay-soft);
       color: var(--clay);
       font-weight: 900;
       text-transform: uppercase;
     }
-    .card-flags { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
-    .saved-pill, .demo-pill { align-self: start; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 850; }
-    .saved-pill { background: #e7f4ec; color: var(--success); }
-    .demo-pill { background: var(--clay-soft); color: #9a522c; }
-    .record-card h2 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: -.025em; }
+    .run-pill { align-self: start; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 850; }
+    .run-pill.succeeded { background: #e7f4ec; color: var(--success); }
+    .run-pill.failed { background: #fae9e7; color: var(--danger); }
+    .run-pill.external-blocked { background: #fff0d8; color: #8a5514; }
+    .record-card h2 { margin: 0; font-size: 16px; line-height: 1.25; }
     .record-card p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-    .tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tag { padding: 5px 8px; border-radius: 7px; background: #f0f1ed; color: #526065; font-size: 11px; font-weight: 750; }
     .card-meta { display: flex; justify-content: space-between; gap: 10px; padding-top: 13px; border-top: 1px solid #eceeea; color: var(--muted); font-size: 12px; }
 
     .detail-panel {
       position: sticky;
-      top: 94px;
+      top: 80px;
+      max-height: calc(100dvh - 96px);
       border: 1px solid var(--line);
-      border-radius: 20px;
+      border-radius: var(--radius);
       background: var(--paper);
-      box-shadow: var(--shadow);
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(37,95,117,.28) transparent;
     }
-    .detail-empty { padding: 34px; }
+    .detail-empty { padding: 24px; }
     .detail-empty .category-mark { margin-bottom: 18px; }
     .detail-empty h2 { margin: 0 0 10px; font-size: 22px; }
     .detail-empty p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
-    .detail-body { padding: 24px; }
+    .detail-body { padding: 18px; }
     .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-    .detail-head h2 { margin: 0; font-size: 25px; line-height: 1.12; letter-spacing: -.035em; }
-    .detail-description { margin: 14px 0 18px; color: var(--muted); line-height: 1.65; }
-    .detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
-    .detail-stat { padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: #faf9f5; }
-    .detail-stat span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-    .detail-stat strong { display: block; margin-top: 5px; font-size: 18px; }
+    .detail-head h2 { margin: 0; font-size: 20px; line-height: 1.2; }
     .facts { display: grid; gap: 9px; margin: 20px 0; }
-    .fact { display: grid; grid-template-columns: 88px 1fr; gap: 12px; font-size: 12px; line-height: 1.45; }
+    .fact { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 12px; min-width: 0; font-size: 12px; line-height: 1.45; }
     .fact span:first-child { color: var(--muted); }
-    .save-area { padding: 18px 24px 24px; border-top: 1px solid var(--line); background: #fbfaf6; }
+    .fact strong { min-width: 0; overflow-wrap: anywhere; }
+    .source-link { color: var(--teal-dark); text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
+    .tutorial-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 14px 0; }
+    .tutorial-actions a { min-height: 42px; display: grid; place-items: center; border-radius: 9px; text-decoration: none; font-size: 13px; font-weight: 800; }
+    .tutorial-actions .practice-link { background: var(--teal); color: #fff; }
+    .tutorial-actions .official-link { border: 1px solid var(--line); color: var(--teal-dark); background: #fff; }
+    .tutorial-boundary { margin: 0 0 14px; border-radius: 9px; padding: 11px 12px; background: var(--teal-soft); color: var(--teal-dark); font-size: 12px; line-height: 1.5; }
+    .source-note { margin: 12px 0 0; padding: 10px 12px; border: 1px solid #bed7df; border-radius: 7px; background: var(--teal-soft); color: var(--teal-dark); font-size: 12px; line-height: 1.55; }
+    .benchmark-run-panel { margin-top: 14px; padding: 14px; border: 1px solid rgba(14,102,112,.18); border-radius: 13px; background: linear-gradient(145deg, rgba(228,241,241,.82), rgba(255,255,255,.9)); }
+    .benchmark-run-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .benchmark-run-head h3 { margin: 0; font-size: 13px; }
+    .benchmark-run-head p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .benchmark-run-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .benchmark-run-actions button { flex: 1; min-height: 38px; }
+    .benchmark-run-status { min-height: 18px; margin-top: 10px; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+    .benchmark-run-status.success { color: var(--success); }
+    .benchmark-run-status.error { color: var(--danger); }
+    .benchmark-run-status.running { color: var(--teal-dark); }
+    .recording-player { width: 100%; max-height: 280px; margin-top: 14px; border-radius: 8px; background: #101418; }
+    .recording-context { margin-top: 14px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: #f7faf9; }
+    .recording-context-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .recording-context-head strong { font-size: 12px; }
+    .recording-context-head span { padding: 4px 7px; border-radius: 999px; background: #dff2e9; color: #17684d; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+    .recording-context.warn .recording-context-head span { background: #fff0d8; color: #8a5310; }
+    .recording-context p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .save-area { padding: 14px 18px 18px; border-top: 1px solid var(--line); background: #fbfcfd; }
     .save-area .primary { width: 100%; }
     .safe-note { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .open-replay {
-      min-height: 46px;
+      min-height: 38px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 11px;
+      border-radius: 7px;
       background: var(--teal);
       color: white;
       text-decoration: none;
@@ -254,6 +252,9 @@
     }
     .open-replay:hover { background: var(--teal-dark); }
     .saved-note { margin: 0 0 12px; color: var(--success); font-size: 13px; font-weight: 800; }
+    .handoff-ready { margin: 0 0 12px; padding: 11px 12px; border: 1px solid rgba(17,119,102,.16); border-radius: 9px; background: #f3faf7; }
+    .handoff-ready strong { display: block; color: var(--teal-dark); font-size: 12px; }
+    .handoff-ready span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 
     .empty-state {
       grid-column: 1 / -1;
@@ -268,102 +269,258 @@
     }
     .empty-state h2 { margin: 12px 0 8px; font-size: 22px; }
     .empty-state p { max-width: 470px; margin: 0; color: var(--muted); line-height: 1.6; }
+    .store-load-error { border-color: rgba(180,72,62,.22); background: linear-gradient(145deg, #fff9f7, #fff 72%); }
+    .store-load-error .category-mark { background: #f8e6e2; color: #a64e43; }
+    .store-load-error button { min-width: 108px; margin-top: 18px; }
+    .store-load-error small {
+      display: block; max-width: 360px; margin: 10px auto 0; overflow: hidden;
+      color: #a39793; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap;
+    }
 
     .feedback { margin-top: 12px; padding: 11px 13px; border-radius: 10px; background: var(--teal-soft); color: var(--teal-dark); font-size: 12px; line-height: 1.5; }
     .feedback.error { color: var(--danger); background: #fae9e7; }
 
-    .publisher { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 24px; }
+    .publisher { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 18px; }
     .publisher summary { width: fit-content; cursor: pointer; color: var(--teal-dark); font-size: 14px; font-weight: 850; }
-    .publisher-card { margin-top: 14px; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255, 253, 249, .8); }
+    .publisher-card { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
     .publisher-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .publisher-grid input, .publisher-grid select {
       min-height: 42px;
       width: 100%;
       padding: 0 11px;
       border: 1px solid var(--line);
-      border-radius: 9px;
+      border-radius: 7px;
       background: white;
     }
     .privacy { display: flex; gap: 9px; align-items: flex-start; margin: 14px 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
     .privacy input { margin-top: 2px; }
+    .publisher-declarations { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+    .publisher-declarations .privacy { margin:0; padding:10px; border:1px solid var(--line); border-radius:7px; background:#fbfcfd; }
+    .community-link { display:inline-flex; align-items:center; min-height:38px; padding:0 13px; border:1px solid var(--line); border-radius:7px; color:var(--teal-dark); background:#fff; font-size:12px; font-weight:800; text-decoration:none; }
+    .trust-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 7px; border-radius:999px; background:#edf5f7; color:var(--teal-dark); font-size:10px; font-weight:850; }
+    .report-area { margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+    .report-area button { width:100%; }
+    .report-dialog { width:min(480px,calc(100% - 24px)); padding:0; border:0; border-radius:12px; background:transparent; }
+    .report-dialog::backdrop { background:rgba(20,27,32,.52); backdrop-filter:blur(3px); }
+    .report-card { padding:18px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+    .report-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .report-head h2 { margin:3px 0 0; font-size:18px; }.report-head small{color:var(--muted)}
+    .report-card select,.report-card textarea { width:100%; margin-top:12px; padding:10px; border:1px solid var(--line); border-radius:7px; background:#fff; }
+    .report-card textarea { min-height:105px; resize:vertical; }
+    .report-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
     .publisher-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .package-dropzone {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px dashed rgba(14,102,112,.36);
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(228,241,241,.65), rgba(255,255,255,.84));
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, transform .15s ease;
+    }
+    .package-dropzone:hover, .package-dropzone.dragging { border-color: var(--teal); background: var(--teal-soft); transform: translateY(-1px); }
+    .drop-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: #fff; color: var(--teal-dark); font-size: 20px; box-shadow: 0 5px 14px rgba(31,52,58,.08); }
+    .package-dropzone strong { display: block; font-size: 12px; }
+    .package-dropzone p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .drop-state { color: var(--teal-dark); font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .package-inspection {
+      display: none;
+      margin: 14px 0;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(239, 250, 247, .8), rgba(255, 253, 249, .92));
+    }
+    .package-inspection.visible { display: block; }
+    .inspection-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .inspection-head h3 { margin: 0 0 5px; font-size: 15px; }
+    .inspection-head p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .contract-gate {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      margin-top: 12px;
+      padding: 13px;
+      border: 1px solid rgba(17,119,102,.18);
+      border-radius: 11px;
+      background: rgba(255,255,255,.9);
+    }
+    .contract-gate.incomplete { border-color: rgba(174,57,43,.22); background: rgba(255,247,246,.94); }
+    .contract-score {
+      --score: 0;
+      width: 72px;
+      height: 72px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, #fff 56%, transparent 58%), conic-gradient(var(--teal) calc(var(--score) * 1%), #e5ebe8 0);
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .contract-copy strong { display: block; font-size: 13px; }
+    .contract-copy p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .contract-checks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+    .contract-check { padding: 4px 7px; border-radius: 999px; background: #e7f4ec; color: var(--success); font-size: 10px; font-weight: 800; }
+    .contract-check.failed { background: #fae9e7; color: var(--danger); }
+    .evidence-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+    .evidence-item { padding: 10px; border: 1px solid rgba(17, 119, 102, .12); border-radius: 9px; background: rgba(255,255,255,.84); }
+    .evidence-item strong { display: block; font-size: 12px; margin-bottom: 4px; }
+    .evidence-item span { color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .evidence-item.missing strong { color: var(--danger); }
+    .environment-differences { display: grid; gap: 6px; margin-top: 10px; }
+    .mini-label { color: var(--teal); font-size: 10px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+    .environment-difference { padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.78); color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .environment-difference strong { color: var(--ink); }
+    .environment-difference.blocking { background: #fae9e7; color: var(--danger); }
+    .environment-difference.warn { background: #fff4df; color: #8a5514; }
+    .inspection-proof {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .agent-proof, .recording-proof {
+      padding: 12px;
+      border: 1px solid rgba(17,119,102,.14);
+      border-radius: 10px;
+      background: rgba(255,255,255,.82);
+    }
+    .agent-proof h4, .recording-proof h4 { margin: 0 0 6px; font-size: 12px; }
+    .agent-proof p, .recording-proof p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .action-proof { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0; }
+    .action-proof span { padding: 4px 7px; border-radius: 999px; background: var(--teal-soft); color: var(--teal); font-size: 10px; font-weight: 750; }
+    .criteria-proof { display: grid; gap: 5px; margin-top: 8px; }
+    .criteria-proof div { color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .inspection-recording { width: 100%; max-height: 230px; margin-top: 9px; border-radius: 8px; background: #101418; }
+    .snapshot-proof { margin-top: 9px; color: var(--muted); font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    .upload-progress { height: 5px; margin-top: 11px; overflow: hidden; border-radius: 99px; background: rgba(17,119,102,.12); }
+    .upload-progress span { display: block; width: 0; height: 100%; background: var(--teal); transition: width .18s ease; }
+    .contract-summary { margin: 12px 0 0; padding: 12px; border: 1px solid rgba(17,119,102,.16); border-radius: 10px; background: linear-gradient(135deg,#f6fbfa,#fff); }
+    .contract-summary-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .contract-summary-head strong { font-size:12px; }
+    .contract-summary-head span { color:var(--teal-dark); font-size:11px; font-weight:900; }
+    .contract-summary p { margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.5; }
+    .handoff-link { display:inline-flex; align-items:center; min-height:30px; margin-top:9px; padding:0 10px; border:1px solid rgba(17,119,102,.2); border-radius:7px; color:var(--teal-dark); background:#fff; text-decoration:none; font-size:10px; font-weight:850; }
+    .isolated-audit { margin: 10px 0 0; padding: 12px; border: 1px solid rgba(17,119,102,.16); border-radius: 10px; background: linear-gradient(135deg,#f7fbfa,#f4f6f3); }
+    .isolated-audit.passed { border-color: rgba(40,130,85,.26); background: linear-gradient(135deg,#eff9f2,#fbfdfb); }
+    .isolated-audit.failed { border-color: rgba(174,57,43,.24); background: linear-gradient(135deg,#fff6f4,#fff); }
+    .isolated-audit-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .isolated-audit-head strong { display:block; font-size:12px; }
+    .isolated-audit-head span { padding:4px 7px; border-radius:999px; background:#edf1ef; color:var(--muted); font-size:9px; font-weight:900; letter-spacing:.05em; }
+    .isolated-audit.passed .isolated-audit-head span { background:#e1f3e7; color:var(--success); }
+    .isolated-audit.failed .isolated-audit-head span { background:#fae9e7; color:var(--danger); }
+    .isolated-audit p { margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.5; }
+    .isolated-audit-meta { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+    .isolated-audit-meta span { padding:4px 7px; border-radius:6px; background:rgba(255,255,255,.82); color:var(--muted); font-size:9px; font-weight:750; }
+    .isolated-audit button { width:100%; margin-top:10px; }
 
     @media (max-width: 1080px) {
       .store-layout { grid-template-columns: 1fr; }
-      .detail-panel { position: static; }
+      .detail-panel { position: static; max-height: none; overflow: visible; scrollbar-gutter: auto; }
       .publisher-grid { grid-template-columns: repeat(2, 1fr); }
+      .evidence-grid { grid-template-columns: repeat(2, 1fr); }
+      .inspection-proof { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
-      .site-header { align-items: flex-start; flex-direction: column; gap: 10px; }
-      .product-nav { width: 100%; }
-      .product-nav a { flex: 1; justify-content: center; }
       .page { width: min(100% - 24px, 1460px); padding-top: 34px; }
       .hero { grid-template-columns: 1fr; }
       .catalog-grid { grid-template-columns: 1fr; }
       .catalog-toolbar { align-items: flex-start; flex-direction: column; }
       .publisher-grid { grid-template-columns: 1fr; }
-      .search-shell { grid-template-columns: 1fr; }
-      .search-shell button { width: 100%; }
+      .publisher-declarations { grid-template-columns:1fr; }
+      .evidence-grid { grid-template-columns: 1fr; }
+      .package-dropzone { grid-template-columns: 42px minmax(0, 1fr); }
+      .drop-state { grid-column: 2; }
+      .contract-gate { grid-template-columns:1fr; }
+      .contract-score { width:64px; height:64px; }
+    }
+    @media (max-width: 680px) {
+      header { height: auto; align-items: flex-start; flex-direction: column; padding: 14px; }
+      .header-left { width: 100%; align-items: flex-start; flex-direction: column; gap: 10px; }
+      .product-nav { width: 100%; }
+      .product-nav a { flex: 1; justify-content: center; }
+      .topbar { width: 100%; flex-wrap: wrap; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
     }
   </style>
+<link rel="stylesheet" href="/assets/product.css">
+<script src="/assets/environment.js"></script>
+<script src="/assets/product.js" defer></script>
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="/store" aria-label="GPA Replay Store 首页">
-      <span class="mark" aria-hidden="true"></span>
-      <span><strong>GPA Replay Store</strong><span>社区工作流目录</span></span>
-    </a>
-    <nav class="product-nav" aria-label="产品导航">
-      <a class="active" href="/store">Replay Store</a>
-      <a href="/">Replay Studio</a>
-    </nav>
+  <header>
+    <div class="header-left">
+      <a class="brand" href="/" aria-label="GPA 我的回放首页">
+        <div class="mark" aria-hidden="true"></div>
+        <div><h1>GPA</h1><div class="sub">Replay Studio</div></div>
+      </a>
+      <nav class="product-nav" aria-label="产品导航">
+        <a class="active" href="/store" data-icon="store" aria-current="page">商店</a>
+        <a href="/community" data-icon="community">社区</a>
+        <a href="/setup" data-icon="setup">运行准备</a>
+        <a href="/control" data-icon="control">运行状态</a>
+        <a href="/" data-icon="studio">工作台</a>
+      </nav>
+    </div>
+    <div class="topbar">
+      <span class="workspace-status" id="storeWorkspaceStatus" data-state="limited" role="status" aria-live="polite">
+        <span class="workspace-status-mark" aria-hidden="true"><i></i></span>
+        <span class="workspace-status-copy"><strong id="storeWorkspaceStatusTitle">正在连接 Store</strong><small id="storeWorkspaceStatusMeta">读取 Replay 与运行状态</small></span>
+      </span>
+    </div>
   </header>
 
-  <main class="page">
+  <main class="page store-page">
     <section class="hero" aria-labelledby="storeTitle">
-      <div class="hero-copy">
-        <div class="eyebrow">Community replays</div>
-        <h1 id="storeTitle">发现可复用的 Replay</h1>
-        <p>查看详情，保存到“我的回放”后再配置运行。</p>
+      <div class="store-hero-copy">
+        <div class="eyebrow">Replay Library</div>
+        <h1 id="storeTitle">选择一个已经被验证的任务</h1>
       </div>
-      <aside class="hero-note">
-        <strong>保存后不会自动运行</strong>
-        <span>请在“我的回放”中检查变量与目标应用。</span>
-      </aside>
+      <div class="store-hero-actions"><a class="community-link" href="/community">Replay 社区</a><button class="secondary" id="openPublisher">发布或导入</button></div>
     </section>
 
-    <section aria-label="搜索 Replay Store">
-      <div class="search-shell">
-        <input id="storeSearch" type="search" placeholder="搜索任务、应用、作者或标签" autocomplete="off">
-        <button class="primary" id="refreshStore">搜索商店</button>
+    <section class="catalog-console" aria-label="浏览 Replay Store">
+      <div class="catalog-query">
+        <span class="catalog-search-icon" aria-hidden="true">⌕</span>
+        <input id="storeSearch" type="search" placeholder="搜索任务、应用、作者或标签" autocomplete="off" aria-label="搜索 Replay">
+        <kbd aria-hidden="true">/</kbd>
+        <button class="catalog-search-clear" id="storeSearchClear" type="button" aria-label="清除搜索" hidden>×</button>
+        <button class="secondary catalog-refresh" id="refreshStore" type="button">刷新</button>
       </div>
       <div class="catalog-toolbar">
         <div class="filters" id="categoryFilters" aria-label="分类筛选"></div>
-        <div class="result-count" id="resultCount">正在载入工作流…</div>
+        <div class="catalog-summary">
+          <label class="store-sort" for="storeSort"><span>排序</span><select id="storeSort"><option value="recommended">推荐</option><option value="recent">最近更新</option><option value="popular">最多导入</option><option value="shortest">步骤最少</option></select></label>
+          <div class="result-count" id="resultCount" aria-live="polite">正在载入工作流…</div>
+        </div>
       </div>
     </section>
 
     <section class="store-layout" aria-label="Replay Store 目录">
-      <div class="catalog-grid" id="catalogGrid"></div>
-      <aside class="detail-panel" id="recordDetail" aria-live="polite">
-        <div class="detail-empty">
-          <div class="category-mark">GPA</div>
-          <h2>选择一个工作流</h2>
-          <p>这里会显示作者、许可证、步骤数量、平台信息和社区反馈。</p>
-        </div>
-      </aside>
+      <div class="catalog-grid is-loading" id="catalogGrid" aria-busy="true">
+        <div class="skeleton-card" aria-hidden="true"><i></i><b></b><span></span><span></span></div>
+        <div class="skeleton-card" aria-hidden="true"><i></i><b></b><span></span><span></span></div>
+        <div class="skeleton-card" aria-hidden="true"><i></i><b></b><span></span><span></span></div>
+      </div>
+      <div class="store-detail-backdrop" id="storeDetailBackdrop" hidden></div>
+      <aside class="detail-panel" id="recordDetail" aria-live="polite" aria-label="Replay 详情" tabindex="-1" hidden></aside>
     </section>
 
-    <details class="publisher" id="publisherPanel">
-      <summary>分享一个工作流到 Replay Store</summary>
+    <dialog class="publisher publisher-dialog" id="publisherPanel" aria-labelledby="publisherTitle">
       <div class="publisher-card">
+        <div class="publisher-dialog-head"><div><small>Replay Store</small><h2 id="publisherTitle">发布或导入</h2></div><button class="secondary publisher-close" id="closePublisher" type="button" aria-label="关闭发布面板">×</button></div>
         <div class="publisher-grid">
           <select id="publishWorkflow" aria-label="选择本地工作流"><option value="">选择本地工作流</option></select>
-          <input id="publishAuthor" placeholder="发布者名称" value="Anonymous">
-          <input id="publishTags" placeholder="标签，逗号分隔">
+          <input id="publishAuthor" placeholder="发布者名称" value="Anonymous" aria-label="发布者名称">
+          <input id="publishTags" placeholder="标签，逗号分隔" aria-label="Replay 标签，使用逗号分隔">
           <select id="publishLicense" aria-label="许可证">
             <option value="CC-BY-4.0">CC-BY-4.0</option>
             <option value="CC0-1.0">CC0-1.0</option>
@@ -371,40 +528,124 @@
             <option value="Apache-2.0">Apache-2.0</option>
           </select>
         </div>
-        <label class="privacy">
-          <input type="checkbox" id="publishPrivacy">
-          <span>我已检查包中的 OCR 文本、变量默认值、应用名和视觉数据，同意公开发布。</span>
-        </label>
+        <div class="publisher-declarations" aria-label="发布者声明">
+          <label class="privacy"><input type="checkbox" id="publishRights"><span>我拥有内容与附件的发布权。</span></label>
+          <label class="privacy"><input type="checkbox" id="publishPrivacy"><span>我已检查录屏，不含私人信息或凭据。</span></label>
+          <label class="privacy"><input type="checkbox" id="publishSafe"><span>任务不包含恶意代码或危险自动化。</span></label>
+          <label class="privacy"><input type="checkbox" id="publishConsent"><span>我理解内容将公开，并接受社区规则。</span></label>
+        </div>
+        <div class="package-dropzone" id="packageDropzone" role="button" tabindex="0" aria-label="选择或拖入 Replay 实录包">
+          <span class="drop-icon" aria-hidden="true">↥</span>
+          <div><strong>选择或拖入 `.gpa-record.zip`</strong><p>自动检查录屏、环境和复现条件。</p></div>
+          <span class="drop-state" id="dropzoneState">最大 64 MiB</span>
+        </div>
         <div class="publisher-actions">
-          <button class="secondary" id="publishLocal">发布所选工作流</button>
-          <button class="ghost" id="uploadPackage">上传 Replay 插件</button>
+          <button class="secondary" id="publishLocal">发布到待验证区</button>
+          <button class="ghost" id="uploadPackage">上传 Replay 插件（实录包）</button>
+          <button class="ghost" id="loadRecordedExample">载入真实录屏示例</button>
+          <button class="secondary" id="confirmPackageUpload" disabled>确认发布检查过的包</button>
           <input type="file" id="packageFile" accept=".zip,.gpa-record.zip,application/zip" hidden>
         </div>
+        <div class="package-inspection" id="packageInspection" aria-live="polite"></div>
         <div id="publishFeedback" aria-live="polite"></div>
       </div>
-    </details>
+    </dialog>
+    <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportTitle">
+      <form class="report-card" method="dialog" id="reportForm">
+        <div class="report-head"><div><small>社区安全</small><h2 id="reportTitle">举报这个 Replay</h2></div><button class="secondary" type="button" id="closeReport" aria-label="关闭举报窗口">×</button></div>
+        <select id="reportCategory" required aria-label="举报类型"><option value="">选择问题类型</option><option value="dangerous_automation">危险自动化</option><option value="malware">恶意代码</option><option value="privacy_or_credentials">隐私或凭据</option><option value="copyright">版权或授权</option><option value="impersonation">冒充或伪造来源</option><option value="misleading">误导性描述</option><option value="spam">垃圾内容</option><option value="other">其他</option></select>
+        <textarea id="reportDetails" maxlength="1200" placeholder="补充可帮助审核的信息（不要填写自己的敏感信息）" aria-label="举报说明"></textarea>
+        <div id="reportFeedback" aria-live="polite"></div>
+        <div class="report-actions"><button class="ghost" type="button" id="cancelReport">取消</button><button class="primary" type="submit" id="submitReport">提交举报</button></div>
+      </form>
+    </dialog>
   </main>
 
   <script>
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.addEventListener('pageshow', () => window.scrollTo(0, 0), { once: true });
     const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8765' : '';
-    const state = { records: [], selectedId: null, selected: null, query: '', tag: '', selectionVersion: 0 };
+    const STORE_CLIENT_ID = (() => {
+      try {
+        const key = 'gpa_console_client_id';
+        const existing = localStorage.getItem(key);
+        if (existing) return existing;
+        const id = globalThis.crypto?.randomUUID?.() || `client_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        localStorage.setItem(key, id);
+        return id;
+      } catch {
+        return `client_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      }
+    })();
+    const state = {
+      records: [], selectedId: null, selected: null, query: '', collection: 'public', sort: 'recommended', selectionVersion: 0,
+      stagedPackageFile: null, stagedPackageInspection: null,
+      runtimeStatus: null, refreshedRunIds: new Set(), heartbeatInFlight: false,
+      detailReturnScrollY: 0, detailReturnRecordId: '',
+      catalogRequestVersion: 0, headerStatusRequestVersion: 0, headerStatusInFlight: false,
+      packageInspectionVersion: 0, packageInspectionRequest: null,
+    };
+    const storeActionPromises = new Map();
+
+    function runStoreAction(scope, label, action) {
+      const current = storeActionPromises.get(scope);
+      if (current) {
+        if (current.label === label) return current.promise;
+        return Promise.reject(new Error(`${current.label}尚未完成，请稍候。`));
+      }
+      const promise = Promise.resolve().then(action).finally(() => {
+        if (storeActionPromises.get(scope)?.promise === promise) storeActionPromises.delete(scope);
+      });
+      storeActionPromises.set(scope, { label, promise });
+      return promise;
+    }
+    const STORE_DEEP_LINK = new URLSearchParams(window.location.search);
+    if (['public', 'tutorial', 'official', 'community', 'pending', 'lab'].includes(STORE_DEEP_LINK.get('collection'))) {
+      state.collection = STORE_DEEP_LINK.get('collection');
+    }
+    const REQUESTED_RECORD_ID = STORE_DEEP_LINK.get('record_id') || '';
+    const REQUESTED_WORKFLOW_ID = STORE_DEEP_LINK.get('workflow_id') || '';
+    let storeDeepLinkApplied = false;
     const els = {
       search: document.getElementById('storeSearch'),
+      searchClear: document.getElementById('storeSearchClear'),
       refresh: document.getElementById('refreshStore'),
       filters: document.getElementById('categoryFilters'),
+      sort: document.getElementById('storeSort'),
       count: document.getElementById('resultCount'),
       grid: document.getElementById('catalogGrid'),
       detail: document.getElementById('recordDetail'),
+      detailBackdrop: document.getElementById('storeDetailBackdrop'),
       publishWorkflow: document.getElementById('publishWorkflow'),
       publishAuthor: document.getElementById('publishAuthor'),
       publishTags: document.getElementById('publishTags'),
       publishLicense: document.getElementById('publishLicense'),
+      publishRights: document.getElementById('publishRights'),
       publishPrivacy: document.getElementById('publishPrivacy'),
+      publishSafe: document.getElementById('publishSafe'),
+      publishConsent: document.getElementById('publishConsent'),
       publishLocal: document.getElementById('publishLocal'),
       uploadPackage: document.getElementById('uploadPackage'),
+      loadRecordedExample: document.getElementById('loadRecordedExample'),
+      confirmPackageUpload: document.getElementById('confirmPackageUpload'),
       packageFile: document.getElementById('packageFile'),
+      packageDropzone: document.getElementById('packageDropzone'),
+      dropzoneState: document.getElementById('dropzoneState'),
+      packageInspection: document.getElementById('packageInspection'),
       publishFeedback: document.getElementById('publishFeedback'),
       publisherPanel: document.getElementById('publisherPanel'),
+      closePublisher: document.getElementById('closePublisher'),
+      openPublisher: document.getElementById('openPublisher'),
+      reportDialog: document.getElementById('reportDialog'),
+      reportForm: document.getElementById('reportForm'),
+      reportCategory: document.getElementById('reportCategory'),
+      reportDetails: document.getElementById('reportDetails'),
+      reportFeedback: document.getElementById('reportFeedback'),
+      closeReport: document.getElementById('closeReport'),
+      cancelReport: document.getElementById('cancelReport'),
+      workspaceStatus: document.getElementById('storeWorkspaceStatus'),
+      workspaceStatusTitle: document.getElementById('storeWorkspaceStatusTitle'),
+      workspaceStatusMeta: document.getElementById('storeWorkspaceStatusMeta'),
     };
 
     function escapeHtml(value) {
@@ -413,19 +654,177 @@
       }[char]));
     }
 
-    async function getJson(path, options) {
-      const response = await fetch(`${API_BASE}${path}`, options);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.ok === false) throw new Error(data.error || response.statusText);
-      return data;
+    function safeHttpUrl(value) {
+      try {
+        const url = new URL(String(value || ''));
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+      } catch (_) {
+        return '';
+      }
     }
 
-    function postJson(path, payload = {}) {
-      return getJson(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    function safeTutorialPracticeUrl(value) {
+      try {
+        const url = new URL(String(value || ''), window.location.origin);
+        const allowedCases = new Set(['gmail-filter', 'sheets-filter-view', 'excel-dropdown', 'macos-shortcut']);
+        if (url.origin !== window.location.origin || url.pathname !== '/tutorial-lab') return '';
+        if (!allowedCases.has(url.searchParams.get('case'))) return '';
+        return `${url.pathname}?case=${encodeURIComponent(url.searchParams.get('case'))}`;
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function recordKind(record) {
+      const tags = record.tags || [];
+      if (tags.includes('benchmark-task')) return 'benchmark';
+      if (tags.includes('tutorial')) return 'tutorial';
+      if (tags.includes('internal-regression')) return 'internal';
+      if (tags.includes('case')) return 'case';
+      if (tags.includes('demo')) return 'demo';
+      return 'community';
+    }
+
+    function recordingScope(recording = {}) {
+      const value = String(recording.capture_scope || '').toLowerCase();
+      const labels = {
+        'browser-tab': '仅浏览器标签页',
+        'browser': '仅浏览器标签页',
+        'window': '单一应用窗口',
+        'application-window': '单一应用窗口',
+        'public-web-evidence': '公开来源证据视频',
+        'monitor': '整个显示器',
+        'screen': '整个显示器',
+      };
+      return { value: value || 'unknown', label: labels[value] || '捕获范围未记录' };
+    }
+
+    function recordingPrivacy(recording = {}) {
+      const review = recording.privacy_review || {};
+      const passed = review.status === 'passed' && review.other_apps_visible === false;
+      const quarantined = review.status === 'failed' || review.quarantined === true;
+      return {
+        passed,
+        quarantined,
+        label: quarantined ? '隐私检查失败 · 已隔离' : passed ? '隐私范围抽样通过' : '隐私范围待人工复核',
+      };
+    }
+
+    function recordingMethod(recording = {}) {
+      const value = String(recording.capture_method || '');
+      if (value === 'browser-tab-frame-capture') return '浏览器标签页定频帧捕获';
+      if (value === 'media-recorder') return '浏览器 MediaRecorder';
+      if (value === 'safe-web-source-evidence-render') return 'Safe Web 真实来源证据渲染';
+      return value || '旧版录制方式未记录';
+    }
+
+    function contractBlockerLabel(blocker) {
+      const labels = {
+        workflow_structure: '工作流结构不完整',
+        recording_evidence: '真实运行视频或解码校验未通过',
+        source_trace_evidence: '公开来源机读证据链未通过',
+        recording_privacy: '安全捕获范围或隐私复核未通过',
+        recorded_environment: '原始系统与录屏捕获环境不完整',
+        agent_understanding: 'Agent 任务理解不完整',
+        success_criteria: '可验证成功条件不足',
+        environment_adaptation: '目标环境适配计划不足',
+      };
+      return labels[blocker] || blocker;
+    }
+
+    function contractBlockers(contract = {}) {
+      return (contract.blockers || []).map(contractBlockerLabel).join('、') || '必要证据';
+    }
+
+    function isDevelopmentRecord(record) {
+      return ['internal', 'case', 'demo'].includes(recordKind(record));
+    }
+
+    function matchesCollection(record, collection) {
+      const kind = recordKind(record);
+      const verified = record.reproduction_contract?.publishable_as_verified === true;
+      if (collection === 'tutorial') return kind === 'tutorial';
+      if (collection === 'official') return kind === 'benchmark';
+      if (collection === 'community') return kind === 'community' && verified;
+      if (collection === 'pending') return kind === 'community' && !verified;
+      if (collection === 'lab') return isDevelopmentRecord(record);
+      return kind === 'tutorial' || kind === 'benchmark' || (kind === 'community' && verified);
+    }
+
+    async function getJson(path, options = {}) {
+      return GPAClient.requestJson(path, { ...options, baseUrl: API_BASE });
+    }
+
+    function postJson(path, payload = {}, options = {}) {
+      return GPAClient.postJson(path, payload, { ...options, baseUrl: API_BASE });
+    }
+
+    function setStoreLoading(active) {
+      els.grid.classList.toggle('is-loading', active);
+      els.grid.setAttribute('aria-busy', active ? 'true' : 'false');
+      els.refresh.disabled = active;
+      els.refresh.textContent = active ? '刷新中' : '刷新';
+      if (active && !state.records.length) els.count.textContent = '正在同步 Replay…';
+    }
+
+    function syncCatalogQuery() {
+      const hasQuery = Boolean(state.query.trim());
+      els.searchClear.hidden = !hasQuery;
+      els.search.closest('.catalog-query')?.classList.toggle('has-query', hasQuery);
+    }
+
+    function paintStoreWorkspaceStatus(kind, title, meta) {
+      els.workspaceStatus.dataset.state = kind;
+      els.workspaceStatusTitle.textContent = title;
+      els.workspaceStatusMeta.textContent = meta;
+    }
+
+    async function loadHeaderStatus() {
+      if (state.headerStatusInFlight) return false;
+      state.headerStatusInFlight = true;
+      const requestVersion = ++state.headerStatusRequestVersion;
+      try {
+        const data = await getJson('/api/status', { timeoutMs: 8000 });
+        if (requestVersion !== state.headerStatusRequestVersion) return false;
+        state.runtimeStatus = data;
+        const recording = data.recording || {};
+        const run = data.run || {};
+        if (recording.active) {
+          paintStoreWorkspaceStatus('recording', '正在录制 Replay', '返回工作台可查看录制进度');
+        } else if (run.active) {
+          paintStoreWorkspaceStatus('running', 'Replay 正在运行', run.workflow_id ? `任务 · ${run.workflow_id}` : '完成后将自动刷新结果');
+        } else {
+          paintStoreWorkspaceStatus('ready', 'Store 已连接', '可浏览、验证或保存 Replay');
+        }
+        updateBenchmarkRunControls();
+        const selectedWorkflowId = state.selected?.saved_workflow_id || state.selected?.workflow_id || '';
+        if (!run.active && run.run_id && run.workflow_id === selectedWorkflowId && !state.refreshedRunIds.has(run.run_id)) {
+          state.refreshedRunIds.add(run.run_id);
+          loadStore().catch(() => {});
+        }
+        return true;
+      } catch (error) {
+        if (requestVersion !== state.headerStatusRequestVersion) return false;
+        state.runtimeStatus = { unavailable: true };
+        paintStoreWorkspaceStatus('limited', 'Store 暂时离线', '正在重新连接，不影响本页已加载内容');
+        updateBenchmarkRunControls();
+        return false;
+      } finally {
+        if (requestVersion === state.headerStatusRequestVersion) state.headerStatusInFlight = false;
+      }
+    }
+
+    async function sendStoreHeartbeat() {
+      if (state.heartbeatInFlight) return;
+      state.heartbeatInFlight = true;
+      try {
+        await postJson('/api/client/heartbeat', {
+          client_id: STORE_CLIENT_ID,
+          environment: clientEnvironmentSnapshot(),
+        }, { timeoutMs: 8000 });
+      } finally {
+        state.heartbeatInFlight = false;
+      }
     }
 
     function initials(record) {
@@ -435,7 +834,7 @@
 
     function showPublishFeedback(message, kind = '') {
       els.publishFeedback.innerHTML = message
-        ? `<div class="feedback ${kind}">${escapeHtml(message)}</div>`
+        ? `<div class="feedback state-message ${kind === 'error' ? 'is-error' : kind === 'warn' ? 'is-warning' : 'is-success'}">${escapeHtml(message)}</div>`
         : '';
     }
 
@@ -445,21 +844,90 @@
         tags: els.publishTags.value.split(',').map(tag => tag.trim()).filter(Boolean),
         record_license: els.publishLicense.value,
         privacy_reviewed: els.publishPrivacy.checked,
+        publisher_declaration: {
+          owns_rights: els.publishRights.checked,
+          no_secrets: els.publishPrivacy.checked,
+          safe_content: els.publishSafe.checked,
+          public_consent: els.publishConsent.checked,
+        },
+        client_environment: clientEnvironmentSnapshot(),
       };
     }
 
+    function publisherDeclarationReady() {
+      return els.publishRights.checked && els.publishPrivacy.checked && els.publishSafe.checked && els.publishConsent.checked;
+    }
+
+    let publisherReturnFocus = null;
+    function openPublisherPanel() {
+      publisherReturnFocus = document.activeElement;
+      if (!els.publisherPanel.open) els.publisherPanel.showModal();
+      requestAnimationFrame(() => (els.publishWorkflow || els.closePublisher)?.focus({ preventScroll: true }));
+    }
+    function closePublisherPanel() {
+      if (els.publisherPanel.open) els.publisherPanel.close();
+    }
+
     async function loadStore({ preserveSelection = true } = {}) {
-      const data = await getJson('/api/community/records');
-      state.records = data.records || [];
-      renderFilters();
-      renderCatalog();
-      if (preserveSelection && state.selectedId && state.records.some(record => record.record_id === state.selectedId)) {
-        await selectRecord(state.selectedId, { preserveCatalog: true });
+      const requestVersion = ++state.catalogRequestVersion;
+      const isLatestRequest = () => requestVersion === state.catalogRequestVersion;
+      setStoreLoading(true);
+      try {
+        const data = await getJson(`/api/community/records?${clientEnvironmentQuery()}`, { timeoutMs: 30000 });
+        if (!isLatestRequest()) return false;
+        state.records = data.records || [];
+        renderFilters();
+        renderCatalog();
+        if (!storeDeepLinkApplied) {
+          storeDeepLinkApplied = true;
+          const requested = state.records.find(record => (
+            (REQUESTED_RECORD_ID && record.record_id === REQUESTED_RECORD_ID)
+            || (REQUESTED_WORKFLOW_ID && record.workflow_id === REQUESTED_WORKFLOW_ID)
+          ));
+          if (requested) {
+            await selectRecord(requested.record_id, { preserveCatalog: true });
+            return true;
+          }
+        }
+        if (preserveSelection && state.selectedId && state.records.some(record => record.record_id === state.selectedId)) {
+          await selectRecord(state.selectedId, { preserveCatalog: true });
+        }
+        return true;
+      } catch (error) {
+        if (!isLatestRequest()) return false;
+        throw error;
+      } finally {
+        if (isLatestRequest()) setStoreLoading(false);
       }
     }
 
+    function showStoreLoadError(error) {
+      const message = error?.message || error || '目录同步失败';
+      const retained = state.records.length ? ` · 已保留 ${state.records.length} 个结果` : '';
+      els.count.textContent = `刷新失败${retained}`;
+      els.count.title = String(message);
+      els.count.setAttribute('aria-label', `Replay Store 刷新失败：${message}${retained}`);
+      if (state.records.length) return;
+      els.grid.classList.remove('is-loading');
+      els.grid.setAttribute('aria-busy', 'false');
+      els.grid.innerHTML = `
+        <div class="empty-state store-load-error state-surface is-error" role="alert">
+          <span class="state-surface-mark" aria-hidden="true">!</span>
+          <h2>暂时无法载入 Replay Store</h2>
+          <p>当前目录尚未载入。重新连接不会影响本地保存的 Replay。</p>
+          <button type="button" data-retry-store>重新连接</button>
+          <small title="${escapeHtml(message)}">${escapeHtml(message)}</small>
+        </div>
+      `;
+      els.grid.querySelector('[data-retry-store]')?.addEventListener('click', event => {
+        event.currentTarget.disabled = true;
+        event.currentTarget.textContent = '正在连接…';
+        loadStore().catch(showStoreLoadError);
+      });
+    }
+
     async function loadLocalWorkflows() {
-      const data = await getJson('/api/workflows');
+      const data = await getJson('/api/workflows', { timeoutMs: 20000 });
       const workflows = data.workflows || [];
       els.publishWorkflow.innerHTML = '<option value="">选择本地工作流</option>' + workflows.map(workflow => (
         `<option value="${escapeHtml(workflow.id)}">${escapeHtml(workflow.title || workflow.name)} · ${escapeHtml(workflow.id)}</option>`
@@ -467,87 +935,279 @@
       const publishId = new URLSearchParams(window.location.search).get('publish');
       if (publishId && workflows.some(workflow => workflow.id === publishId)) {
         els.publishWorkflow.value = publishId;
-        els.publisherPanel.open = true;
+        openPublisherPanel();
+      } else if (new URLSearchParams(window.location.search).get('open') === 'publish') {
+        openPublisherPanel();
       }
     }
 
     function filteredRecords() {
       const query = state.query.trim().toLowerCase();
-      return state.records.filter(record => {
-        const matchesTag = !state.tag || (record.tags || []).includes(state.tag);
+      const order = { tutorial: 0, benchmark: 1, community: 2, internal: 3, case: 4, demo: 5 };
+      const records = state.records.filter(record => {
         const haystack = [
           record.workflow_title, record.workflow_name, record.description,
-          record.task_description, record.author, ...(record.tags || []),
+          record.task_description, record.author, JSON.stringify(record.provenance || {}),
+          ...(record.tags || []),
         ].join(' ').toLowerCase();
-        return matchesTag && (!query || haystack.includes(query));
+        return matchesCollection(record, state.collection) && (!query || haystack.includes(query));
       });
+      const dateValue = record => Date.parse(record.updated_at || record.published_at || '') || 0;
+      const importCount = record => Number(record.stats?.imports || 0);
+      const score = record => Number(record.reproduction_contract?.score || 0);
+      const sorters = {
+        recent: (a, b) => dateValue(b) - dateValue(a),
+        popular: (a, b) => importCount(b) - importCount(a) || score(b) - score(a),
+        shortest: (a, b) => Number(a.step_count || 0) - Number(b.step_count || 0),
+        recommended: (a, b) => order[recordKind(a)] - order[recordKind(b)] || score(b) - score(a) || importCount(b) - importCount(a),
+      };
+      return records.sort(sorters[state.sort] || sorters.recommended);
     }
 
     function renderFilters() {
-      const tags = [...new Set(state.records.flatMap(record => record.tags || []))].sort().slice(0, 8);
-      const items = [{ value: '', label: '全部' }, ...tags.map(tag => ({ value: tag, label: tag }))];
+      const definitions = [
+        { value: 'public', label: '全部可靠' },
+        { value: 'tutorial', label: '实战教程' },
+        { value: 'official', label: '官方基准' },
+        { value: 'community', label: '社区实录' },
+        { value: 'pending', label: '待验证上传' },
+        { value: 'lab', label: '开发实验室' },
+      ];
+      const items = definitions.map(item => ({
+        ...item,
+        count: state.records.filter(record => matchesCollection(record, item.value)).length,
+      })).filter(item => item.value === 'public' || item.count > 0);
+      if (!items.some(item => item.value === state.collection)) state.collection = 'public';
       els.filters.innerHTML = items.map(item => (
-        `<button class="filter ${state.tag === item.value ? 'active' : ''}" data-tag="${escapeHtml(item.value)}">${escapeHtml(item.label)}</button>`
+        `<button class="filter ${state.collection === item.value ? 'active' : ''}" data-collection="${escapeHtml(item.value)}" aria-pressed="${state.collection === item.value ? 'true' : 'false'}"><span>${escapeHtml(item.label)}</span><span class="filter-count">${escapeHtml(item.count)}</span></button>`
       )).join('');
-      els.filters.querySelectorAll('[data-tag]').forEach(button => {
+      els.filters.querySelectorAll('[data-collection]').forEach(button => {
         button.addEventListener('click', () => {
-          state.tag = button.dataset.tag || '';
+          state.collection = button.dataset.collection || 'public';
           renderFilters();
           renderCatalog();
         });
       });
     }
 
+    function catalogSupportingText(record) {
+      return record.task_description || record.description || '查看任务目标、适用条件和运行边界。';
+    }
+
+    function catalogKindLabel(record) {
+      return {
+        tutorial: '实战教程', benchmark: '官方基准', community: '社区实录', internal: '内部回归',
+        case: '合成案例', demo: '示例 Replay',
+      }[recordKind(record)] || 'Replay';
+    }
+
+    function catalogDecision(record) {
+      const contract = record.reproduction_contract || {};
+      const environmentDiff = record.environment_diff || {};
+      const safeWeb = record.safe_web || {};
+      const recording = (record.artifacts || {}).recording || {};
+      const privacy = recordingPrivacy(recording);
+      const adaptationCount = (environmentDiff.adaptation_plan || []).length;
+      if (recordKind(record) === 'tutorial') return { kind: 'ready', mark: '✓', title: '可在隔离环境演练' };
+      if (privacy.quarantined) return { kind: 'blocked', mark: '!', title: '隐私证据已隔离' };
+      if (!contract.publishable_as_verified) return { kind: 'review', mark: '·', title: '需要人工复核' };
+      if (safeWeb.runnable) return { kind: 'ready', mark: '✓', title: '可以安全验证' };
+      if (environmentDiff.status === 'unknown') return { kind: 'review', mark: '·', title: '需要补充环境证据' };
+      if (environmentDiff.status === 'blocked') return { kind: 'blocked', mark: '!', title: '当前环境不适合' };
+      if (adaptationCount) return { kind: 'adapt', mark: '↺', title: `需要 ${adaptationCount} 项适配` };
+      return { kind: 'review', mark: '·', title: '进入工作台审核' };
+    }
+
+    function catalogPermission(record) {
+      if (recordKind(record) === 'tutorial') return '仅模拟数据';
+      if (record.safe_web?.runnable) return '只读网页';
+      const applications = record.understanding?.required_environment?.applications || [];
+      return applications.length ? `${applications.length} 个应用` : '运行前确认';
+    }
+
+    function catalogEnvironment(record) {
+      if (recordKind(record) === 'tutorial') return '浏览器隔离实验室';
+      const diff = record.environment_diff || {};
+      const adaptations = (diff.adaptation_plan || []).length;
+      if (diff.status === 'unknown') return '证据不足';
+      if (diff.status === 'blocked') return '存在阻断';
+      if (adaptations) return `${adaptations} 项适配`;
+      if (diff.status === 'compatible') return '当前兼容';
+      return '运行前检查';
+    }
+
     function renderCatalog() {
       const records = filteredRecords();
-      els.count.textContent = `${records.length} 个可用工作流`;
+      if (state.selectedId && !records.some(record => record.record_id === state.selectedId)) {
+        state.selectionVersion += 1;
+        state.selectedId = null;
+        state.selected = null;
+        els.detail.innerHTML = '';
+        syncDetailPresentation();
+      }
+      const recorded = records.filter(record => {
+        const recording = (record.artifacts || {}).recording || {};
+        return record.recording_verification?.verified === true
+          && recordingPrivacy(recording).passed;
+      }).length;
+      const isolated = records.filter(record => {
+        const audit = record.isolated_reproduction_audit || {};
+        return audit.status === 'passed' && audit.cross_agent_reproducible === true;
+      }).length;
+      const resultLabel = `${records.length} 个结果`;
+      els.count.innerHTML = `<strong>${escapeHtml(records.length)}</strong><span>个结果</span>`;
+      els.count.title = `${resultLabel} · ${recorded} 个安全实录 · ${isolated} 个隔离复现`;
+      els.count.setAttribute('aria-label', els.count.title);
       els.grid.innerHTML = records.map(record => {
         const feedbackCount = Number(record.stats?.feedback_count || 0);
         const rate = feedbackCount ? `${Math.round(Number(record.stats?.success_rate || 0) * 100)}%` : '暂无反馈';
-        const tags = (record.tags || []).slice(0, 3).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+        const reproduction = record.reproduction || {};
+        const contract = record.reproduction_contract || {};
+        const decision = catalogDecision(record);
+        const proofLabel = recordKind(record) === 'tutorial'
+          ? '官方来源已锁定'
+          : feedbackCount
+          ? `${rate} 成功率`
+          : contract.publishable_as_verified
+            ? `复现评分 ${contract.score || 0}`
+            : reproduction.label || '待验证';
         return `
-          <button class="record-card ${state.selectedId === record.record_id ? 'active' : ''}" data-record-id="${escapeHtml(record.record_id)}">
+          <button class="record-card ${state.selectedId === record.record_id ? 'active' : ''}" data-record-id="${escapeHtml(record.record_id)}" aria-controls="recordDetail" aria-expanded="${state.selectedId === record.record_id ? 'true' : 'false'}">
             <div class="card-top">
-              <span class="category-mark">${escapeHtml(initials(record))}</span>
-              <span class="card-flags">
-                ${(record.tags || []).includes('demo') ? '<span class="demo-pill">示例</span>' : ''}
-                ${record.saved_workflow_id ? '<span class="saved-pill">已保存</span>' : ''}
-              </span>
+              <span class="card-kind"><span class="category-mark">${escapeHtml(initials(record))}</span><strong>${escapeHtml(catalogKindLabel(record))}</strong></span>
+              <span class="card-save-state">${record.saved_workflow_id ? '已保存' : '可导入'}</span>
             </div>
-            <div>
+            <div class="card-copy">
               <h2>${escapeHtml(record.workflow_title || record.workflow_name)}</h2>
-              <p>${escapeHtml(record.description || record.task_description || '社区共享工作流')}</p>
+              <p>${escapeHtml(catalogSupportingText(record))}</p>
             </div>
-            <div class="tag-row">${tags || '<span class="tag">general</span>'}</div>
+            <div class="card-decision is-${escapeHtml(decision.kind)}"><i aria-hidden="true">${escapeHtml(decision.mark)}</i><span><small>适配结论</small><strong>${escapeHtml(decision.title)}</strong></span></div>
+            <div class="card-decision-facts">
+              <span><small>权限</small><strong>${escapeHtml(catalogPermission(record))}</strong></span>
+              <span><small>环境</small><strong>${escapeHtml(catalogEnvironment(record))}</strong></span>
+              <span><small>证据</small><strong>${escapeHtml(proofLabel)}</strong></span>
+            </div>
             <div class="card-meta">
-              <span>${escapeHtml(record.author || 'Anonymous')}</span>
-              <span>${escapeHtml(record.step_count || 0)} steps · ${escapeHtml(rate)}</span>
+              <span>${escapeHtml(record.author || catalogKindLabel(record))} · ${escapeHtml(record.step_count || 0)} 步</span>
+              <strong>查看详情 <span aria-hidden="true">→</span></strong>
             </div>
           </button>
         `;
       }).join('') || `
-        <div class="empty-state">
+        <div class="empty-state state-surface is-empty">
           <div>
             <div class="category-mark" style="margin:auto">0</div>
             <h2>还没有匹配的工作流</h2>
             <p>${state.records.length ? '换一个关键词或分类试试。' : 'Replay Store 目前为空。你可以在页面底部分享第一个本地工作流。'}</p>
+            <button class="secondary empty-action" data-empty-action="${state.records.length ? 'reset' : 'import'}">${state.records.length ? '清除筛选' : '添加 Replay'}</button>
           </div>
         </div>
       `;
       els.grid.querySelectorAll('[data-record-id]').forEach(card => {
-        card.addEventListener('click', () => selectRecord(card.dataset.recordId).catch(error => renderDetailError(error.message)));
+        card.addEventListener('click', () => {
+          if (state.selectedId === card.dataset.recordId) {
+            clearRecordSelection();
+            return;
+          }
+          selectRecord(card.dataset.recordId).catch(error => renderDetailError(error.message));
+        });
       });
+      els.grid.querySelector('[data-empty-action]')?.addEventListener('click', event => {
+        if (event.currentTarget.dataset.emptyAction === 'import') {
+          openPublisherPanel();
+          return;
+        }
+        state.query = '';
+        state.collection = 'public';
+        els.search.value = '';
+        syncCatalogQuery();
+        renderFilters();
+        renderCatalog();
+        els.search.focus();
+      });
+    }
+
+    const mobileDetailMedia = window.matchMedia('(max-width: 960px)');
+
+    function syncDetailPresentation({ focusClose = false } = {}) {
+      const modal = Boolean(state.selectedId);
+      document.body.classList.toggle('store-detail-open', modal);
+      els.detailBackdrop.hidden = !modal;
+      els.detail.hidden = !modal;
+      const inertTargets = [
+        document.querySelector('header'),
+        els.grid,
+        ...document.querySelectorAll('main.page > :not(.store-layout)'),
+      ].filter(Boolean);
+      inertTargets.forEach(target => {
+        target.inert = modal;
+        if (modal) target.setAttribute('aria-hidden', 'true');
+        else target.removeAttribute('aria-hidden');
+      });
+      els.detail.setAttribute('role', modal ? 'dialog' : 'region');
+      if (modal) els.detail.setAttribute('aria-modal', 'true');
+      else els.detail.removeAttribute('aria-modal');
+      if (modal) {
+        const focusTarget = focusClose ? els.detail.querySelector('[data-close-detail]') : els.detail;
+        focusTarget?.focus({ preventScroll: true });
+      }
+    }
+
+    function trapDetailFocus(event) {
+      if (event.key !== 'Tab' || !state.selectedId) return;
+      const focusable = [...els.detail.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter(item => !item.hidden && item.getClientRects().length);
+      if (!focusable.length) {
+        event.preventDefault();
+        els.detail.focus({ preventScroll: true });
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    function clearRecordSelection() {
+      const returnRecordId = state.detailReturnRecordId || state.selectedId;
+      const returnScrollY = state.detailReturnScrollY;
+      state.selectionVersion += 1;
+      state.selectedId = null;
+      state.selected = null;
+      els.detail.innerHTML = '';
+      syncDetailPresentation();
+      renderCatalog();
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: returnScrollY, behavior: 'auto' });
+        document.querySelector(`[data-record-id="${CSS.escape(returnRecordId || '')}"]`)?.focus({ preventScroll: true });
+      });
+    }
+
+    function bindDetailClose() {
+      document.querySelector('[data-close-detail]')?.addEventListener('click', clearRecordSelection);
     }
 
     async function selectRecord(recordId, { preserveCatalog = false } = {}) {
       const requestVersion = ++state.selectionVersion;
+      if (!state.selectedId) {
+        state.detailReturnScrollY = window.scrollY;
+        state.detailReturnRecordId = recordId;
+      }
       state.selectedId = recordId;
       state.selected = null;
       if (!preserveCatalog) renderCatalog();
-      els.detail.innerHTML = '<div class="detail-empty"><div class="category-mark">···</div><h2>正在读取工作流</h2><p>正在校验社区元数据与保存状态。</p></div>';
+      els.detail.innerHTML = '<div class="detail-empty state-surface is-loading" role="status"><div class="category-mark state-surface-mark">···</div><h2>正在读取 Replay</h2><p>正在校验任务、环境和保存状态。</p></div>';
+      els.detail.scrollTop = 0;
+      syncDetailPresentation();
       let data;
       try {
-        data = await getJson(`/api/community/records/${encodeURIComponent(recordId)}`);
+        data = await getJson(`/api/community/records/${encodeURIComponent(recordId)}?${clientEnvironmentQuery()}`, { timeoutMs: 20000 });
       } catch (error) {
         if (requestVersion !== state.selectionVersion || state.selectedId !== recordId) return;
         throw error;
@@ -556,10 +1216,15 @@
       state.selected = data.record;
       renderDetail();
       renderCatalog();
+      syncDetailPresentation({ focusClose: true });
     }
 
     function renderDetailError(message) {
-      els.detail.innerHTML = `<div class="detail-empty"><div class="category-mark">!</div><h2>无法打开工作流</h2><p>${escapeHtml(message)}</p></div>`;
+      const recordId=state.selectedId;
+      els.detail.innerHTML = `<div class="detail-empty state-surface is-error" role="alert"><div class="category-mark state-surface-mark">!</div><h2>无法打开 Replay</h2><p>详情暂时没有载入。可以重试，不会影响目录和已保存内容。</p><div class="state-surface-actions"><button type="button" data-retry-detail>重试</button><button class="secondary detail-close" type="button" data-close-detail>返回目录</button></div><small title="${escapeHtml(message)}">${escapeHtml(message)}</small></div>`;
+      els.detail.querySelector('[data-retry-detail]')?.addEventListener('click',event=>{event.currentTarget.disabled=true;event.currentTarget.textContent='正在重试…';selectRecord(recordId,{preserveCatalog:true}).catch(error=>renderDetailError(error.message));});
+      bindDetailClose();
+      syncDetailPresentation({ focusClose: true });
     }
 
     function renderDetail() {
@@ -569,49 +1234,594 @@
       const feedbackCount = Number(stats.feedback_count || 0);
       const rate = feedbackCount ? `${Math.round(Number(stats.success_rate || 0) * 100)}%` : '—';
       const platform = record.platform || {};
-      const tags = (record.tags || []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+      const provenance = record.provenance || {};
+      const kind = recordKind(record);
+      const tutorialSource = provenance.tutorial_source || {};
+      const tutorialSourceUrl = safeHttpUrl(tutorialSource.url);
+      const tutorialPracticeUrl = safeTutorialPracticeUrl((provenance.practice || {}).url);
+      const tutorialPanel = kind === 'tutorial' && tutorialPracticeUrl ? `
+        <div class="tutorial-boundary">官方教程用于锁定真实任务流程；下方演练只操作本地模拟数据，不会登录或修改真实账号。</div>
+        <div class="tutorial-actions">
+          <a class="practice-link" href="${escapeHtml(tutorialPracticeUrl)}">开始隔离演练</a>
+          ${tutorialSourceUrl ? `<a class="official-link" href="${escapeHtml(tutorialSourceUrl)}" target="_blank" rel="noopener">查看官方教程 ↗</a>` : ''}
+        </div>` : '';
+      const reproduction = record.reproduction || {};
       const savedId = record.saved_workflow_id || '';
+      const datasetUrl = safeHttpUrl(provenance.dataset_url);
+      const paperUrl = safeHttpUrl(provenance.paper_url);
+      const evaluator = provenance.evaluator || {};
+      const renderSourceLinks = (values, prefix) => (values || []).map((value, index) => {
+        const href = safeHttpUrl(value);
+        if (!href) return '';
+        let host = '';
+        try { host = new URL(href).hostname; } catch (_) { host = `source-${index + 1}`; }
+        return `<a class="source-link" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(prefix)} ${index + 1} · ${escapeHtml(host)}</a>`;
+      }).filter(Boolean).join('<br>');
+      const goldSourceLinks = renderSourceLinks(provenance.gold_urls, 'Gold');
+      const reproductionSourceLinks = renderSourceLinks(provenance.reproduction_urls, 'Replay');
+      const environment = record.environment || {};
+      const environmentDiff = record.environment_diff || {};
+      const understanding = record.understanding || {};
+      const interaction = understanding.interaction_profile || {};
+      const recordingAnalysis = provenance.recording_analysis || {};
+      const recording = (record.artifacts || {}).recording;
+      const sourceTrace = (record.artifacts || {}).source_trace || {};
+      const contract = record.reproduction_contract || {};
+      const currentResult = kind === 'tutorial'
+        ? '可演练'
+        : feedbackCount
+        ? rate
+        : ['succeeded', 'passed', 'success'].includes(reproduction.status)
+          ? '已通过'
+          : reproduction.label || '未运行';
+      const contractScore = contract.schema ? Number(contract.score || 0) : null;
+      const isolatedAudit = record.isolated_reproduction_audit || {};
+      const recordingMediaVerified = record.recording_media_verified === true
+        || isolatedAudit.recording_media_verified === true;
+      const capture = recordingScope(recording || {});
+      const recordingPrivacyState = recordingPrivacy(recording || {});
+      const captureMethod = recordingMethod(recording || {});
+      const safeWeb = record.safe_web || {};
+      const requiredEnvironment = understanding.required_environment || {};
+      const environmentDifferences = (environmentDiff.differences || []).slice(0, 4).map(item => {
+        const scale = item.scale_hint ? ` · scale ${item.scale_hint.x}×${item.scale_hint.y}` : '';
+        return `<div><strong>${escapeHtml(item.severity || 'info')}</strong> · ${escapeHtml(item.field)}：${escapeHtml(item.recorded)} → ${escapeHtml(item.current)}${escapeHtml(scale)}</div>`;
+      }).join('');
+      const environmentAdaptations = (environmentDiff.adaptation_plan || []).slice(0, 4).map(item => (
+        `<div><strong>${escapeHtml(item.strategy || '适配')}</strong> · ${escapeHtml(item.action || '')}</div>`
+      )).join('');
+      const sourceEventCount = Number(recordingAnalysis.source_event_count || 0);
+      const reducedEventCount = Number(recordingAnalysis.step_reduction_count || 0);
+      const agentUnderstandingText = sourceEventCount
+        ? `${sourceEventCount} 个原始动作 → ${Number(recordingAnalysis.retained_step_count || record.step_count || 0)} 个步骤${reducedEventCount ? ` · 收束 ${reducedEventCount} 个` : ''}`
+        : `${interaction.step_count ?? record.step_count ?? 0} 步 · ${(understanding.success_criteria || []).length} 个成功条件`;
+      const benchmarkFacts = kind === 'benchmark' ? `
+        <div class="fact"><span>基准</span><strong>${escapeHtml([provenance.benchmark, provenance.benchmark_version, provenance.split].filter(Boolean).join(' · '))}</strong></div>
+        <div class="fact"><span>任务 ID</span><strong>${escapeHtml(provenance.task_id || '未提供')}</strong></div>
+        <div class="fact"><span>原始题目</span><strong>${escapeHtml(provenance.original_task || record.task_description || '未提供')}</strong></div>
+        <div class="fact"><span>官方答案</span><strong>${escapeHtml(provenance.gold_answer || '隐藏或未提供')}</strong></div>
+        <div class="fact"><span>评测方式</span><strong>${escapeHtml(evaluator.type || '未提供')}</strong></div>
+        <div class="fact"><span>官方数据集</span><strong>${datasetUrl ? `<a class="source-link" href="${escapeHtml(datasetUrl)}" target="_blank" rel="noopener">打开固定版本 dev JSONL</a>` : '未提供'}</strong></div>
+        <div class="fact"><span>来源修订</span><strong>${escapeHtml(provenance.dataset_revision ? provenance.dataset_revision.slice(0, 12) : '未固定')} · ${escapeHtml(provenance.dataset_file || '')}</strong></div>
+        <div class="fact"><span>官方金标来源</span><strong>${goldSourceLinks || '未提供'}</strong></div>
+        <div class="fact"><span>当前复现来源</span><strong>${reproductionSourceLinks || goldSourceLinks || '未提供'}</strong></div>
+        <div class="fact"><span>论文</span><strong>${paperUrl ? `<a class="source-link" href="${escapeHtml(paperUrl)}" target="_blank" rel="noopener">查看基准论文</a>` : '未提供'}</strong></div>
+        <div class="fact"><span>复现状态</span><strong>${escapeHtml(reproduction.label || '尚未运行')}</strong></div>
+        <div class="fact"><span>证据来源</span><strong>${escapeHtml((reproduction.evidence_sources || []).join(', ') || '尚无运行证据')}</strong></div>
+        ${reproduction.error ? `<div class="fact"><span>最近错误</span><strong>${escapeHtml(reproduction.error)}</strong></div>` : ''}
+      ` : '';
+      const reproductionRunPanel = contract.publishable_as_verified ? `
+        <section class="benchmark-run-panel" id="benchmarkRunPanel">
+          <div class="benchmark-run-head">
+            <div><h3>${kind === 'benchmark' ? '运行真实来源验证' : '运行跨环境安全复现'}</h3><p>${safeWeb.runnable ? `只读访问 ${escapeHtml(safeWeb.public_url_count || 0)} 个公开网页；不控制桌面、不写系统剪贴板、不调用模型。` : escapeHtml(safeWeb.reason || '该任务需要进入 Studio 审核桌面动作和环境适配。')}</p></div>
+            <span class="run-pill">${safeWeb.runnable ? '只读验证' : '需要审核'}</span>
+          </div>
+          <div class="benchmark-run-actions">
+            <button class="primary" id="runBenchmark" ${!safeWeb.runnable || !savedId ? 'disabled' : ''}>${kind === 'benchmark' ? '运行官方案例' : '运行安全复现'}</button>
+            <button class="secondary" id="stopBenchmark" disabled>停止验证</button>
+          </div>
+          <div class="benchmark-run-status" id="benchmarkRunStatus" aria-live="polite">${savedId ? '等待运行。' : '请先保存到“我的 Replay”，再执行验证。'}</div>
+        </section>
+      ` : '';
+      const contractLabels = {
+        verified: '可直接复现', adaptation_required: '需要环境适配',
+        environment_unknown: '等待环境比较', incomplete: '证据不完整',
+      };
+      const sourcePinned = Boolean(
+        (kind === 'tutorial' && tutorialSourceUrl && tutorialSource.reviewed_at)
+        || (provenance.dataset_revision
+        && provenance.task_id
+        && (datasetUrl || (provenance.gold_urls || []).length))
+      );
+      const recordingDimensions = recording?.width && recording?.height
+        ? `${recording.width}×${recording.height}`
+        : '尺寸未记录';
+      const recordingDuration = recording?.duration_seconds
+        ? `${Number(recording.duration_seconds).toFixed(1)} 秒`
+        : '时长未记录';
+      const physicalScreen = environment.screen || {};
+      const captureSurface = environment.capture_surface || {};
+      const browserViewport = environment.browser || {};
+      const capturedDimensions = captureSurface.width && captureSurface.height
+        ? { width: captureSurface.width, height: captureSurface.height, label: '录屏捕获面' }
+        : physicalScreen.width && physicalScreen.height
+          ? { width: physicalScreen.width, height: physicalScreen.height, label: '物理屏幕' }
+          : browserViewport.viewport_width && browserViewport.viewport_height
+            ? { width: browserViewport.viewport_width, height: browserViewport.viewport_height, label: '浏览器视口' }
+            : null;
+      const environmentCaptured = Boolean(
+        environment.system?.name
+        && environment.system?.machine
+        && capturedDimensions
+      );
+      const recordedEnvironmentText = environmentCaptured
+        ? [
+            environment.system.name,
+            environment.system.machine,
+            `${capturedDimensions.width}×${capturedDimensions.height}（${capturedDimensions.label}）`,
+            environment.browser?.family,
+          ].filter(Boolean).join(' · ')
+        : '旧版包未记录';
+      const successCriteriaCount = (understanding.success_criteria || []).length;
+      const adaptationCount = (environmentDiff.adaptation_plan || []).length;
+      const differenceCount = (environmentDiff.differences || []).length;
+      const outcomePassed = ['succeeded', 'passed', 'success'].includes(reproduction.status);
+      const outcomeFailed = ['failed', 'external-blocked', 'timed_out', 'cancelled'].includes(reproduction.status);
+      const evidenceStages = [
+        {
+          label: '01 · 来源',
+          title: sourcePinned ? '官方任务与版本已锁定' : '来源尚未完整锁定',
+          text: sourcePinned
+            ? kind === 'tutorial'
+              ? `${tutorialSource.publisher || '官方来源'} · ${tutorialSource.title || '教程'} · ${tutorialSource.reviewed_at || ''}`
+              : `${provenance.benchmark || '公开基准'} · ${provenance.task_id} · ${String(provenance.dataset_revision).slice(0, 12)}`
+            : '缺少不可变数据集修订、任务 ID 或官方来源。',
+          status: sourcePinned ? 'pass' : 'missing',
+          badge: sourcePinned ? 'PINNED' : 'MISSING',
+        },
+        {
+          label: '02 · 录屏',
+          title: recordingPrivacyState.quarantined ? '录像含私人内容，已隔离' : recordingMediaVerified ? '真实视频已抽样解码' : recording ? '已附视频，等待解码审计' : '未附带真实录屏',
+          text: recording
+            ? `${recordingDuration} · ${recordingDimensions}${recording.bytes ? ` · ${formatBytes(recording.bytes)}` : ''} · ${capture.label}${recordingMediaVerified ? ' · 首/中/尾画面可解码' : ''} · ${recordingPrivacyState.label}`
+            : '其他 Agent 无法观察原始操作过程，此项不会被算作已验证。',
+          status: recordingPrivacyState.quarantined ? 'fail' : recordingMediaVerified && recordingPrivacyState.passed ? 'pass' : recording ? 'adapt' : 'missing',
+          badge: recordingPrivacyState.quarantined ? 'QUARANTINED' : recordingMediaVerified && recordingPrivacyState.passed ? 'DECODED' : recordingMediaVerified ? 'SCOPE REVIEW' : recording ? 'VERIFY' : 'MISSING',
+        },
+        {
+          label: '03 · 环境',
+          title: environmentCaptured ? '录制系统与捕获环境已保存' : '录制环境不完整',
+          text: environmentCaptured
+            ? `${environment.system.name} · ${environment.system.machine || 'unknown'} · ${capturedDimensions.width}×${capturedDimensions.height}（${capturedDimensions.label}）`
+            : `已有 ${environment.system?.name || '未知系统'}，但缺少完整机器或捕获尺寸，无法判断窗口与画面的迁移方式。`,
+          status: environmentCaptured ? 'pass' : 'missing',
+          badge: environmentCaptured ? 'CAPTURED' : 'PARTIAL',
+        },
+        {
+          label: '04 · 理解',
+          title: successCriteriaCount ? 'Agent 目标与验收条件已结构化' : 'Agent 理解证据不完整',
+          text: `${interaction.step_count ?? record.step_count ?? 0} 个动作 · ${successCriteriaCount} 个成功条件 · ${(requiredEnvironment.applications || []).length} 个应用依赖`,
+          status: successCriteriaCount ? 'pass' : 'missing',
+          badge: successCriteriaCount ? 'UNDERSTOOD' : 'MISSING',
+        },
+        {
+          label: '05 · 适配',
+          title: environmentDiff.status === 'unknown'
+            ? '目标环境证据不足'
+            : adaptationCount ? '已生成目标环境适配计划' : '当前环境可直接复用',
+          text: adaptationCount
+            ? `${differenceCount} 项差异 · ${adaptationCount} 项适配；${(environmentDiff.adaptation_plan || []).slice(0, 2).map(item => item.strategy).join('、')}`
+            : environmentDiff.status === 'unknown'
+              ? '缺少录制主机或当前主机证据，不能据此判断桌面兼容。'
+              : `${differenceCount} 项关键差异；${environmentDiff.status || '待比较'}`,
+          status: environmentDiff.status === 'unknown' ? 'missing' : environmentDiff.status === 'blocked' ? 'fail' : adaptationCount ? 'adapt' : 'pass',
+          badge: environmentDiff.status === 'unknown' ? 'UNKNOWN' : environmentDiff.status === 'blocked' ? 'BLOCKED' : adaptationCount ? 'ADAPT' : 'MATCH',
+        },
+        {
+          label: '06 · 结果',
+          title: reproduction.label || '尚未执行复现',
+          text: reproduction.steps_run
+            ? `${reproduction.steps_run}/${reproduction.total_steps || record.step_count || '?'} 步 · ${(reproduction.evidence_sources || []).join('、') || '运行证据已保存'}`
+            : reproduction.error || '等待在当前环境运行并保存可审计结果。',
+          status: outcomePassed ? 'pass' : outcomeFailed ? 'fail' : 'missing',
+          badge: outcomePassed ? 'PASSED' : outcomeFailed ? 'FAILED' : 'NOT RUN',
+        },
+      ];
+      const evidenceTimeline = `
+        <section class="evidence-flow-section">
+          <div class="contract-summary-head"><strong>跨 Agent 复现证据链</strong><span>${escapeHtml(contract.score || 0)}/100</span></div>
+          <div class="evidence-flow">
+            ${evidenceStages.map((stage, index) => `
+              <div class="flow-step ${escapeHtml(stage.status)}">
+                <div class="flow-rail"><span class="flow-marker">${index + 1}</span></div>
+                <div class="flow-copy">
+                  <span class="flow-label">${escapeHtml(stage.label)}</span>
+                  <strong>${escapeHtml(stage.title)}</strong>
+                  <p>${escapeHtml(stage.text)}</p>
+                </div>
+                <span class="flow-status">${escapeHtml(stage.badge)}</span>
+              </div>`).join('')}
+          </div>
+        </section>`;
+      const contractSummary = `
+        <section class="contract-summary">
+          <div class="contract-summary-head"><strong>跨 Agent 可复现契约</strong><span>${escapeHtml(contract.score || 0)}/100 · ${escapeHtml(contractLabels[contract.status] || contract.status || '未评估')}</span></div>
+          <p>${contract.publishable_as_verified ? `${escapeHtml((contract.handoff?.success_criteria_count || 0))} 个成功条件；${escapeHtml((contract.handoff?.adaptation_plan || []).length)} 项目标环境适配。` : `未通过：${escapeHtml(contractBlockers(contract))}。`}</p>
+          ${recordingPrivacyState.quarantined ? '<span class="handoff-link" aria-disabled="true">Agent Handoff 已因隐私隔离锁定</span>' : `<a class="handoff-link" href="/api/community/records/${encodeURIComponent(record.record_id)}/handoff?${clientEnvironmentQuery()}" download>下载 Agent Handoff Capsule</a>`}
+        </section>`;
+      const auditExecution = isolatedAudit.execution || {};
+      const auditPassed = isolatedAudit.status === 'passed' && isolatedAudit.cross_agent_reproducible === true;
+      const auditFailed = isolatedAudit.status === 'failed';
+      const auditRunnable = Boolean(recording) && !recordingPrivacyState.quarantined && safeWeb.runnable === true;
+      const isolatedAuditPanel = `
+        <section class="isolated-audit ${auditPassed ? 'passed' : auditFailed ? 'failed' : ''}">
+          <div class="isolated-audit-head">
+            <div><strong>隔离 Agent 复现审计</strong><p>${recordingPrivacyState.quarantined ? '录像隐私检查失败，禁止把包交给隔离 Agent；原任务仍可在本地查看。' : auditPassed ? '已在独立 Python 进程和全新工作区重新导入包、校验录屏并完成真实来源验证。' : auditFailed ? `最近一次隔离复现失败：${escapeHtml(auditExecution.error || '未知错误')}` : '尚未证明该包离开原工作区后仍能运行。'}</p></div>
+            <span>${recordingPrivacyState.quarantined ? 'PRIVACY LOCKED' : auditPassed ? 'ISOLATED PASS' : auditFailed ? 'FAILED' : 'NOT AUDITED'}</span>
+          </div>
+          ${isolatedAudit.audited_at ? `<div class="isolated-audit-meta"><span>${isolatedAudit.worker_process_isolated ? '独立进程' : '进程状态未知'}</span><span>${isolatedAudit.recording_media_verified ? '录屏已解码' : '录屏未完成解码证明'}</span><span>${escapeHtml(auditExecution.mode || 'unknown')}</span><span>${escapeHtml(auditExecution.steps_run || 0)} 步</span><span>${escapeHtml(auditExecution.semantic_assertions_verified || 0)} 条语义验收</span><span>${escapeHtml(isolatedAudit.adaptation_count || 0)} 项适配</span><span>${escapeHtml(isolatedAudit.audited_at)}</span></div>` : ''}
+          <button class="secondary" id="auditReproduction" ${auditRunnable ? '' : 'disabled'}>${recordingPrivacyState.quarantined ? '隐私隔离：禁止跨 Agent 审计' : auditRunnable ? (auditPassed ? '重新运行隔离审计' : '运行隔离 Agent 审计') : '当前包不支持 Safe Web 隔离审计'}</button>
+          <div class="benchmark-run-status" id="isolatedAuditStatus" aria-live="polite"></div>
+        </section>`;
+      let detailDecision = {
+        kind: 'review', mark: '·', title: '可以导入，运行前需要审核',
+        text: '任务结构可以检查；进入工作台后确认桌面动作和运行权限。',
+      };
+      if (kind === 'tutorial') {
+        detailDecision = {
+          kind: 'ready', mark: '✓', title: '可以安全演练',
+          text: '流程来自官方教程；本地实验室可随时重置，不读取或修改真实账号数据。',
+        };
+      } else if (recordingPrivacyState.quarantined) {
+        detailDecision = {
+          kind: 'blocked', mark: '!', title: '隐私证据已隔离',
+          text: '录像抽样发现其他应用或私人内容，导入、播放和跨 Agent 交接均已锁定。',
+        };
+      } else if (!contract.publishable_as_verified) {
+        detailDecision = {
+          kind: 'review', mark: '!', title: '证据不完整，需要复核',
+          text: '可以查看任务结构，但当前证据尚未达到“已验证可复现”的发布标准。',
+        };
+      } else if (safeWeb.runnable) {
+        detailDecision = {
+          kind: 'ready', mark: '✓', title: '可以安全验证',
+          text: `只读访问 ${safeWeb.public_url_count || 0} 个公开来源，不控制桌面、不写系统剪贴板。`,
+        };
+      } else if (environmentDiff.status === 'unknown') {
+        detailDecision = {
+          kind: 'review', mark: '·', title: '需要补充环境证据',
+          text: '录制主机或当前主机信息不完整；补充环境快照后再判断桌面兼容性。',
+        };
+      } else if (environmentDiff.status === 'blocked') {
+        detailDecision = {
+          kind: 'blocked', mark: '!', title: '当前环境不建议运行',
+          text: '存在阻断差异；请先查看环境详情并更新适配计划。',
+        };
+      } else if (adaptationCount) {
+        detailDecision = {
+          kind: 'adapt', mark: '↺', title: `需要 ${adaptationCount} 项环境适配`,
+          text: '导入时会保留原始环境并生成当前设备的适配计划，不会自动执行。',
+        };
+      }
+      const permissionSummary = kind === 'tutorial'
+        ? '仅本地模拟数据'
+        : recordingPrivacyState.quarantined
+        ? '隐私隔离'
+        : safeWeb.runnable
+          ? '只读公开网页'
+          : (requiredEnvironment.applications || []).length
+            ? `${requiredEnvironment.applications.length} 个应用`
+            : '需工作台审核';
+      const environmentSummary = kind === 'tutorial'
+        ? '浏览器隔离实验室'
+        : environmentDiff.status === 'unknown'
+        ? '证据不足'
+        : environmentDiff.status === 'blocked'
+          ? '存在阻断'
+        : adaptationCount
+          ? `${adaptationCount} 项适配`
+          : environmentDiff.status === 'compatible'
+            ? '当前环境兼容'
+            : '运行前检查';
+      const primaryAction = `
+        <div class="save-area primary-detail-action">
+          ${savedId ? `
+            <p class="saved-note">已保存到“我的回放”</p>
+            <div class="handoff-ready"><strong>${recordingPrivacyState.quarantined ? '本地证据已隔离' : '复现交接已生成'}</strong><span>${recordingPrivacyState.quarantined ? '禁止播放、下载、导入和 Agent 交接；可进入 Studio 查看不含录像的任务结构' : `${safeWeb.runnable ? 'Safe Web · 零桌面输入' : 'Agent-first · 需要 Studio 审核'} · ${adaptationCount} 项环境适配 · ${successCriteriaCount} 个成功条件`}</span></div>
+            <a class="open-replay" href="/?workflow_id=${encodeURIComponent(savedId)}">打开工作台</a>
+          ` : `
+            <p class="safe-note"><strong>只保存，不运行。</strong>录屏、原环境和任务理解会一起保留。</p>
+            <button class="primary" id="saveRecord">保存到我的 Replay</button>
+          `}
+          <div id="saveFeedback" aria-live="polite"></div>
+        </div>`;
       els.detail.innerHTML = `
         <div class="detail-body">
           <div class="detail-head">
-            <div><div class="eyebrow">${(record.tags || []).includes('demo') ? 'Example replay' : 'Replay plugin'}</div><h2>${escapeHtml(record.workflow_title || record.workflow_name)}</h2></div>
-            <span class="category-mark">${escapeHtml(initials(record))}</span>
+            <div><div class="eyebrow">${escapeHtml(catalogKindLabel(record))}</div><h2>${escapeHtml(record.workflow_title || record.workflow_name)}</h2><span class="trust-badge">${record.moderation?.trust_tier === 'operator_reviewed' ? '人工复核' : '自动检查'} · ${record.moderation?.status === 'under_review' ? '待审核' : '已发布'}</span></div>
+            <div class="detail-head-actions"><span class="category-mark">${escapeHtml(initials(record))}</span><button class="secondary detail-close" type="button" data-close-detail aria-label="关闭 Replay 详情">关闭</button></div>
           </div>
-          <p class="detail-description">${escapeHtml(record.description || '没有提供说明。')}</p>
-          <div class="tag-row">${tags || '<span class="tag">general</span>'}</div>
-          <div class="detail-stats">
-            <div class="detail-stat"><span>Steps</span><strong>${escapeHtml(record.step_count || 0)}</strong></div>
-            <div class="detail-stat"><span>Saves</span><strong>${escapeHtml(stats.imports || 0)}</strong></div>
-            <div class="detail-stat"><span>Success</span><strong>${escapeHtml(rate)}</strong></div>
-          </div>
-          <div class="facts">
-            <div class="fact"><span>作者</span><strong>${escapeHtml(record.author || 'Anonymous')}</strong></div>
-            <div class="fact"><span>许可证</span><strong>${escapeHtml(record.record_license || '未声明')}</strong></div>
-            <div class="fact"><span>目标</span><strong>${escapeHtml(record.task_description || '未提供')}</strong></div>
-            <div class="fact"><span>变量</span><strong>${escapeHtml((record.variable_names || []).join(', ') || '无')}</strong></div>
-            <div class="fact"><span>平台</span><strong>${escapeHtml([platform.system, platform.release, platform.machine].filter(Boolean).join(' · ') || '未知')}</strong></div>
-          </div>
-        </div>
-        <div class="save-area">
-          ${savedId ? `
-            <p class="saved-note">已保存到“我的回放”</p>
-            <a class="open-replay" href="/?workflow_id=${encodeURIComponent(savedId)}">进入我的回放</a>
-          ` : `
-            <p class="safe-note">保存只会创建本地副本，不会启动回放。</p>
-            <button class="primary" id="saveRecord">保存到我的回放</button>
-          `}
-          <div id="saveFeedback" aria-live="polite"></div>
+          <div class="detail-purpose"><small>它会做什么</small><p>${escapeHtml(record.task_description || record.description || '没有提供任务说明。')}</p></div>
+          ${tutorialPanel}
+          <section class="detail-decision is-${escapeHtml(detailDecision.kind)}" aria-label="适配结论">
+            <div class="detail-decision-head"><span class="detail-decision-mark" aria-hidden="true">${escapeHtml(detailDecision.mark)}</span><div><small>适配结论</small><strong>${escapeHtml(detailDecision.title)}</strong><p>${escapeHtml(detailDecision.text)}</p></div><span class="detail-decision-result">${escapeHtml(currentResult)}</span></div>
+            <div class="detail-decision-facts">
+              <div><span>任务</span><strong>${escapeHtml(record.step_count || 0)} 步</strong></div>
+              <div><span>权限</span><strong>${escapeHtml(permissionSummary)}</strong></div>
+              <div><span>环境</span><strong>${escapeHtml(environmentSummary)}</strong></div>
+              <div><span>证据</span><strong>${contractScore === null ? '未评分' : `${escapeHtml(contractScore)}/100`}</strong></div>
+            </div>
+          </section>
+          ${primaryAction}
+          ${reproductionRunPanel}
+          <details class="detail-section">
+            <summary><span>复现证据与审计</span><strong>${escapeHtml(contract.score || 0)}/100</strong></summary>
+            <div class="detail-section-body">${evidenceTimeline}${contractSummary}${isolatedAuditPanel}</div>
+          </details>
+          <details class="detail-section">
+            <summary><span>环境与录制详情</span><strong>${escapeHtml(environmentDiff.status || '待检查')}</strong></summary>
+            <div class="detail-section-body">
+              <div class="facts">
+                <div class="fact"><span>作者</span><strong>${escapeHtml(record.author || 'Anonymous')}</strong></div>
+                <div class="fact"><span>许可证</span><strong>${escapeHtml(record.record_license || '未声明')}</strong></div>
+                <div class="fact"><span>目标</span><strong>${escapeHtml(record.task_description || '未提供')}</strong></div>
+                <div class="fact"><span>变量</span><strong>${escapeHtml((record.variable_names || []).join(', ') || '无')}</strong></div>
+                <div class="fact"><span>平台</span><strong>${escapeHtml([platform.system, platform.release, platform.machine].filter(Boolean).join(' · ') || '未知')}</strong></div>
+                <div class="fact"><span>录制环境</span><strong>${escapeHtml(recordedEnvironmentText)}</strong></div>
+                <div class="fact"><span>环境匹配</span><strong>${escapeHtml(environmentDiff.status || '待检查')} · ${escapeHtml(environmentDiff.warning_count || 0)} warnings</strong></div>
+                <div class="fact"><span>Agent 理解</span><strong>${escapeHtml(agentUnderstandingText)}</strong></div>
+                <div class="fact"><span>运行视频</span><strong>${recordingPrivacyState.quarantined ? '视频可解码，但因隐私失败已隔离' : recordingMediaVerified ? (recording.capture_scope === 'public-web-evidence' ? '来源证据视频已随包附带并通过抽样解码' : '录屏已随包附带并通过抽样解码') : recording ? '已附视频，尚未完成解码审计' : '未附带运行视频'}</strong></div>
+                ${recording ? `<div class="fact"><span>捕获范围</span><strong>${escapeHtml(capture.label)}${recording.contains_other_apps === false ? ' · 不含其他应用' : ''}</strong></div>` : ''}
+                ${recording ? `<div class="fact"><span>捕获方式</span><strong>${escapeHtml(captureMethod)}${recording.capture_sampling ? ` · ${escapeHtml(recording.capture_sampling)}` : ''}</strong></div>` : ''}
+                ${sourceTrace.page_count ? `<div class="fact"><span>来源证据链</span><strong>${escapeHtml(sourceTrace.verified_page_count || 0)}/${escapeHtml(sourceTrace.page_count)} 个公开页面 · 绑定运行 ${escapeHtml(sourceTrace.source_run_id || '')}</strong></div>` : ''}
+                ${recording ? `<div class="fact"><span>隐私检查</span><strong>${escapeHtml(recordingPrivacyState.label)}</strong></div>` : ''}
+                ${benchmarkFacts}
+                ${kind === 'tutorial' ? `
+                  <div class="fact"><span>教程来源</span><strong>${escapeHtml(tutorialSource.publisher || '')} · ${escapeHtml(tutorialSource.title || '')}</strong></div>
+                  <div class="fact"><span>媒体</span><strong>${escapeHtml(tutorialSource.media || '官方帮助文档')}</strong></div>
+                  <div class="fact"><span>审阅日期</span><strong>${escapeHtml(tutorialSource.reviewed_at || '未记录')}</strong></div>
+                  <div class="fact"><span>演练范围</span><strong>本地模拟数据 · 可重置 · 无外部写入</strong></div>
+                ` : ''}
+                ${kind === 'internal' ? '<div class="fact"><span>任务类型</span><strong>GPA 自建内部回归，不属于公开基准</strong></div>' : ''}
+                ${kind === 'case' ? '<div class="fact"><span>运行范围</span><strong>本地 Northstar 测试台 · 无外部写入</strong></div>' : ''}
+              </div>
+              ${provenance.disclosure ? `<div class="source-note">${escapeHtml(provenance.disclosure)}${provenance.reproduction_source_policy ? `<br><br>${escapeHtml(provenance.reproduction_source_policy)}` : ''}</div>` : ''}
+              <div class="adaptation-note">
+                <strong>其他 Agent 的复现依据</strong>
+                <span>应用：${escapeHtml((requiredEnvironment.applications || []).join(' · ') || '通用')} · 站点：${escapeHtml((requiredEnvironment.web_hosts || []).join(' · ') || '无固定站点')}</span>
+                ${environmentDifferences || '<div>当前环境与录制环境没有关键差异。</div>'}
+                ${environmentAdaptations ? `<div style="margin-top:5px"><strong>Agent 适配计划</strong></div>${environmentAdaptations}` : ''}
+              </div>
+              ${recording ? `<div class="recording-context ${recordingPrivacyState.passed ? '' : 'warn'}"><div class="recording-context-head"><strong>${escapeHtml(capture.label)} · ${escapeHtml(captureMethod)}</strong><span>${recordingPrivacyState.quarantined ? 'QUARANTINED' : recordingPrivacyState.passed ? 'PRIVACY CHECKED' : 'REVIEW SCOPE'}</span></div><p>${recordingPrivacyState.quarantined ? '抽样画面发现其他应用或私人内容；录像、包下载、导入和 Agent 交接均已锁定。' : recordingPrivacyState.passed ? '首、中、尾三处画面均完成范围抽样，未发现其他应用窗口。' : '媒体可播放不等于内容适合公开；发布者仍需检查整段视频是否包含其他应用或私人信息。'}</p></div>${recordingPrivacyState.quarantined ? '' : `<video class="recording-player" controls preload="metadata" src="/api/community/records/${encodeURIComponent(record.record_id)}/recording"></video>`}` : ''}
+            </div>
+          </details>
+          <div class="report-area"><button class="ghost" type="button" id="reportRecord">举报内容或安全问题</button></div>
         </div>
       `;
       document.getElementById('saveRecord')?.addEventListener('click', () => saveSelectedRecord().catch(error => showSaveFeedback(error.message, 'error')));
+      document.getElementById('runBenchmark')?.addEventListener('click', () => startBenchmarkRun().catch(error => showBenchmarkRunError(error.message)));
+      document.getElementById('stopBenchmark')?.addEventListener('click', () => stopBenchmarkRun().catch(error => showBenchmarkRunError(error.message)));
+      document.getElementById('auditReproduction')?.addEventListener('click', () => runIsolatedAudit().catch(error => showIsolatedAuditError(error.message)));
+      document.getElementById('reportRecord')?.addEventListener('click', openReportDialog);
+      bindDetailClose();
+      updateBenchmarkRunControls();
+    }
+
+    function openReportDialog() {
+      if (!state.selected) return;
+      els.reportCategory.value = '';
+      els.reportDetails.value = '';
+      els.reportFeedback.innerHTML = '';
+      if (!els.reportDialog.open) els.reportDialog.showModal();
+      requestAnimationFrame(() => els.reportCategory.focus({ preventScroll: true }));
+    }
+
+    function closeReportDialog() {
+      if (els.reportDialog.open) els.reportDialog.close();
+    }
+
+    async function submitReport(event) {
+      event.preventDefault();
+      const recordId = state.selected?.record_id;
+      if (!recordId || !els.reportCategory.value) return;
+      const button = document.getElementById('submitReport');
+      button.disabled = true;
+      els.reportFeedback.innerHTML = '<div class="feedback">正在提交…</div>';
+      try {
+        const reportId = `rpt_${globalThis.crypto?.randomUUID?.().replaceAll('-', '').slice(0, 16) || `${Date.now()}local`}`;
+        const data = await postJson(`/api/community/records/${encodeURIComponent(recordId)}/report`, {
+          category: els.reportCategory.value,
+          details: els.reportDetails.value.trim(),
+          report_id: reportId,
+        });
+        els.reportFeedback.innerHTML = `<div class="feedback">已收到，编号 ${escapeHtml(data.report.report_id)}。${data.report.record_status === 'restricted' ? '该内容已临时限制，等待复核。' : ''}</div>`;
+        window.setTimeout(() => { closeReportDialog(); loadStore({ preserveSelection: false }).catch(showStoreLoadError); }, 900);
+      } catch (error) {
+        els.reportFeedback.innerHTML = `<div class="feedback error">${escapeHtml(error.message)}</div>`;
+      } finally {
+        button.disabled = false;
+      }
     }
 
     function showSaveFeedback(message, kind = '') {
       const target = document.getElementById('saveFeedback');
-      if (target) target.innerHTML = `<div class="feedback ${kind}">${escapeHtml(message)}</div>`;
+      if (target) target.innerHTML = `<div class="feedback state-message ${kind === 'error' ? 'is-error' : kind === 'warn' ? 'is-warning' : 'is-success'}">${escapeHtml(message)}</div>`;
     }
 
-    async function saveSelectedRecord() {
+    function updateBenchmarkRunControls() {
+      const start = document.getElementById('runBenchmark');
+      const stop = document.getElementById('stopBenchmark');
+      const feedback = document.getElementById('benchmarkRunStatus');
+      if (!start || !stop || !feedback || !state.selected) return;
+      const workflowId = state.selected.saved_workflow_id || state.selected.workflow_id || '';
+      const safeWebReady = state.selected.safe_web?.runnable === true;
+      const run = state.runtimeStatus?.run || {};
+      const runtimeUnavailable = state.runtimeStatus?.unavailable === true;
+      const isCurrent = Boolean(run.workflow_id && run.workflow_id === workflowId);
+      start.disabled = runtimeUnavailable || !safeWebReady || !state.selected.saved_workflow_id || Boolean(run.active);
+      stop.disabled = runtimeUnavailable || !(run.active && isCurrent && run.execution_mode === 'safe_web');
+      feedback.className = 'benchmark-run-status';
+      if (runtimeUnavailable) {
+        feedback.classList.add('error');
+        feedback.textContent = '运行服务暂不可用，恢复连接后才能开始验证。';
+      } else if (run.active && isCurrent) {
+        const step = run.current_step?.number || run.steps_run || 0;
+        feedback.classList.add('running');
+        feedback.textContent = `正在验证：${run.status || 'running'} · ${step}/${run.total_steps || state.selected.step_count || 0} 步 · ${run.elapsed_seconds || 0}s`;
+      } else if (run.active) {
+        feedback.classList.add('running');
+        feedback.textContent = `另一个任务正在运行：${run.workflow_id || 'unknown'}。完成后可运行当前案例。`;
+      } else if (isCurrent && run.run_id) {
+        const succeeded = run.success === true;
+        feedback.classList.add(succeeded ? 'success' : 'error');
+        feedback.textContent = succeeded
+          ? `验证通过：${run.steps_run || 0} 步，${run.elapsed_seconds || 0}s，零桌面输入。`
+          : `${run.failure_category === 'external_blocker' ? '外部网站阻止复现' : '验证失败'}：${run.error || run.status || 'unknown'}`;
+      } else {
+        const reproduction = state.selected.reproduction || {};
+        if (['succeeded', 'passed', 'success'].includes(reproduction.status)) feedback.classList.add('success');
+        if (reproduction.status === 'failed' || reproduction.status === 'external-blocked') feedback.classList.add('error');
+        feedback.textContent = reproduction.label
+          ? `最近结果：${reproduction.label}${reproduction.steps_run ? ` · ${reproduction.steps_run} 步` : ''}`
+          : (state.selected.saved_workflow_id ? '等待运行。' : '请先保存到“我的回放”，再执行验证。');
+      }
+    }
+
+    function showBenchmarkRunError(message) {
+      const feedback = document.getElementById('benchmarkRunStatus');
+      if (!feedback) return;
+      feedback.className = 'benchmark-run-status error';
+      feedback.textContent = message || '验证启动失败。';
+    }
+
+    function showIsolatedAuditError(message) {
+      const feedback = document.getElementById('isolatedAuditStatus');
+      const button = document.getElementById('auditReproduction');
+      if (button) {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.textContent = button.dataset.idleLabel || '运行隔离 Agent 审计';
+      }
+      if (!feedback) return;
+      feedback.className = 'benchmark-run-status error';
+      feedback.textContent = message || '隔离复现审计失败。';
+    }
+
+    function runIsolatedAudit() {
+      return runStoreAction('selected-record', '隔离复现审计', runIsolatedAuditOnce);
+    }
+
+    async function runIsolatedAuditOnce() {
+      const record = state.selected;
+      if (!record || record.record_id !== state.selectedId) return;
+      const recordId = record.record_id;
+      const version = state.selectionVersion;
+      const button = document.getElementById('auditReproduction');
+      const feedback = document.getElementById('isolatedAuditStatus');
+      if (button) {
+        button.dataset.idleLabel = button.textContent;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = '正在隔离导入并访问真实来源…';
+      }
+      if (feedback) {
+        feedback.className = 'benchmark-run-status running';
+        feedback.textContent = '正在创建全新 Agent 工作区、校验录屏和执行成功条件。';
+      }
+      const data = await postJson(`/api/community/records/${encodeURIComponent(recordId)}/audit`, {
+        client_environment: clientEnvironmentSnapshot(),
+      }, { timeoutMs: 300000 });
+      if (version !== state.selectionVersion || state.selectedId !== recordId) return;
+      state.selected.isolated_reproduction_audit = data.summary;
+      const summary = state.records.find(item => item.record_id === recordId);
+      if (summary) summary.isolated_reproduction_audit = data.summary;
+      renderCatalog();
+      renderDetail();
+      const result = document.getElementById('isolatedAuditStatus');
+      if (result) {
+        result.className = `benchmark-run-status ${data.summary.cross_agent_reproducible ? 'success' : 'error'}`;
+        result.textContent = data.summary.cross_agent_reproducible
+          ? `隔离复现通过：${data.summary.execution.steps_run} 步，零桌面输入。`
+          : `隔离复现未通过：${data.summary.execution.error || data.summary.status}`;
+      }
+    }
+
+    function startBenchmarkRun() {
+      return runStoreAction('selected-record', '启动安全验证', startBenchmarkRunOnce);
+    }
+
+    async function startBenchmarkRunOnce() {
+      const record = state.selected;
+      const workflowId = record?.saved_workflow_id || '';
+      if (!record || record.record_id !== state.selectedId || !workflowId) {
+        throw new Error('请先导入该案例并生成复现计划。');
+      }
+      if (record.safe_web?.runnable !== true) {
+        throw new Error(record.safe_web?.reason || '该案例当前不能安全运行。');
+      }
+      const button = document.getElementById('runBenchmark');
+      const idleLabel = button?.textContent || '运行安全复现';
+      if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = '正在启动验证…';
+      }
+      try {
+        await sendStoreHeartbeat();
+        const arm = await postJson('/api/run/arm', {
+          workflow_id: workflowId,
+          client_id: STORE_CLIENT_ID,
+        }, { timeoutMs: 20000 });
+        await postJson(`/api/workflows/${encodeURIComponent(workflowId)}/run`, {
+          arm_token: arm.arm_token,
+          client_id: STORE_CLIENT_ID,
+          execution_mode: 'safe_web',
+          countdown_seconds: 0,
+          max_runtime_seconds: 180,
+          client_environment: clientEnvironmentSnapshot(),
+        }, { timeoutMs: 60000 });
+      } finally {
+        const statusApplied = await loadHeaderStatus();
+        if (button?.isConnected) {
+          button.removeAttribute('aria-busy');
+          button.textContent = idleLabel;
+          if (!statusApplied) button.disabled = true;
+        }
+      }
+    }
+
+    function stopBenchmarkRun() {
+      return runStoreAction('selected-record', '停止安全验证', stopBenchmarkRunOnce);
+    }
+
+    async function stopBenchmarkRunOnce() {
+      const run = state.runtimeStatus?.run || {};
+      const workflowId = state.selected?.saved_workflow_id || state.selected?.workflow_id || '';
+      if (!run.active || run.workflow_id !== workflowId || run.execution_mode !== 'safe_web') return;
+      const button = document.getElementById('stopBenchmark');
+      const idleLabel = button?.textContent || '停止验证';
+      if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = '正在停止…';
+      }
+      try {
+        await postJson('/api/run/stop', {}, { timeoutMs: 20000 });
+      } finally {
+        const statusApplied = await loadHeaderStatus();
+        if (button?.isConnected) {
+          button.removeAttribute('aria-busy');
+          button.textContent = idleLabel;
+          if (!statusApplied) button.disabled = true;
+        }
+      }
+    }
+
+    function saveSelectedRecord() {
+      return runStoreAction('selected-record', '保存 Replay', saveSelectedRecordOnce);
+    }
+
+    async function saveSelectedRecordOnce() {
       const record = state.selected;
       if (!record || record.record_id !== state.selectedId) return;
       const recordId = record.record_id;
@@ -619,9 +1829,12 @@
       const button = document.getElementById('saveRecord');
       if (button) { button.disabled = true; button.textContent = '正在保存…'; }
       try {
-        const data = await postJson(`/api/community/records/${encodeURIComponent(recordId)}/import`, {});
+        const data = await postJson(`/api/community/records/${encodeURIComponent(recordId)}/import`, {
+          client_environment: clientEnvironmentSnapshot(),
+        }, { timeoutMs: 120000 });
         if (version !== state.selectionVersion || state.selectedId !== recordId) return;
         state.selected.saved_workflow_id = data.workflow_id;
+        state.selected.import_gate = data.workflow?.reproduction_gate || null;
         const summary = state.records.find(item => item.record_id === recordId);
         if (!data.already_saved) {
           const nextImports = Number(state.selected.stats?.imports || 0) + 1;
@@ -629,74 +1842,469 @@
           if (summary) summary.stats = { ...(summary.stats || {}), imports: nextImports };
         }
         if (summary) summary.saved_workflow_id = data.workflow_id;
+        if (summary) summary.import_gate = data.workflow?.reproduction_gate || null;
         renderCatalog();
         renderDetail();
-        showSaveFeedback(data.already_saved ? '这个工作流已经在“我的回放”中。' : '保存成功，可以进入个人回放页继续配置。');
+        const gate = data.workflow?.reproduction_gate || {};
+        const gateLabel = gate.status === 'ready' ? '当前环境可直接复现' : gate.status === 'adaptation_required' ? '已生成环境适配计划' : gate.status === 'blocked' ? '需要重新规划后运行' : '需要人工审核证据';
+        showSaveFeedback(data.already_saved ? `已更新复现计划：${gateLabel}。` : `导入完成：${gateLabel}。`);
         await loadLocalWorkflows();
       } catch (error) {
         if (version === state.selectionVersion && state.selectedId === recordId && button) {
           button.disabled = false;
-          button.textContent = '保存到我的回放';
+          button.textContent = '保存到我的 Replay';
         }
         throw error;
       }
     }
 
-    function arrayBufferToBase64(buffer) {
-      const bytes = new Uint8Array(buffer);
-      const chunks = [];
-      const chunkSize = 0x8000;
-      for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-        chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)));
-      }
-      return btoa(chunks.join(''));
+    function formatBytes(value) {
+      const bytes = Number(value || 0);
+      if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
+      if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+      return `${bytes} B`;
     }
 
-    async function publishLocalWorkflow() {
+    function updatePackagePublishState() {
+      const contract = state.stagedPackageInspection?.reproduction_contract || {};
+      const ready = contract.publishable_as_verified === true;
+      els.confirmPackageUpload.disabled = !(
+        state.stagedPackageFile && state.stagedPackageInspection?.inspection_token && publisherDeclarationReady() && ready
+      );
+      els.confirmPackageUpload.textContent = state.stagedPackageInspection
+        ? ready ? '发布为可复现插件' : '证据未达发布标准'
+        : '确认发布检查过的包';
+      els.confirmPackageUpload.title = state.stagedPackageInspection && !ready
+        ? `未通过：${contractBlockers(contract)}`
+        : '';
+    }
+
+    function clearStagedPackage() {
+      state.stagedPackageFile = null;
+      state.stagedPackageInspection = null;
+      els.packageFile.value = '';
+      els.packageInspection.classList.remove('visible');
+      els.packageInspection.innerHTML = '';
+      els.dropzoneState.textContent = '最大 64 MiB';
+      updatePackagePublishState();
+    }
+
+    function renderPackageInspection(inspection, file) {
+      const evidence = inspection.evidence || {};
+      const safetyScan = inspection.safety_scan || {};
+      const recording = evidence.recording || {};
+      const sourceTrace = evidence.source_trace || {};
+      const capture = recordingScope(recording);
+      const privacy = recordingPrivacy(recording);
+      const captureMethod = recordingMethod(recording);
+      const mediaProbe = evidence.recording_media_probe || {};
+      const environmentDiff = evidence.environment_diff || {};
+      const agentUnderstanding = evidence.agent_understanding || {};
+      const contract = inspection.reproduction_contract || evidence.reproduction_contract || {};
+      const interactionProfile = agentUnderstanding.interaction_profile || {};
+      const riskControls = agentUnderstanding.risk_controls || {};
+      const semanticPlan = agentUnderstanding.semantic_plan || [];
+      const actionCounts = interactionProfile.action_counts || {};
+      const apps = evidence.required_applications || [];
+      const hosts = evidence.required_web_hosts || [];
+      const measuredWidth = Number(mediaProbe.width || recording.width || 0);
+      const measuredHeight = Number(mediaProbe.height || recording.height || 0);
+      const measuredDuration = Number(mediaProbe.duration_seconds || recording.duration_seconds || 0);
+      const dimensions = measuredWidth && measuredHeight ? `${measuredWidth}×${measuredHeight}` : '尺寸未记录';
+      const duration = measuredDuration ? `${measuredDuration.toFixed(1)} 秒` : '时长未记录';
+      const compatibilityLabels = {
+        compatible: '当前环境兼容', degraded: '存在可适配差异', blocked: '存在阻断差异', unknown: '环境信息不足',
+      };
+      const inspectedEnvironment = evidence.environment || {};
+      const inspectedSystem = inspectedEnvironment.system || {};
+      const inspectedBrowser = inspectedEnvironment.browser || {};
+      const inspectedCapture = inspectedEnvironment.capture_surface || {};
+      const inspectedScreen = inspectedEnvironment.screen || {};
+      const inspectedDimensions = inspectedCapture.width && inspectedCapture.height
+        ? `${inspectedCapture.width}×${inspectedCapture.height}（录屏捕获面）`
+        : inspectedBrowser.viewport_width && inspectedBrowser.viewport_height
+          ? `${inspectedBrowser.viewport_width}×${inspectedBrowser.viewport_height}（浏览器视口）`
+          : inspectedScreen.width && inspectedScreen.height
+            ? `${inspectedScreen.width}×${inspectedScreen.height}（物理屏幕）`
+            : '捕获尺寸未记录';
+      const environmentEvidenceText = [
+        inspectedSystem.name || '未知系统',
+        inspectedSystem.machine || '机器架构未记录',
+        inspectedDimensions,
+        inspectedBrowser.family || '浏览器未记录',
+        compatibilityLabels[environmentDiff.status] || environmentDiff.status || '待比较',
+      ].join(' · ');
+      const evidenceCard = (available, title, text) => `
+        <div class="evidence-item ${available ? '' : 'missing'}">
+          <strong>${available ? '✓' : '缺少'} ${escapeHtml(title)}</strong>
+          <span>${escapeHtml(text)}</span>
+        </div>`;
+      const differences = (environmentDiff.differences || []).slice(0, 5).map(item => {
+        const scale = item.scale_hint ? ` · 建议缩放 ${item.scale_hint.x}×${item.scale_hint.y}` : '';
+        return `<div class="environment-difference ${escapeHtml(item.severity || '')}"><strong>${escapeHtml(item.field)}</strong>：${escapeHtml(item.recorded)} → ${escapeHtml(item.current)}${escapeHtml(scale)}</div>`;
+      }).join('');
+      const adaptationPlan = (environmentDiff.adaptation_plan || []).slice(0, 5).map(item => (
+        `<div class="environment-difference"><strong>${escapeHtml(item.strategy || '适配')}</strong>：${escapeHtml(item.action || '')}</div>`
+      )).join('');
+      const actionProof = Object.entries(actionCounts).map(([action, count]) => (
+        `<span>${escapeHtml(action)} × ${escapeHtml(count)}</span>`
+      )).join('');
+      const criteriaProof = (agentUnderstanding.success_criteria || []).slice(0, 5).map(item => (
+        `<div>第 ${escapeHtml(item.step)} 步 · ${escapeHtml(item.type)} · ${escapeHtml(item.expected || item.description || '')}</div>`
+      )).join('');
+      const semanticProof = semanticPlan.slice(0, 6).map(item => (
+        `<div><b>${escapeHtml(String(item.phase || '').toUpperCase())}</b> · 第 ${escapeHtml(item.step)} 步 · ${escapeHtml(item.intent || item.action_type || '')}</div>`
+      )).join('');
+      const previewUrl = safeHttpUrl(inspection.recording_preview_url) || (
+        String(inspection.recording_preview_url || '').startsWith('/') ? inspection.recording_preview_url : ''
+      );
+      const contractLabels = {
+        verified: '当前环境可直接复现', adaptation_required: '证据完整，需要按计划适配',
+        environment_unknown: '证据完整，等待目标环境比较', incomplete: '证据不完整，不能认证发布',
+      };
+      const contractChecks = (contract.checks || []).map(item => (
+        `<span class="contract-check ${item.passed ? '' : 'failed'}">${item.passed ? '✓' : '×'} ${escapeHtml(item.label || item.id)}</span>`
+      )).join('');
+      els.packageInspection.innerHTML = `
+        <div class="inspection-head">
+          <div>
+            <h3>${escapeHtml(inspection.workflow_title || inspection.workflow_name || file.name)}</h3>
+            <p>${escapeHtml(file.name)} · ${formatBytes(inspection.package_bytes)} · ${Number(inspection.step_count || 0)} 步</p>
+          </div>
+          <span class="source-badge">快照与容器已校验</span>
+        </div>
+        <div class="contract-gate ${contract.publishable_as_verified ? '' : 'incomplete'}">
+          <div class="contract-score" style="--score:${Number(contract.score || 0)}">${Number(contract.score || 0)}</div>
+          <div class="contract-copy">
+            <strong>跨 Agent 可复现契约 · ${escapeHtml(contractLabels[contract.status] || contract.status || '正在计算')}</strong>
+            <p>${contract.publishable_as_verified ? '录屏、原环境、任务理解和验收条件已形成机器可读交接包。' : '此文件可以检查，但缺少关键证据，不能以“已验证可复现插件”发布。'}</p>
+            <div class="contract-checks">${contractChecks}</div>
+          </div>
+        </div>
+        <div class="evidence-grid">
+          ${evidenceCard(safetyScan.passed === true, '社区内容安全扫描', safetyScan.passed === true ? `未发现密钥、私钥或危险执行动作 · 已扫描 ${formatBytes(safetyScan.scanned_bytes)}` : `${Number(safetyScan.finding_count || 0)} 个阻断问题，发布前必须移除`)}
+          ${evidenceCard(evidence.recording_media_verified, '可解码真实运行视频', evidence.has_recording ? `${duration} · ${dimensions} · ${formatBytes(recording.bytes)} · ${capture.label} · 解码 ${Number(mediaProbe.decoded_sample_count || 0)}/${Number(mediaProbe.sample_count || 0)} 个抽样画面${evidence.recording_media_verified ? '' : ` · ${mediaProbe.error || '视频不可验证'}`}` : '其他 Agent 将看不到原始操作过程')}
+          ${evidenceCard(evidence.has_source_trace || recording.capture_scope !== 'public-web-evidence', '公开来源机读证据链', evidence.has_source_trace ? `${Number(sourceTrace.verified_page_count || 0)}/${Number(sourceTrace.page_count || 0)} 个页面已绑定到运行 ${sourceTrace.source_run_id || 'unknown'}` : recording.capture_scope === 'public-web-evidence' ? '公开来源证据视频缺少 source_trace.json' : '当前是直接屏幕录制，不要求 Safe Web source trace')}
+          ${evidenceCard(privacy.passed, '捕获与隐私范围', evidence.has_recording ? `${capture.label} · ${captureMethod} · ${privacy.label}` : '没有可检查的录屏范围')}
+          ${evidenceCard(evidence.has_environment, '录制环境', evidence.has_environment ? environmentEvidenceText : '无法比较机器与窗口差异')}
+          ${evidenceCard(evidence.has_understanding, 'Agent 理解', evidence.has_understanding ? `${apps.length} 个应用 · ${hosts.length} 个站点` : '缺少目标、依赖和适配说明')}
+          ${evidenceCard(Number(evidence.success_criteria_count) > 0, '成功条件', `${Number(evidence.success_criteria_count || 0)} 个可验证检查点 · ${evidence.read_only ? '只读任务' : '可能修改外部状态'}`)}
+        </div>
+        ${differences ? `<div class="environment-differences">${differences}</div>` : `<div class="environment-differences"><div class="environment-difference"><strong>${escapeHtml(compatibilityLabels[environmentDiff.status] || '环境比较')}</strong>：未发现需要适配的关键差异。</div></div>`}
+        ${adaptationPlan ? `<div class="environment-differences"><div class="mini-label">Agent 适配计划</div>${adaptationPlan}</div>` : ''}
+        <div class="inspection-proof">
+          <div class="agent-proof">
+            <h4>Agent 对任务的可移植理解</h4>
+            <p>${escapeHtml(agentUnderstanding.goal || inspection.task_description || '未提供任务目标')}</p>
+            <div class="action-proof">${actionProof || '<span>无动作摘要</span>'}</div>
+            <div class="mini-label">可移植语义计划</div>
+            <div class="criteria-proof">${semanticProof || '<div>未附带逐步语义计划。</div>'}</div>
+            <div class="mini-label" style="margin-top:9px">验收条件</div>
+            <div class="criteria-proof">${criteriaProof || '<div>未附带可验证的成功条件。</div>'}</div>
+            <p style="margin-top:8px">风险：${riskControls.read_only ? '只读' : '可能修改外部状态，需要显式授权'} · 复现需求：${escapeHtml(apps.join(' · ') || '通用')} · ${escapeHtml(hosts.join(' · ') || '无固定站点')}</p>
+          </div>
+          <div class="recording-proof">
+            <h4>发布前播放真实录屏</h4>
+            <p>${evidence.has_recording ? `视频来自当前已校验快照，不是元数据占位符。捕获范围：${escapeHtml(capture.label)}；${escapeHtml(privacy.label)}。` : '此包未提供视频，发布后其他 Agent 无法观看原始操作。'}</p>
+            ${previewUrl ? `<video class="inspection-recording" controls preload="metadata" src="${escapeHtml(previewUrl)}"></video>` : ''}
+            <div class="snapshot-proof">SHA-256 ${escapeHtml(inspection.package_sha256 || '')}<br>快照 ${Math.round(Number(inspection.expires_in_seconds || 0) / 60)} 分钟后过期</div>
+          </div>
+        </div>
+        <div class="feedback">确认发布只会使用这份已检查快照，不会再次上传或替换文件。</div>
+        <div class="upload-progress" hidden><span></span></div>`;
+      els.packageInspection.classList.add('visible');
+    }
+
+    async function inspectCommunityPackage(file) {
+      if (!file) return;
+      const requestVersion = ++state.packageInspectionVersion;
+      state.packageInspectionRequest?.abort();
+      clearStagedPackage();
+      if (file.size > 64 * 1024 * 1024) throw new Error('社区包不能超过 64 MiB。');
+      els.dropzoneState.textContent = `检查 ${file.name}`;
+      showPublishFeedback(`正在检查 ${file.name} 的结构和证据…`);
+      const clientEnvironment = clientEnvironmentQuery();
+      let data;
+      try {
+        data = await streamPackageInspection(file, clientEnvironment, value => {
+          if (requestVersion === state.packageInspectionVersion) showPublishFeedback(`正在上传并检查 ${file.name}… ${value}%`);
+        });
+      } catch (error) {
+        if (requestVersion !== state.packageInspectionVersion) return false;
+        throw error;
+      }
+      if (requestVersion !== state.packageInspectionVersion) return false;
+      state.stagedPackageFile = file;
+      state.stagedPackageInspection = data.inspection;
+      renderPackageInspection(data.inspection, file);
+      updatePackagePublishState();
+      els.dropzoneState.textContent = data.inspection.reproduction_contract?.publishable_as_verified
+        ? '证据完整，可发布'
+        : '证据不完整';
+      showPublishFeedback('检查完成。请核对证据、勾选隐私确认，再发布。');
+      return true;
+    }
+
+    function streamPackageInspection(file, clientEnvironment, onProgress) {
+      return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        state.packageInspectionRequest = request;
+        request.timeout = 180000;
+        request.open('POST', `${API_BASE}/api/community/inspect?${clientEnvironment}`);
+        request.setRequestHeader('Content-Type', 'application/zip');
+        request.upload.addEventListener('progress', event => {
+          if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100));
+        });
+        request.addEventListener('load', () => {
+          if (state.packageInspectionRequest === request) state.packageInspectionRequest = null;
+          let data = {};
+          try { data = JSON.parse(request.responseText || '{}'); } catch (_) {}
+          if (request.status < 200 || request.status >= 300 || data.ok === false) {
+            reject(new Error(data.error || request.statusText || '检查失败'));
+            return;
+          }
+          resolve(data);
+        });
+        request.addEventListener('error', () => {
+          if (state.packageInspectionRequest === request) state.packageInspectionRequest = null;
+          reject(new Error('网络连接中断，包未完成检查。'));
+        });
+        request.addEventListener('abort', () => {
+          if (state.packageInspectionRequest === request) state.packageInspectionRequest = null;
+          reject(new Error('检查已取消。'));
+        });
+        request.addEventListener('timeout', () => {
+          if (state.packageInspectionRequest === request) state.packageInspectionRequest = null;
+          reject(new Error('包检查等待时间过长，请重试。'));
+        });
+        request.send(file);
+      });
+    }
+
+    function downloadCommunityPackage(recordId, onProgress) {
+      return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.timeout = 180000;
+        request.open('GET', `${API_BASE}/api/community/records/${encodeURIComponent(recordId)}/download`);
+        request.responseType = 'blob';
+        request.addEventListener('progress', event => {
+          if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100));
+        });
+        request.addEventListener('load', () => {
+          if (request.status < 200 || request.status >= 300) {
+            reject(new Error(`真实录屏包下载失败（HTTP ${request.status}）`));
+            return;
+          }
+          resolve(request.response);
+        });
+        request.addEventListener('error', () => reject(new Error('真实录屏包下载连接中断。')));
+        request.addEventListener('timeout', () => reject(new Error('真实录屏包下载超时，请重试。')));
+        request.send();
+      });
+    }
+
+    function loadRecordedExample() {
+      return runStoreAction('package-source', '载入录屏示例', loadRecordedExampleOnce);
+    }
+
+    async function loadRecordedExampleOnce() {
+      const eligibleRecordedExample = record => Boolean(
+        record
+        && (record.artifacts || {}).recording
+        && !recordingPrivacy((record.artifacts || {}).recording).quarantined
+        && (
+          recordKind(record) === 'benchmark'
+          || (
+            recordKind(record) === 'community'
+            && record.reproduction_contract?.publishable_as_verified === true
+          )
+        )
+      );
+      const source = (
+        eligibleRecordedExample(state.selected) ? state.selected : null
+      ) || state.records.find(record => (
+        record.workflow_id === 'assistantbench_apple_board' && eligibleRecordedExample(record)
+      )) || state.records.find(eligibleRecordedExample);
+      if (!source) throw new Error('Store 中还没有带真实录屏的公开示例。');
+      openPublisherPanel();
+      els.loadRecordedExample.disabled = true;
+      try {
+        showPublishFeedback(`正在读取 ${source.workflow_title || source.workflow_name} 的真实录屏包…`);
+        const blob = await downloadCommunityPackage(source.record_id, value => {
+          showPublishFeedback(`正在读取真实录屏包… ${value}%`);
+        });
+        const safeName = String(source.workflow_name || source.workflow_id || 'recorded-replay')
+          .replace(/[^a-zA-Z0-9_.-]+/g, '-');
+        const file = new File([blob], `${safeName}.gpa-record.zip`, { type: 'application/zip' });
+        await inspectCommunityPackage(file);
+      } finally {
+        els.loadRecordedExample.disabled = false;
+      }
+    }
+
+    function publishLocalWorkflow() {
+      return runStoreAction('publish-record', '发布本地 Replay', publishLocalWorkflowOnce);
+    }
+
+    async function publishLocalWorkflowOnce() {
       const workflowId = els.publishWorkflow.value;
       const options = publishOptions();
       if (!workflowId) throw new Error('请先选择一个本地工作流。');
-      if (!options.privacy_reviewed) throw new Error('发布前必须确认隐私审查。');
+      if (!publisherDeclarationReady()) throw new Error('请完成四项发布者声明。');
+      els.publishLocal.disabled = true;
+      els.publishLocal.textContent = '正在发布…';
       showPublishFeedback('正在校验并发布…');
-      const data = await postJson('/api/community/records', { ...options, workflow_id: workflowId });
-      els.publishPrivacy.checked = false;
-      showPublishFeedback(data.record.duplicate ? '相同内容已经存在，已打开原记录。' : '工作流已发布到 Replay Store。');
-      await loadStore({ preserveSelection: false });
-      await selectRecord(data.record.record_id);
+      try {
+        const data = await postJson('/api/community/records', { ...options, workflow_id: workflowId }, { timeoutMs: 120000 });
+        [els.publishRights, els.publishPrivacy, els.publishSafe, els.publishConsent].forEach(input => { input.checked = false; });
+        showPublishFeedback(data.record.duplicate ? '相同内容已经存在，已打开原记录。' : '工作流已发布到 Replay Store。');
+        await loadStore({ preserveSelection: false });
+        closePublisherPanel();
+        await selectRecord(data.record.record_id);
+      } finally {
+        els.publishLocal.disabled = false;
+        els.publishLocal.textContent = '发布到待验证区';
+      }
     }
 
-    async function uploadCommunityPackage(file) {
-      if (!file) return;
+    function uploadCommunityPackage() {
+      return runStoreAction('publish-record', '发布 Replay 包', uploadCommunityPackageOnce);
+    }
+
+    async function uploadCommunityPackageOnce() {
+      const file = state.stagedPackageFile;
+      if (!file || !state.stagedPackageInspection) throw new Error('请先选择并检查一个 Replay 包。');
       const options = publishOptions();
-      if (!options.privacy_reviewed) throw new Error('上传前必须确认隐私审查。');
-      if (file.size > 64 * 1024 * 1024) throw new Error('社区包不能超过 64 MiB。');
-      showPublishFeedback(`正在上传 ${file.name}…`);
-      const data = await postJson('/api/community/records', {
+      if (!publisherDeclarationReady()) throw new Error('请完成四项发布者声明。');
+      els.confirmPackageUpload.disabled = true;
+      showPublishFeedback(`正在发布已检查快照 ${file.name}…`);
+      const data = await postJson('/api/community/publish-inspection', {
         ...options,
-        package_base64: arrayBufferToBase64(await file.arrayBuffer()),
-      });
-      els.publishPrivacy.checked = false;
-      els.packageFile.value = '';
+        inspection_token: state.stagedPackageInspection.inspection_token,
+        publication_mode: 'verified_replay',
+      }, { timeoutMs: 120000 });
+      [els.publishRights, els.publishPrivacy, els.publishSafe, els.publishConsent].forEach(input => { input.checked = false; });
+      clearStagedPackage();
       showPublishFeedback(data.record.duplicate ? '相同社区包已经存在。' : '社区包已发布。');
       await loadStore({ preserveSelection: false });
+      closePublisherPanel();
       await selectRecord(data.record.record_id);
     }
 
     els.search.addEventListener('input', () => {
       state.query = els.search.value;
+      syncCatalogQuery();
       renderCatalog();
     });
-    els.refresh.addEventListener('click', () => loadStore().catch(error => renderDetailError(error.message)));
+    els.searchClear.addEventListener('click', () => {
+      state.query = '';
+      els.search.value = '';
+      syncCatalogQuery();
+      renderCatalog();
+      els.search.focus();
+    });
+    els.sort.addEventListener('change', () => {
+      state.sort = els.sort.value;
+      renderCatalog();
+    });
+    els.refresh.addEventListener('click', () => loadStore().catch(showStoreLoadError));
+    els.openPublisher.addEventListener('click', openPublisherPanel);
+    els.closePublisher.addEventListener('click', closePublisherPanel);
+    els.publisherPanel.addEventListener('cancel', event => {
+      event.preventDefault();
+      closePublisherPanel();
+    });
+    els.publisherPanel.addEventListener('close', () => {
+      const target = publisherReturnFocus;
+      publisherReturnFocus = null;
+      requestAnimationFrame(() => {
+        if (target instanceof HTMLElement && target.isConnected) target.focus({ preventScroll: true });
+      });
+    });
+    els.publisherPanel.addEventListener('click', event => {
+      if (event.target !== els.publisherPanel) return;
+      const rect = els.publisherPanel.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closePublisherPanel();
+    });
+    els.reportForm.addEventListener('submit', submitReport);
+    els.closeReport.addEventListener('click', closeReportDialog);
+    els.cancelReport.addEventListener('click', closeReportDialog);
+    els.reportDialog.addEventListener('cancel', event => { event.preventDefault(); closeReportDialog(); });
+    els.reportDialog.addEventListener('click', event => {
+      if (event.target !== els.reportDialog) return;
+      const rect = els.reportDialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeReportDialog();
+    });
     els.publishLocal.addEventListener('click', () => publishLocalWorkflow().catch(error => showPublishFeedback(error.message, 'error')));
     els.uploadPackage.addEventListener('click', () => els.packageFile.click());
-    els.packageFile.addEventListener('change', () => uploadCommunityPackage(els.packageFile.files?.[0]).catch(error => {
+    els.packageDropzone.addEventListener('click', () => els.packageFile.click());
+    els.packageDropzone.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        els.packageFile.click();
+      }
+    });
+    for (const eventName of ['dragenter', 'dragover']) {
+      els.packageDropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        els.packageDropzone.classList.add('dragging');
+      });
+    }
+    for (const eventName of ['dragleave', 'drop']) {
+      els.packageDropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        els.packageDropzone.classList.remove('dragging');
+      });
+    }
+    els.packageDropzone.addEventListener('drop', event => {
+      const file = event.dataTransfer?.files?.[0];
+      inspectCommunityPackage(file).catch(error => {
+        clearStagedPackage();
+        showPublishFeedback(error.message, 'error');
+      });
+    });
+    els.loadRecordedExample.addEventListener('click', () => loadRecordedExample().catch(error => {
       showPublishFeedback(error.message, 'error');
-      els.packageFile.value = '';
+    }));
+    els.confirmPackageUpload.addEventListener('click', () => uploadCommunityPackage().catch(error => {
+      updatePackagePublishState();
+      showPublishFeedback(error.message, 'error');
+    }));
+    [els.publishRights, els.publishPrivacy, els.publishSafe, els.publishConsent].forEach(input => input.addEventListener('change', updatePackagePublishState));
+    els.detailBackdrop.addEventListener('click', clearRecordSelection);
+    els.detail.addEventListener('keydown', trapDetailFocus);
+    mobileDetailMedia.addEventListener('change', () => syncDetailPresentation({ focusClose: Boolean(state.selectedId) }));
+    document.addEventListener('keydown', event => {
+      const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '');
+      if (event.key === '/' && !typing) {
+        event.preventDefault();
+        els.search.focus();
+      }
+      if (event.key === 'Escape' && state.selectedId) clearRecordSelection();
+    });
+    els.packageFile.addEventListener('change', () => inspectCommunityPackage(els.packageFile.files?.[0]).catch(error => {
+      clearStagedPackage();
+      showPublishFeedback(error.message, 'error');
     }));
 
-    Promise.allSettled([loadStore(), loadLocalWorkflows()]).then(results => {
-      const failure = results.find(result => result.status === 'rejected');
-      if (failure) renderDetailError(failure.reason?.message || failure.reason);
+    Promise.allSettled([loadStore(), loadLocalWorkflows(), loadHeaderStatus(), sendStoreHeartbeat()]).then(results => {
+      if (results[0].status === 'rejected') showStoreLoadError(results[0].reason);
+      if (results[1].status === 'rejected') showPublishFeedback('本地 Replay 暂时无法读取，稍后重试发布。', 'error');
+    });
+    GPAClient.createVisibilityPoller(() => loadHeaderStatus().catch(() => {}), {
+      activeMs: 1500,
+      hiddenMs: 10000,
+      runImmediately: false,
+    });
+    GPAClient.createVisibilityPoller(() => sendStoreHeartbeat().catch(() => {}), {
+      activeMs: 5000,
+      hiddenMs: 10000,
+      runImmediately: false,
+    });
+    window.addEventListener('pagehide', () => {
+      GPAClient.sendJsonBeacon('/api/client/disconnect', { client_id: STORE_CLIENT_ID }, {
+        baseUrl: API_BASE,
+      });
     });
   </script>
 </body>

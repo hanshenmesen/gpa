@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 TERMINAL_STATES = {"completed", "failed", "stopped"}
 TRANSITIONS = {
     "created": {"planned", "failed"},

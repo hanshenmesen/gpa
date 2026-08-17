@@ -1,0 +1,5 @@
+fastapi==0.139.2
+pydantic-settings==2.14.2
+psycopg[binary,pool]==3.3.4
+PyJWT[crypto]>=2.10,<3
+uvicorn[standard]==0.52.1

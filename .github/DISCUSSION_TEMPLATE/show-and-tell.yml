@@ -1,0 +1,20 @@
+title: "[Showcase] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What did GPA help reproduce?
+    validations:
+      required: true
+  - type: textarea
+    id: lessons
+    attributes:
+      label: What worked, failed, or surprised you?
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: How was the example made safe to share?
+    validations:
+      required: true

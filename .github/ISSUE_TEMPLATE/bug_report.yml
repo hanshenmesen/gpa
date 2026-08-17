@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible GPA defect without sharing private data.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. A small, safe reproduction is more useful than a large private log.
+        Never attach credentials, cookies, customer data, or unredacted screens/recordings.
+  - type: input
+    id: version
+    attributes:
+      label: GPA version or commit
+      placeholder: v0.1.0-preview.1 or git commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation method
+      options:
+        - Source checkout
+        - Unsigned GitHub DMG
+        - Python wheel
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Safe environment summary
+      description: OS/version, CPU architecture, and affected app/version. Remove device/user names.
+      placeholder: macOS 15.x, Apple Silicon, Chrome 1xx
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Minimal reproduction
+      placeholder: |
+        1. Start GPA with desktop automation disabled.
+        2. Open ...
+        3. Select ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted logs or screenshots
+      description: Optional. Explain what you removed before attaching anything.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed secrets, personal/customer data, cookies, and private screen content.
+          required: true
+        - label: This is not a vulnerability or privacy leak requiring a private report.
+          required: true

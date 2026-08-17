@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install core and development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[cloud,dev]"
+
+      - name: Compile Python sources
+        run: python -m compileall -q gpa demo_web scripts demo.py demo_mail.py demo_practical_renewal_risk.py
+
+      - name: Lint Python sources
+        run: python -m ruff check .
+
+      - name: Validate frontend contracts
+        run: |
+          node scripts/verify_frontend.js
+          python scripts/verify_public_project.py
+
+      - name: Run unit tests
+        if: matrix.python-version != '3.13'
+        env:
+          GPA_ENABLE_DESKTOP_AUTOMATION: "0"
+          GPA_KEYBOARD_QUARANTINE_SECONDS: "0"
+        run: python -m unittest discover -s tests -p "test_*.py"
+
+      - name: Run unit tests with coverage floor
+        if: matrix.python-version == '3.13'
+        env:
+          GPA_ENABLE_DESKTOP_AUTOMATION: "0"
+          GPA_KEYBOARD_QUARANTINE_SECONDS: "0"
+        run: |
+          python -m coverage run -m unittest discover -s tests -p "test_*.py"
+          python -m coverage report
+
+      - name: Build and validate distribution
+        run: |
+          python -m build
+          python scripts/verify_distribution.py dist
+          python -m pip check
+
+      - name: Launcher safety check
+        run: ./start.sh --check --skip-install

@@ -89,6 +89,32 @@ Sources: [FastV paper](https://arxiv.org/abs/2403.06764),
   or undeclared members, encrypted members, checksum/size mismatches, invalid
   workflow identities, and partial imports. Catalog writes and feedback
   aggregation are atomic and concurrency-safe.
+- Added a Product Control Center at `/control` that derives success rate,
+  verified task complexity, model calls/tokens, runtime health, and recent runs
+  from persisted product data rather than static demo values.
+- Added deterministic waits and assertions for browser text, URLs, and
+  clipboard output. Deterministic runs no longer require an API key; adaptive
+  click/drag/scroll and final visual verification still use the configured
+  model path.
+- Added and actually ran the 124-step `github_release_readiness_audit` against
+  ten public GitHub source files. The verified result was 124/124 steps, zero
+  failures, 96 seconds, and zero model calls/tokens (4.28× the 29-step real
+  baseline).
+- Fixed failures found only by the long run: concurrent macOS keyboard
+  permission probes causing a native process abort, empty-title Raw pages
+  losing their URL, stale Chrome find queries, brittle selection-copy state,
+  idempotent clipboard copies, and non-UTF-8 `pbcopy`/`pbpaste` behavior.
+- Added an environment evidence boundary that captures host and browser context,
+  enriches only missing fields, reports missing identity as `unknown`, and
+  prevents desktop replay from treating absent evidence as compatibility.
+- Added semantic recording reduction with deterministic provenance. Cross-target
+  text entry is split back to the original values, unsupported model-invented
+  actions are rejected, and the preview reports how many raw events became
+  executable steps.
+- Consolidated browser environment capture, JSON request timeouts, and
+  visibility-aware polling in `demo_web/environment.js`. A Node CI contract now
+  checks all product pages for script syntax, CSS balance, duplicate IDs,
+  broken hash targets, missing assets, and the shared runtime API.
 
 ## Next acceleration milestones
 

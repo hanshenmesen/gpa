@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import pathlib
 import sys
 import tempfile
@@ -30,11 +31,17 @@ class DummyHandler:
 
 class ServerHeartbeatTests(unittest.TestCase):
     def setUp(self):
+        self.old_quarantine_env = os.environ.get("GPA_KEYBOARD_QUARANTINE_SECONDS")
+        os.environ["GPA_KEYBOARD_QUARANTINE_SECONDS"] = "0"
         self.old_audit_event = server._audit_event
         server._audit_event = lambda *args, **kwargs: None
 
     def tearDown(self):
         server._audit_event = self.old_audit_event
+        if self.old_quarantine_env is None:
+            os.environ.pop("GPA_KEYBOARD_QUARANTINE_SECONDS", None)
+        else:
+            os.environ["GPA_KEYBOARD_QUARANTINE_SECONDS"] = self.old_quarantine_env
         server.SHUTDOWN_EVENT.clear()
         server._client_disconnect()
         with server.STATE_LOCK:
@@ -59,6 +66,8 @@ class ServerHeartbeatTests(unittest.TestCase):
             server.STATE["run_stop_event"] = None
             server.STATE["run_started_monotonic"] = None
             server.STATE["run_thread"] = None
+            server.STATE["run_process"] = None
+            server.STATE["run_control_dir"] = None
             server.STATE["replay_arm"] = {
                 "token": "",
                 "workflow_id": "",
@@ -95,9 +104,9 @@ class ServerHeartbeatTests(unittest.TestCase):
     def test_expired_heartbeat_is_disconnected(self):
         server._mark_client_seen("expired-client")
         with server.STATE_LOCK:
-            server.STATE["client"]["last_seen_monotonic"] = (
-                time.monotonic() - server.CLIENT_HEARTBEAT_TIMEOUT - 0.1
-            )
+            expired = time.monotonic() - server.CLIENT_HEARTBEAT_TIMEOUT - 0.1
+            server.STATE["client"]["last_seen_monotonic"] = expired
+            server.STATE["clients"]["expired-client"]["last_seen_monotonic"] = expired
 
         self.assertFalse(server._client_connected())
         self.assertFalse(server._client_status()["connected"])
@@ -107,6 +116,44 @@ class ServerHeartbeatTests(unittest.TestCase):
         server._client_disconnect()
 
         self.assertFalse(server._client_connected())
+
+    def test_multiple_console_leases_keep_environment_and_disconnect_isolated(self):
+        server._mark_client_seen("studio", {"system": {"name": "darwin"}})
+        server._mark_client_seen("store", {"system": {"name": "linux"}})
+
+        self.assertTrue(server._client_connected(client_id="studio"))
+        self.assertTrue(server._client_connected(client_id="store"))
+        self.assertEqual(
+            server._current_client_environment("studio")["system"]["name"],
+            "darwin",
+        )
+        self.assertEqual(server._client_status()["active_client_count"], 2)
+
+        server._client_disconnect("store")
+
+        self.assertTrue(server._client_connected())
+        self.assertTrue(server._client_connected(client_id="studio"))
+        self.assertFalse(server._client_connected(client_id="store"))
+        status = server._client_status()
+        self.assertEqual(status["active_client_count"], 1)
+        self.assertEqual(status["id"], "studio")
+        self.assertEqual(
+            server._current_client_environment()["system"]["name"],
+            "darwin",
+        )
+
+    def test_new_heartbeat_prunes_long_expired_console_leases(self):
+        server._mark_client_seen("expired")
+        with server.STATE_LOCK:
+            server.STATE["clients"]["expired"]["last_seen_monotonic"] = (
+                time.monotonic() - server.CLIENT_HEARTBEAT_TIMEOUT * 4
+            )
+
+        server._mark_client_seen("current")
+
+        with server.STATE_LOCK:
+            self.assertNotIn("expired", server.STATE["clients"])
+            self.assertIn("current", server.STATE["clients"])
 
     def test_panic_keeps_run_active_until_worker_finishes(self):
         stop_event = threading.Event()
@@ -362,6 +409,18 @@ class ServerHeartbeatTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("expired", error)
 
+    def test_replay_arm_is_bound_to_console_page(self):
+        server._mark_client_seen("studio")
+        server._mark_client_seen("store")
+
+        arm = server._issue_replay_arm("workflow-1", "studio")
+        ok, error = server._consume_replay_arm(
+            "workflow-1", arm["arm_token"], "store",
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("different console page", error)
+
     def test_replay_arm_rejects_blocking_workflow_quality(self):
         workflow = Workflow(
             workflow_id="wf-chatgpt",
@@ -409,6 +468,7 @@ class ServerHeartbeatTests(unittest.TestCase):
     def test_visual_warmup_loads_parser_components(self):
         from gpa.core import ui_parser
 
+        old_preload = server.PRELOAD_VISUAL_MODELS_ENABLED
         calls = []
         originals = {
             "_load_yolo": ui_parser._load_yolo,
@@ -421,8 +481,10 @@ class ServerHeartbeatTests(unittest.TestCase):
         ui_parser._load_clip = lambda: calls.append("clip")
         ui_parser._load_e5 = lambda: calls.append("e5")
         try:
+            server.PRELOAD_VISUAL_MODELS_ENABLED = True
             server._warm_visual_models()
         finally:
+            server.PRELOAD_VISUAL_MODELS_ENABLED = old_preload
             for name, value in originals.items():
                 setattr(ui_parser, name, value)
 
@@ -477,41 +539,62 @@ class ServerHeartbeatTests(unittest.TestCase):
             server.REQUIRE_VISUAL_WARMUP_READY = old_require
             server._warm_visual_models = old_warm
 
-    def test_input_monitoring_listener_success_reports_ready(self):
+    def test_input_monitoring_preflight_reports_ready_without_starting_listener(self):
         old_platform = server.sys.platform
+        old_quartz = sys.modules.get("Quartz")
         old_pynput = sys.modules.get("pynput")
-        old_pynput_keyboard = sys.modules.get("pynput.keyboard")
-
-        class FakeListener:
-            def __init__(self, on_press=None):
-                self.on_press = on_press
-
-            def start(self):
-                return None
-
-            def stop(self):
-                return None
-
-        fake_keyboard = types.SimpleNamespace(Listener=FakeListener)
-        fake_pynput = types.SimpleNamespace(keyboard=fake_keyboard)
-        sys.modules["pynput"] = fake_pynput
-        sys.modules["pynput.keyboard"] = fake_keyboard
+        fake_quartz = types.SimpleNamespace(CGPreflightListenEventAccess=lambda: True)
+        sys.modules["Quartz"] = fake_quartz
+        sys.modules.pop("pynput", None)
         server.sys.platform = "darwin"
         try:
             item = server._check_input_monitoring_permission()
         finally:
             server.sys.platform = old_platform
+            if old_quartz is None:
+                sys.modules.pop("Quartz", None)
+            else:
+                sys.modules["Quartz"] = old_quartz
             if old_pynput is None:
                 sys.modules.pop("pynput", None)
             else:
                 sys.modules["pynput"] = old_pynput
-            if old_pynput_keyboard is None:
-                sys.modules.pop("pynput.keyboard", None)
-            else:
-                sys.modules["pynput.keyboard"] = old_pynput_keyboard
 
         self.assertTrue(item["ready"])
         self.assertEqual(item["status"], "ready")
+        self.assertNotIn("pynput", sys.modules if old_pynput is None else {})
+
+    def test_macos_effective_recording_backend_ignores_unsafe_pynput_override(self):
+        old_platform = server.sys.platform
+        old_backend = os.environ.get(server.RECORDING_INPUT_BACKEND_ENV)
+        server.sys.platform = "darwin"
+        os.environ[server.RECORDING_INPUT_BACKEND_ENV] = "pynput"
+        try:
+            self.assertEqual(server._effective_recording_input_backend(), "quartz")
+        finally:
+            server.sys.platform = old_platform
+            if old_backend is None:
+                os.environ.pop(server.RECORDING_INPUT_BACKEND_ENV, None)
+            else:
+                os.environ[server.RECORDING_INPUT_BACKEND_ENV] = old_backend
+
+    def test_input_monitoring_preflight_unavailable_is_non_blocking_and_listener_free(self):
+        old_platform = server.sys.platform
+        old_quartz = sys.modules.get("Quartz")
+        sys.modules["Quartz"] = types.SimpleNamespace()
+        server.sys.platform = "darwin"
+        try:
+            item = server._check_input_monitoring_permission()
+        finally:
+            server.sys.platform = old_platform
+            if old_quartz is None:
+                sys.modules.pop("Quartz", None)
+            else:
+                sys.modules["Quartz"] = old_quartz
+
+        self.assertIsNone(item["ready"])
+        self.assertEqual(item["status"], "unknown")
+        self.assertIn("no background keyboard listener", item["message"])
 
     def test_status_health_checks_are_cached(self):
         calls = []
@@ -597,6 +680,9 @@ class ServerHeartbeatTests(unittest.TestCase):
         payload = server._workflow_payload(workflow, {})
 
         self.assertFalse(payload["quality"]["runnable"])
+        self.assertLess(payload["quality"]["score"], 50)
+        self.assertEqual(payload["quality"]["grade"], "blocked")
+        self.assertEqual(payload["quality"]["targetability"], 0)
         self.assertEqual(payload["quality"]["blocking_count"], 2)
         self.assertIn("targets_console", {item["code"] for item in payload["quality"]["issues"]})
 
@@ -710,6 +796,18 @@ class ServerHeartbeatTests(unittest.TestCase):
 
         class FakeResult:
             step_results = [FakeStep()]
+            llm_metrics = [
+                {
+                    "model": "vision-model",
+                    "modality": "vision",
+                    "duration_ms": 456.7,
+                    "prompt_tokens": 100,
+                    "completion_tokens": 20,
+                    "total_tokens": 120,
+                    "cached_tokens": 10,
+                    "reasoning_tokens": 3,
+                }
+            ]
 
             @property
             def n_steps(self):
@@ -743,6 +841,10 @@ class ServerHeartbeatTests(unittest.TestCase):
         self.assertEqual(step["agent_decision_ms"], 120.5)
         self.assertEqual(step["corrections"], [{"action_type": "click"}])
         self.assertEqual(step["observation_metrics"][0]["phase"], "readiness_retry")
+        self.assertEqual(payload["llm"]["call_count"], 1)
+        self.assertEqual(payload["llm"]["vision_call_count"], 1)
+        self.assertEqual(payload["llm"]["total_tokens"], 120)
+        self.assertEqual(payload["llm"]["cached_tokens"], 10)
 
     def test_workflow_editor_payload_exposes_metadata_and_supports_drag_coordinates(self):
         workflow = Workflow(

@@ -5,6 +5,8 @@ Implements the hybrid similarity from the paper (Section 2.1, Appendix B.2):
   - Non-textual:    s = cos(e_d, e_c)
 
 Text similarity uses RapidFuzz Levenshtein ratio with length-adaptive tolerance.
+When Sentence-E5 embeddings are present, lexical and semantic similarity are
+combined so a control can still be found after a wording-only UI change.
 """
 from __future__ import annotations
 
@@ -12,7 +14,6 @@ import numpy as np
 from rapidfuzz import fuzz
 
 from gpa.core.ui_graph import UINode
-
 
 # ──────────────────────────────────────────────────────────────────────────── #
 # Primitive similarities                                                       #
@@ -51,7 +52,11 @@ def text_similarity(a: str, b: str) -> float:
 def node_similarity(demo: UINode, runtime: UINode) -> float:
     """Compute appearance similarity w_app(v_d, v_c) ∈ [0, 1].
 
-    For textual elements: 0.9 * s_text + 0.1 * cos(icon_emb)
+    For textual elements without text embeddings:
+        0.9 * s_text + 0.1 * cos(icon_emb)
+    For textual elements with text embeddings:
+        0.9 * (0.65 * s_text + 0.35 * cos(text_emb))
+        + 0.1 * cos(icon_emb)
     For non-textual:      cos(icon_emb)
     """
     # Icon embedding similarity (always available)
@@ -63,6 +68,9 @@ def node_similarity(demo: UINode, runtime: UINode) -> float:
     is_text = (demo.elem_type == "text") and (demo.content is not None)
     if is_text and runtime.content is not None:
         t_sim = text_similarity(demo.content, runtime.content)
+        if demo.text_emb is not None and runtime.text_emb is not None:
+            semantic_sim = cosine_similarity(demo.text_emb, runtime.text_emb)
+            t_sim = 0.65 * t_sim + 0.35 * semantic_sim
         return 0.9 * t_sim + 0.1 * icon_sim
     elif is_text:
         # Demo is text but runtime node has no OCR content → icon only
@@ -89,7 +97,14 @@ def score_candidates(
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def softmax(x: np.ndarray, tau: float = 0.02) -> np.ndarray:
-    scaled = x / tau
+    values = np.asarray(x, dtype=np.float64)
+    if values.size == 0:
+        return np.array([], dtype=np.float64)
+    if not np.isfinite(tau) or tau <= 0:
+        raise ValueError("softmax temperature must be finite and greater than zero")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("softmax scores must all be finite")
+    scaled = values / tau
     scaled -= scaled.max()
     e = np.exp(scaled)
     return e / e.sum()

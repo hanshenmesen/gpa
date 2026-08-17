@@ -23,15 +23,24 @@ import numpy as np
 from scipy.stats import norm
 
 from gpa.config import (
-    SMC_N_PARTICLES, SMC_ESS_TARGET, SMC_MAX_STEPS, SMC_EARLY_STOP_CONF,
-    SMC_TOP_K_CANDIDATES, SIGMA_LOC_MIN, SIGMA_LOC_MAX,
-    SCALE_PRIOR_WEIGHT, SCALE_SIGMA, SPATIAL_RBASE, SPATIAL_ALPHA,
-    DIRECT_MATCH_MIN_SCORE, DIRECT_MATCH_MAX_ENTROPY,
+    DIRECT_MATCH_MAX_ENTROPY,
+    DIRECT_MATCH_MIN_SCORE,
+    SCALE_PRIOR_WEIGHT,
+    SCALE_SIGMA,
+    SIGMA_LOC_MAX,
+    SIGMA_LOC_MIN,
+    SMC_ESS_TARGET,
+    SMC_MAX_STEPS,
+    SMC_N_PARTICLES,
+    SMC_TOP_K_CANDIDATES,
+    SPATIAL_ALPHA,
+    SPATIAL_RBASE,
 )
-from gpa.core.ui_graph import UIGraph, UINode, StepSubgraph
 from gpa.core.similarity import (
-    score_candidates, softmax, normalized_entropy, is_unambiguous,
+    is_unambiguous,
+    score_candidates,
 )
+from gpa.core.ui_graph import StepSubgraph, UIGraph, UINode
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +161,10 @@ class CandidateSet:
         # Gaussian spatial likelihood
         diffs = self.centers - predicted_center[None, :]  # (N, 2)
         sq_dists = np.sum(diffs ** 2, axis=1)             # (N,)
-        gauss = np.exp(-sq_dists / (2 * sigma ** 2)) / (2 * np.pi * sigma ** 2)
+        # Use the same [0, 1] spatial affinity as the vectorised path and
+        # confidence calculation. A normalized Gaussian density peaks below
+        # pmiss for normal UI-sized sigmas, which would erase every match.
+        gauss = np.exp(-sq_dists / (2 * sigma ** 2))
         # Weighted joint score per candidate
         joint = wapp * gauss                               # (N,)
         best = float(joint.max()) if len(joint) else 0.0
@@ -191,12 +203,18 @@ class SMCModel:
         runtime_graph: UIGraph,
         live_size: tuple[int, int],
     ):
+        if live_size[0] <= 0 or live_size[1] <= 0:
+            raise ValueError(f"live_size must be positive; got {live_size!r}")
         self.subgraph = subgraph
         self.runtime_graph = runtime_graph
 
         target = subgraph.target_node
+        if target is None:
+            raise ValueError(
+                f"Step subgraph target {subgraph.target_element_id!r} is missing from its UI graph"
+            )
         neighbors = subgraph.neighbor_nodes
-        demo_target_center = np.array(target.center) if target else np.array([0.0, 0.0])
+        demo_target_center = np.array(target.center)
 
         # Screen scale ratios
         dW, dH = subgraph.ui_graph.image_size or [1, 1]
@@ -247,8 +265,12 @@ class SMCModel:
         P = len(x)
         log_lk = np.zeros(P, dtype=np.float64)
 
-        for i, (cs, disp, sigma, wl) in enumerate(
-            zip(self.candidate_sets, self.displacements, self.geo_sigmas, self.wloc)
+        for cs, disp, sigma, wl in zip(
+            self.candidate_sets,
+            self.displacements,
+            self.geo_sigmas,
+            self.wloc,
+            strict=True,
         ):
             # predicted center of demo node i under hypothesis θ
             # c_hat_i(θ) = [x + sx*r_ix, y + sy*r_iy]
@@ -361,14 +383,35 @@ def _mh_step(
 
 
 def _densest_cluster_mean(
-    x: np.ndarray, y: np.ndarray, weights: np.ndarray
+    x: np.ndarray,
+    y: np.ndarray,
+    weights: np.ndarray,
+    *,
+    radius: float = 50.0,
 ) -> tuple[float, float]:
-    """Grid-based clustering: return weighted mean of densest bin."""
+    """Return the weighted center of the highest-mass local particle cluster."""
     if len(x) == 0:
         return 0.0, 0.0
-    # weighted mean (simpler but effective for well-converged particles)
-    wx = float(np.sum(weights * x))
-    wy = float(np.sum(weights * y))
+    if not (len(x) == len(y) == len(weights)):
+        raise ValueError("particle coordinates and weights must have equal lengths")
+    if not np.isfinite(radius) or radius <= 0:
+        raise ValueError("cluster radius must be finite and greater than zero")
+
+    normalized = np.asarray(weights, dtype=np.float64)
+    if not np.all(np.isfinite(normalized)) or float(normalized.sum()) <= 0:
+        normalized = np.ones(len(x), dtype=np.float64) / len(x)
+    else:
+        normalized = normalized / normalized.sum()
+
+    points = np.column_stack([x, y]).astype(np.float64, copy=False)
+    distances_sq = np.sum((points[:, None, :] - points[None, :, :]) ** 2, axis=2)
+    neighborhood_mass = (distances_sq <= radius ** 2) @ normalized
+    seed = int(np.argmax(neighborhood_mass))
+    members = distances_sq[seed] <= radius ** 2
+    cluster_weights = normalized[members]
+    cluster_weights /= cluster_weights.sum()
+    wx = float(np.sum(cluster_weights * x[members]))
+    wy = float(np.sum(cluster_weights * y[members]))
     return wx, wy
 
 
@@ -381,6 +424,8 @@ def run_smc(
 
     Returns: x, y, sx, sy (N,) particle arrays + weights (N,).
     """
+    if n_particles < 2:
+        raise ValueError("n_particles must be at least 2")
     x, y, sx, sy = _initialize_particles(model, n_particles, live_size)
     weights = np.ones(n_particles) / n_particles
 
@@ -394,15 +439,18 @@ def run_smc(
         # Choose next β to maintain ESS ≥ ESS_TARGET * N
         target_ess = SMC_ESS_TARGET * n_particles
         ll = model.log_joint_likelihood_batch(x, y, sx, sy)
+        if not np.all(np.isfinite(ll)):
+            raise FloatingPointError("SMC likelihood produced non-finite values")
 
         # Binary search for Δβ
         lo, hi = 0.0, min(1.0 - beta, max_delta_beta)
         for _ in range(20):
             mid = (lo + hi) / 2
-            inc_w = np.exp(mid * ll)
-            new_w = weights * inc_w
+            log_new_w = np.log(np.maximum(weights, 1e-300)) + mid * ll
+            log_new_w -= np.max(log_new_w)
+            new_w = np.exp(log_new_w)
             s = new_w.sum()
-            if s < 1e-300:
+            if not np.isfinite(s) or s <= 0:
                 hi = mid
                 continue
             new_w /= s
@@ -416,10 +464,11 @@ def run_smc(
         beta = min(1.0, beta + delta_beta)
 
         # Importance reweight
-        inc_w = np.exp(delta_beta * ll)
-        weights = weights * inc_w
+        log_weights = np.log(np.maximum(weights, 1e-300)) + delta_beta * ll
+        log_weights -= np.max(log_weights)
+        weights = np.exp(log_weights)
         s = weights.sum()
-        if s < 1e-300:
+        if not np.isfinite(s) or s <= 0:
             weights = np.ones(n_particles) / n_particles
         else:
             weights /= s
@@ -447,11 +496,14 @@ def compute_likelihood_confidence(
     pred_x: float, pred_y: float, pred_sx: float, pred_sy: float,
 ) -> float:
     """p̃(Z|θ) — Eq. (7-8): locality-weighted average of per-node confidences."""
-    pred_center = np.array([pred_x, pred_y])
     node_confs = []
 
-    for i, (cs, disp, sigma, wl) in enumerate(
-        zip(model.candidate_sets, model.displacements, model.geo_sigmas, model.wloc)
+    for cs, disp, sigma, wl in zip(
+        model.candidate_sets,
+        model.displacements,
+        model.geo_sigmas,
+        model.wloc,
+        strict=True,
     ):
         if len(cs.runtime_nodes) == 0:
             node_confs.append((0.0, wl))
@@ -547,6 +599,8 @@ def localize(
 
     Tries direct match first; falls back to full SMC if ambiguous.
     """
+    if n_particles < 2:
+        raise ValueError("n_particles must be at least 2")
     model = SMCModel(subgraph, runtime_graph, live_size)
 
     # Fast path
@@ -559,7 +613,8 @@ def localize(
     logger.debug("Running SMC sampler …")
     x, y, sx, sy, weights = run_smc(model, live_size, n_particles)
 
-    pred_x, pred_y = _densest_cluster_mean(x, y, weights)
+    cluster_radius = float(np.clip(model.sigma_loc * 0.75, 20.0, 150.0))
+    pred_x, pred_y = _densest_cluster_mean(x, y, weights, radius=cluster_radius)
     pred_sx = float(np.sum(weights * sx))
     pred_sy = float(np.sum(weights * sy))
 

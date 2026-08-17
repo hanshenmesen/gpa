@@ -13,18 +13,24 @@ GPA Demo — GUI Process Automation
   Step 6  → 重放 Workflow（SMC 定位 + FSM 执行）
 """
 
-import subprocess, sys, time, pathlib, warnings, os
+import os
+import pathlib
+import subprocess
+import sys
+import time
+import warnings
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.syntax import Syntax
+from rich.table import Table
+
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 ROOT = pathlib.Path(__file__).parent
 sys.path.insert(0, str(ROOT))
-
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.syntax import Syntax
 
 console = Console()
 
@@ -64,8 +70,8 @@ def open_textedit():
 
 def parse_ui():
     step(2, "截屏 → 解析 UI 元素（YOLO + OCR + IconCLIP）")
-    from gpa.recording.recorder import capture_screenshot
     from gpa.core.ui_parser import parse_screenshot
+    from gpa.recording.recorder import capture_screenshot
 
     info("截屏中 …")
     screenshot = capture_screenshot()
@@ -75,7 +81,7 @@ def parse_ui():
     demo_dir = ROOT / "demo_output"
     demo_dir.mkdir(exist_ok=True)
     screenshot.save(demo_dir / "screenshot_textedit.png")
-    info(f"截图 → demo_output/screenshot_textedit.png")
+    info("截图 → demo_output/screenshot_textedit.png")
 
     with Progress(SpinnerColumn(), TextColumn("{task.description}"),
                   console=console, transient=True) as prog:
@@ -110,7 +116,8 @@ def parse_ui():
 def simulate_recording(w, h):
     step(3, "模拟录制：点击文本区 → 输入内容 → Cmd+S")
     import pyautogui
-    from gpa.recording.recorder import Recording, RecordedEvent, capture_screenshot
+
+    from gpa.recording.recorder import RecordedEvent, Recording, capture_screenshot
 
     recording = Recording()
 
@@ -181,9 +188,9 @@ def simulate_recording(w, h):
 
 def build_wf(recording):
     step(4, "LLM 分析录制 → 生成 Workflow Template")
-    from gpa.recording.builder import build_workflow
     import gpa.config as cfg
     import gpa.storage.workflow as wsm
+    from gpa.recording.builder import build_workflow
 
     wf_dir = ROOT / "storage" / "workflows"
     wf_dir.mkdir(parents=True, exist_ok=True)
@@ -238,10 +245,9 @@ def show_wf(build_result):
 
 def replay_wf(build_result):
     step(6, "重放 Workflow（SMC 定位 + 坐标回退 + FSM）")
-    from gpa.execution.executor import Executor
-    from gpa.storage.workflow import WorkflowStorage
     import gpa.config as cfg
     import gpa.storage.workflow as wsm
+    from gpa.execution.executor import Executor
 
     wf_dir = ROOT / "storage" / "workflows"
     cfg.WORKFLOWS_DIR = wf_dir

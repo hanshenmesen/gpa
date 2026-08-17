@@ -5,6 +5,9 @@ The package is a zip file with:
   - workflow/workflow.yaml
   - workflow/metadata.json
   - workflow/steps_data.json
+  - workflow/environment.json
+  - workflow/understanding.json
+  - workflow/recording.webm or workflow/recording.mp4 (optional)
 """
 from __future__ import annotations
 
@@ -25,24 +28,36 @@ from typing import Optional
 
 import yaml
 
-import gpa.storage.workflow as workflow_module
-from gpa.storage.workflow import WorkflowStorage, storage as default_storage
 from gpa.replay.domain import ReplayStep
 from gpa.replay.intent import IntentParser
+from gpa.storage.workflow import WorkflowStorage
+from gpa.storage.workflow import storage as default_storage
 
 PACKAGE_FORMAT_VERSION = "1.0"
 MANIFEST_NAME = "gpa_record_manifest.json"
 WORKFLOW_PREFIX = "workflow/"
 REQUIRED_WORKFLOW_FILES = ("workflow.yaml", "metadata.json")
-ALLOWED_WORKFLOW_FILES = (*REQUIRED_WORKFLOW_FILES, "steps_data.json")
+ALLOWED_WORKFLOW_FILES = (
+    *REQUIRED_WORKFLOW_FILES,
+    "steps_data.json",
+    "environment.json",
+    "understanding.json",
+    "source_trace.json",
+    "recording.webm",
+    "recording.mp4",
+)
 DEFAULT_MAX_PACKAGE_BYTES = 64 * 1024 * 1024
 DEFAULT_MAX_MEMBER_BYTES = 64 * 1024 * 1024
 DEFAULT_MAX_UNCOMPRESSED_BYTES = 128 * 1024 * 1024
-DEFAULT_MAX_ARCHIVE_MEMBERS = 8
+DEFAULT_MAX_ARCHIVE_MEMBERS = 12
 DEFAULT_MAX_MANIFEST_BYTES = 256 * 1024
 DEFAULT_MAX_WORKFLOW_YAML_BYTES = 4 * 1024 * 1024
 DEFAULT_MAX_METADATA_BYTES = 4 * 1024 * 1024
 DEFAULT_MAX_STEPS_DATA_BYTES = 16 * 1024 * 1024
+DEFAULT_MAX_ENVIRONMENT_BYTES = 512 * 1024
+DEFAULT_MAX_UNDERSTANDING_BYTES = 2 * 1024 * 1024
+DEFAULT_MAX_SOURCE_TRACE_BYTES = 2 * 1024 * 1024
+DEFAULT_MAX_RECORDING_BYTES = 48 * 1024 * 1024
 DEFAULT_MAX_GRAPH_NODES_PER_STEP = 2048
 DEFAULT_MAX_GRAPH_EDGES_PER_STEP = 16384
 DEFAULT_MAX_GRAPH_NODES_PER_PACKAGE = 8192
@@ -67,6 +82,9 @@ def export_workflow_package(
 ) -> Path:
     """Export a stored workflow as a portable community record package."""
     workflow, _ = storage.load(workflow_id)
+    from gpa.replay.health import assert_share_safe
+
+    assert_share_safe(workflow)
     source_dir = workflow.storage_dir
     if not source_dir.exists():
         raise FileNotFoundError(f"Workflow directory not found: {source_dir}")
@@ -79,6 +97,8 @@ def export_workflow_package(
     destination_path.parent.mkdir(parents=True, exist_ok=True)
 
     file_entries = _collect_workflow_files(source_dir)
+    from gpa.replay.health import build_replay_health
+
     manifest = {
         "format": "gpa-community-record",
         "format_version": PACKAGE_FORMAT_VERSION,
@@ -88,6 +108,10 @@ def export_workflow_package(
         "workflow_title": workflow.workflow_title,
         "description": workflow.description,
         "task_description": workflow.task_description,
+        "provenance": dict(workflow.provenance or {}),
+        "environment": dict(workflow.environment or {}),
+        "understanding": dict(workflow.understanding or {}),
+        "artifacts": dict(workflow.artifacts or {}),
         "step_count": len(workflow.steps),
         "variable_names": [var.name for var in workflow.variables],
         "platform": {
@@ -107,6 +131,7 @@ def export_workflow_package(
             "requires_step_subgraphs": "steps_data.json" in file_entries,
         },
         "replay": _replay_manifest_metadata(workflow),
+        "health": build_replay_health(workflow),
         "files": [
             {
                 "path": f"{WORKFLOW_PREFIX}{name}",
@@ -133,7 +158,7 @@ def import_workflow_package(
 ) -> PackageImportResult:
     """Import a community record package into local workflow storage."""
     package_path = Path(package_path)
-    root = workflow_module.WORKFLOWS_DIR
+    root = storage.workflows_dir
     root.mkdir(parents=True, exist_ok=True)
     with _IMPORT_LOCK:
         staging_root = Path(tempfile.mkdtemp(prefix=".gpa-import-", dir=root))
@@ -151,7 +176,7 @@ def import_workflow_package(
                 _assert_required_files(extracted)
                 source_id, workflow_name = _read_workflow_identity(extracted)
                 target_id = workflow_id or source_id
-                target_dir = _target_workflow_dir(target_id, overwrite)
+                target_dir = _target_workflow_dir(target_id, overwrite, root=root)
                 was_renamed = target_dir.name != source_id
                 _rewrite_workflow_id(extracted, target_dir.name, config_dir=target_dir)
 
@@ -245,7 +270,7 @@ def _collect_workflow_files(workflow_dir: Path) -> dict[str, Path]:
     files = {
         path.name: path
         for path in workflow_dir.iterdir()
-        if path.is_file() and path.name in {"workflow.yaml", "metadata.json", "steps_data.json"}
+        if path.is_file() and path.name in ALLOWED_WORKFLOW_FILES
     }
     missing = [name for name in REQUIRED_WORKFLOW_FILES if name not in files]
     if missing:
@@ -328,6 +353,11 @@ def _validate_archive_limits(
         f"{WORKFLOW_PREFIX}workflow.yaml": DEFAULT_MAX_WORKFLOW_YAML_BYTES,
         f"{WORKFLOW_PREFIX}metadata.json": DEFAULT_MAX_METADATA_BYTES,
         f"{WORKFLOW_PREFIX}steps_data.json": DEFAULT_MAX_STEPS_DATA_BYTES,
+        f"{WORKFLOW_PREFIX}environment.json": DEFAULT_MAX_ENVIRONMENT_BYTES,
+        f"{WORKFLOW_PREFIX}understanding.json": DEFAULT_MAX_UNDERSTANDING_BYTES,
+        f"{WORKFLOW_PREFIX}source_trace.json": DEFAULT_MAX_SOURCE_TRACE_BYTES,
+        f"{WORKFLOW_PREFIX}recording.webm": DEFAULT_MAX_RECORDING_BYTES,
+        f"{WORKFLOW_PREFIX}recording.mp4": DEFAULT_MAX_RECORDING_BYTES,
     }
     for info in members:
         if info.flag_bits & 0x1:
@@ -391,6 +421,92 @@ def _verify_manifest(manifest: dict, zf: zipfile.ZipFile) -> None:
     undeclared = sorted(archive_files - declared_paths - {MANIFEST_NAME})
     if undeclared:
         raise ValueError(f"Package contains undeclared file(s): {', '.join(undeclared)}")
+    _verify_recording_artifact(manifest, files, zf)
+    _verify_source_trace_artifact(manifest, files, zf)
+
+
+def _verify_recording_artifact(manifest: dict, files: list[dict], zf: zipfile.ZipFile) -> None:
+    artifacts = manifest.get("artifacts") or {}
+    recording = artifacts.get("recording")
+    file_map = {
+        str(item.get("path") or ""): item
+        for item in files
+        if isinstance(item, dict)
+    }
+    recording_members = {
+        path for path in file_map
+        if path in {f"{WORKFLOW_PREFIX}recording.webm", f"{WORKFLOW_PREFIX}recording.mp4"}
+    }
+    if recording is None:
+        if recording_members:
+            raise ValueError("Package includes a recording file without artifacts.recording metadata.")
+        return
+    if not isinstance(recording, dict):
+        raise ValueError("Package artifacts.recording must be an object.")
+    name = str(recording.get("path") or "")
+    if name not in {"recording.webm", "recording.mp4"}:
+        raise ValueError("Package artifacts.recording.path is invalid.")
+    member = f"{WORKFLOW_PREFIX}{name}"
+    if member not in file_map or recording_members != {member}:
+        raise ValueError("Package recording metadata does not match its recording file.")
+    expected_mime = "video/mp4" if name.endswith(".mp4") else "video/webm"
+    if recording.get("mime_type") != expected_mime:
+        raise ValueError("Package recording MIME type does not match its file extension.")
+    declared_bytes = _required_nonnegative_int(recording.get("bytes"), field="artifacts.recording.bytes")
+    if declared_bytes != file_map[member].get("bytes"):
+        raise ValueError("Package recording byte count does not match its file entry.")
+    digest = str(recording.get("sha256") or "")
+    if not re.fullmatch(r"[a-f0-9]{64}", digest) or digest != file_map[member].get("sha256"):
+        raise ValueError("Package recording checksum does not match its file entry.")
+    header = zf.read(member)[:16]
+    if name.endswith(".mp4"):
+        valid_container = len(header) >= 8 and header[4:8] == b"ftyp"
+    else:
+        valid_container = header.startswith(b"\x1a\x45\xdf\xa3")
+    if not valid_container:
+        raise ValueError("Package recording file does not have a valid MP4/WebM container signature.")
+
+
+def _verify_source_trace_artifact(manifest: dict, files: list[dict], zf: zipfile.ZipFile) -> None:
+    artifacts = manifest.get("artifacts") or {}
+    source_trace = artifacts.get("source_trace")
+    file_map = {
+        str(item.get("path") or ""): item
+        for item in files
+        if isinstance(item, dict)
+    }
+    member = f"{WORKFLOW_PREFIX}source_trace.json"
+    if source_trace is None:
+        if member in file_map:
+            raise ValueError("Package includes source_trace.json without artifacts.source_trace metadata.")
+        return
+    if not isinstance(source_trace, dict) or source_trace.get("path") != "source_trace.json":
+        raise ValueError("Package artifacts.source_trace metadata is invalid.")
+    if member not in file_map:
+        raise ValueError("Package source trace metadata does not match a packaged source_trace.json file.")
+    declared_bytes = _required_nonnegative_int(
+        source_trace.get("bytes"), field="artifacts.source_trace.bytes"
+    )
+    if declared_bytes != file_map[member].get("bytes"):
+        raise ValueError("Package source trace byte count does not match its file entry.")
+    digest = str(source_trace.get("sha256") or "")
+    if not re.fullmatch(r"[a-f0-9]{64}", digest) or digest != file_map[member].get("sha256"):
+        raise ValueError("Package source trace checksum does not match its file entry.")
+    try:
+        trace = json.loads(zf.read(member).decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Package source trace is not valid UTF-8 JSON.") from exc
+    pages = trace.get("pages") if isinstance(trace, dict) and isinstance(trace.get("pages"), list) else []
+    if (
+        trace.get("schema") != "gpa.safe-web-source-trace/v1"
+        or trace.get("workflow_id") != manifest.get("workflow_id")
+        or trace.get("source_run_id") != source_trace.get("source_run_id")
+        or trace.get("run_success") is not True
+        or not pages
+        or int(trace.get("page_count") or 0) != len(pages)
+        or any(not isinstance(page, dict) or page.get("verified") is not True for page in pages)
+    ):
+        raise ValueError("Package source trace identity or verification state is invalid.")
 
 
 def _verify_workflow_identity(manifest: dict, zf: zipfile.ZipFile) -> None:
@@ -442,6 +558,23 @@ def _verify_workflow_identity(manifest: dict, zf: zipfile.ZipFile) -> None:
         if not isinstance(step_data, dict):
             raise ValueError("Package steps_data.json must contain an object.")
         _validate_step_data(step_data, step_ids=seen_step_ids)
+    for field, sidecar in (
+        ("environment", "environment.json"),
+        ("understanding", "understanding.json"),
+    ):
+        yaml_value = workflow.get(field) or {}
+        if yaml_value != (manifest.get(field) or {}):
+            raise ValueError(f"Package manifest {field} does not match workflow.yaml.")
+        member = f"{WORKFLOW_PREFIX}{sidecar}"
+        if member in zf.namelist():
+            try:
+                sidecar_value = json.loads(zf.read(member).decode("utf-8"))
+            except Exception as exc:
+                raise ValueError(f"Package {sidecar} cannot be parsed.") from exc
+            if sidecar_value != yaml_value:
+                raise ValueError(f"Package {sidecar} does not match workflow.yaml.")
+    if (workflow.get("artifacts") or {}) != (manifest.get("artifacts") or {}):
+        raise ValueError("Package manifest artifacts does not match workflow.yaml.")
 
 
 def _validate_step_data(step_data: dict, *, step_ids: set[str]) -> None:
@@ -494,6 +627,23 @@ def _validate_manifest_metadata(manifest: dict) -> None:
         value = manifest.get(field, {})
         if not isinstance(value, dict):
             raise ValueError(f"Package manifest {field} must be an object.")
+
+    provenance = manifest.get("provenance", {})
+    if not isinstance(provenance, dict):
+        raise ValueError("Package manifest provenance must be an object.")
+    if len(json.dumps(provenance, ensure_ascii=False)) > 64 * 1024:
+        raise ValueError("Package manifest provenance is too large.")
+
+    for field, limit in (
+        ("environment", DEFAULT_MAX_ENVIRONMENT_BYTES),
+        ("understanding", DEFAULT_MAX_UNDERSTANDING_BYTES),
+        ("artifacts", DEFAULT_MAX_MANIFEST_BYTES),
+    ):
+        value = manifest.get(field, {})
+        if not isinstance(value, dict):
+            raise ValueError(f"Package manifest {field} must be an object.")
+        if len(json.dumps(value, ensure_ascii=False)) > limit:
+            raise ValueError(f"Package manifest {field} is too large.")
 
     replay = manifest.get("replay")
     if replay is not None:
@@ -565,12 +715,12 @@ def _read_workflow_identity(workflow_dir: Path) -> tuple[str, str]:
     return workflow_id, workflow_name
 
 
-def _target_workflow_dir(workflow_id: str, overwrite: bool) -> Path:
+def _target_workflow_dir(workflow_id: str, overwrite: bool, *, root: Path) -> Path:
     target_id = _safe_workflow_id(workflow_id)
-    target_dir = workflow_module.WORKFLOWS_DIR / target_id
+    target_dir = root / target_id
     if overwrite or not target_dir.exists():
         return target_dir
-    return workflow_module.WORKFLOWS_DIR / f"{target_id}_{uuid.uuid4().hex[:8]}"
+    return root / f"{target_id}_{uuid.uuid4().hex[:8]}"
 
 
 def _safe_workflow_id(workflow_id: str) -> str:

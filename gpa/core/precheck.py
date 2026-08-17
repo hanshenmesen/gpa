@@ -7,17 +7,19 @@ Appendix C of the paper.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from dataclasses import dataclass
 from typing import Optional
 
 from gpa.config import (
-    READINESS_THRESHOLD, MAX_RETRIES, RETRY_SLEEP,
-    PRECHECK_LOOKAHEAD, PRECHECK_MIN_CONF,
+    PRECHECK_LOOKAHEAD,
+    PRECHECK_MIN_CONF,
+    READINESS_THRESHOLD,
 )
 from gpa.core.smc import LocalizationResult, localize
-from gpa.core.ui_graph import UIGraph, StepSubgraph
+from gpa.core.ui_graph import StepSubgraph, UIGraph
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,8 @@ def check_readiness(
 
     Returns ReadinessResult with ready=True only when C ≥ threshold.
     """
+    if not math.isfinite(float(threshold)) or not 0.0 <= threshold <= 1.0:
+        raise ValueError("threshold must be finite and between 0 and 1")
     result = localize(subgraph, runtime_graph, live_size)
     ready = result.confidence >= threshold
     return ReadinessResult(
@@ -68,11 +72,14 @@ class PrecheckPipeline:
     """
 
     def __init__(self, lookahead: int = PRECHECK_LOOKAHEAD):
+        if not isinstance(lookahead, int) or isinstance(lookahead, bool) or lookahead < 0:
+            raise ValueError("lookahead must be a non-negative integer")
         self._lookahead = lookahead
         self._cache: dict[int, ReadinessResult] = {}
+        self._generation: dict[int, int] = {}
         self._lock = threading.Lock()
         self._executor = None
-        self._queue: list[tuple[int, StepSubgraph, UIGraph, tuple[int, int]]] = []
+        self._queue: list[tuple[int, int, StepSubgraph, UIGraph, tuple[int, int]]] = []
         self._queue_lock = threading.Lock()
         self._stop_event = threading.Event()
         if self._lookahead > 0:
@@ -87,18 +94,24 @@ class PrecheckPipeline:
         live_size: tuple[int, int],
     ) -> None:
         """Queue lookahead steps for background processing."""
-        if self._lookahead <= 0:
+        if self._lookahead <= 0 or self._stop_event.is_set():
             return
-        with self._queue_lock:
-            for offset in range(1, self._lookahead + 1):
-                nxt = step_idx + offset
-                if nxt < len(subgraphs) and subgraphs[nxt] is not None:
-                    self._queue.append((nxt, subgraphs[nxt], current_graph, live_size))
+        for offset in range(1, self._lookahead + 1):
+            nxt = step_idx + offset
+            if nxt >= len(subgraphs) or subgraphs[nxt] is None:
+                continue
+            with self._lock:
+                generation = self._generation.get(nxt, 0) + 1
+                self._generation[nxt] = generation
+                self._cache.pop(nxt, None)
+            with self._queue_lock:
+                self._queue = [item for item in self._queue if item[0] != nxt]
+                self._queue.append((nxt, generation, subgraphs[nxt], current_graph, live_size))
 
     def try_get(self, step_idx: int) -> Optional[ReadinessResult]:
-        """Return cached result if confidence is high enough, else None."""
+        """Consume a cached result if confidence is high enough, else return None."""
         with self._lock:
-            result = self._cache.get(step_idx)
+            result = self._cache.pop(step_idx, None)
         if result is not None and result.confidence >= PRECHECK_MIN_CONF:
             logger.debug(f"Precheck hit for step {step_idx}: conf={result.confidence:.3f}")
             return result
@@ -107,6 +120,9 @@ class PrecheckPipeline:
     def invalidate(self, step_idx: int) -> None:
         with self._lock:
             self._cache.pop(step_idx, None)
+            self._generation[step_idx] = self._generation.get(step_idx, 0) + 1
+        with self._queue_lock:
+            self._queue = [item for item in self._queue if item[0] != step_idx]
 
     def _worker(self) -> None:
         while not self._stop_event.is_set():
@@ -117,12 +133,16 @@ class PrecheckPipeline:
             if item is None:
                 time.sleep(0.05)
                 continue
-            step_idx, subgraph, graph, live_size = item
+            step_idx, generation, subgraph, graph, live_size = item
             try:
                 res = check_readiness(subgraph, graph, live_size)
                 res.step_idx = step_idx
                 with self._lock:
-                    self._cache[step_idx] = res
+                    if (
+                        not self._stop_event.is_set()
+                        and self._generation.get(step_idx) == generation
+                    ):
+                        self._cache[step_idx] = res
             except Exception as e:
                 logger.debug(f"Precheck failed for step {step_idx}: {e}")
 

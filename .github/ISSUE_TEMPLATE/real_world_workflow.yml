@@ -1,0 +1,65 @@
+name: Real-world workflow
+description: Submit a genuine task GPA should learn to reproduce safely.
+title: "[Workflow]: "
+labels: ["real-world-case", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We prioritize real outcomes. Use public or synthetic data only. Do not upload a private recording.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Business outcome
+      description: What useful state should exist when the task succeeds?
+    validations:
+      required: true
+  - type: input
+    id: frequency
+    attributes:
+      label: Frequency and typical duration
+      placeholder: Weekly, 20 minutes per run
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Applications and environment
+      description: Apps/sites, relevant versions, operating systems, and prerequisites.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Human workflow
+      description: Describe meaningful stages. Avoid raw click-by-click coordinates.
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Verifiable success criteria
+      description: What observable evidence proves the task completed correctly?
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Permissions, irreversible actions, and sensitive data
+      description: Include messages sent, files changed, purchases, deletions, secrets, or regulated data.
+    validations:
+      required: true
+  - type: input
+    id: public_reference
+    attributes:
+      label: Optional public tutorial or reference
+      placeholder: https://...
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Contribution consent
+      options:
+        - label: The example can be reproduced with public or synthetic data.
+          required: true
+        - label: I understand maintainers may simplify or reject unsafe steps.
+          required: true

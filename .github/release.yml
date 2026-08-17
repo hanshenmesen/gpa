@@ -1,0 +1,17 @@
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Safety and reliability
+      labels: [safety, security, reliability]
+    - title: Replay and recording
+      labels: [replay, recording]
+    - title: Product and interface
+      labels: [enhancement, ui]
+    - title: Fixes
+      labels: [bug]
+    - title: Documentation and community
+      labels: [documentation, community]
+    - title: Other changes
+      labels: ["*"]

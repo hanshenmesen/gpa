@@ -79,6 +79,15 @@ class CommunityPackageTests(unittest.TestCase):
                     action_type="type",
                     value="{{message}}",
                     active_app_name="TextEdit",
+                    metadata={
+                        "recorded_event_indices": [1, 2, 3],
+                        "intent_normalization": {
+                            "strategy": "typed_correction_or_continuation",
+                            "source_event_count": 3,
+                        },
+                        "recorded_clipboard_text": "final task content",
+                        "recorded_clipboard_changed": True,
+                    },
                 )
             ],
         )
@@ -107,7 +116,91 @@ class CommunityPackageTests(unittest.TestCase):
         self.assertEqual(result.workflow_id, "imported_shareable")
         self.assertEqual(loaded.workflow_name, "shareable_record")
         self.assertEqual(loaded.steps[0].value, "{{message}}")
+        self.assertEqual(
+            loaded.steps[0].metadata["intent_normalization"],
+            {
+                "strategy": "typed_correction_or_continuation",
+                "source_event_count": 3,
+            },
+        )
+        self.assertEqual(loaded.steps[0].metadata["recorded_clipboard_text"], "final task content")
+        self.assertNotIn("recorded_clipboard_before", loaded.steps[0].metadata)
         self.assertEqual(subgraphs, {})
+
+    def test_package_roundtrip_preserves_recording_and_reproduction_context(self):
+        storage = WorkflowStorage()
+        workflow = Workflow(
+            workflow_id="recorded_fixture",
+            workflow_name="recorded_fixture",
+            workflow_title="Recorded Fixture",
+            description="Portable replay evidence.",
+            environment={"schema": "gpa.environment/v1", "system": {"name": "darwin"}},
+            understanding={"schema": "gpa.agent-understanding/v1", "goal": "Reproduce it"},
+            artifacts={
+                "recording": {
+                    "kind": "screen-recording",
+                    "path": "recording.webm",
+                    "mime_type": "video/webm",
+                    "bytes": 12,
+                }
+            },
+        )
+        workflow_dir = storage.save(workflow, {})
+        recording = b"\x1a\x45\xdf\xa3webm-fixture"
+        (workflow_dir / "recording.webm").write_bytes(recording)
+        workflow.artifacts["recording"]["bytes"] = len(recording)
+        workflow.artifacts["recording"]["sha256"] = hashlib.sha256(recording).hexdigest()
+        storage.save(workflow, {})
+
+        package_path = export_workflow_package("recorded_fixture", self.packages_dir, storage=storage)
+        manifest = inspect_workflow_package(package_path)
+        self.assertEqual(manifest["environment"], workflow.environment)
+        self.assertEqual(manifest["understanding"], workflow.understanding)
+        self.assertEqual(manifest["artifacts"], workflow.artifacts)
+        self.assertIn("workflow/recording.webm", {item["path"] for item in manifest["files"]})
+
+        result = import_workflow_package(
+            package_path,
+            workflow_id="recorded_imported",
+            storage=storage,
+        )
+        loaded, _ = storage.load(result.workflow_id)
+        self.assertEqual(loaded.environment, workflow.environment)
+        self.assertEqual(loaded.understanding, workflow.understanding)
+        self.assertEqual(loaded.artifacts, workflow.artifacts)
+        self.assertEqual((result.storage_dir / "recording.webm").read_bytes(), recording)
+
+        bad_checksum = self.packages_dir / "bad-recording-checksum.gpa-record.zip"
+        self.rewrite_manifest(
+            package_path,
+            bad_checksum,
+            lambda manifest: manifest["artifacts"]["recording"].update({"sha256": "0" * 64}),
+        )
+        with self.assertRaisesRegex(ValueError, "recording checksum"):
+            inspect_workflow_package(bad_checksum)
+
+        bad_container = self.packages_dir / "bad-recording-container.gpa-record.zip"
+        replacement = b"this-is-not-a-video"
+        with zipfile.ZipFile(package_path) as source_zip:
+            members = {info.filename: source_zip.read(info.filename) for info in source_zip.infolist()}
+            infos = {info.filename: info for info in source_zip.infolist()}
+        manifest = json.loads(members[MANIFEST_NAME].decode("utf-8"))
+        recording_member = "workflow/recording.webm"
+        replacement_sha = hashlib.sha256(replacement).hexdigest()
+        members[recording_member] = replacement
+        for item in manifest["files"]:
+            if item["path"] == recording_member:
+                item.update({"bytes": len(replacement), "sha256": replacement_sha})
+        manifest["artifacts"]["recording"].update({
+            "bytes": len(replacement),
+            "sha256": replacement_sha,
+        })
+        members[MANIFEST_NAME] = json.dumps(manifest).encode("utf-8")
+        with zipfile.ZipFile(bad_container, "w") as target_zip:
+            for name, data in members.items():
+                target_zip.writestr(infos[name], data)
+        with self.assertRaisesRegex(ValueError, "container signature"):
+            inspect_workflow_package(bad_container)
 
     def test_import_rejects_unsafe_zip_path(self):
         package_path = self.packages_dir / "bad.gpa-record.zip"

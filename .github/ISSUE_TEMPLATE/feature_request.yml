@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a user outcome, not just a new control or setting.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who encounters it, how often, and what happens today?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the result without prescribing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or examples
+      description: Public tutorials, reduced workflows, frequency, or measured cost.
+  - type: textarea
+    id: safety
+    attributes:
+      label: Permissions and failure modes
+      description: What could this read, change, send, overwrite, or trigger?
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing Issues and Discussions.
+          required: true
+        - label: I have not included private data or credentials.
+          required: true

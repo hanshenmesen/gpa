@@ -5,7 +5,14 @@ __pycache__/
 .DS_Store
 
 # Local runtime and generated artifacts
-storage/
+# Anchor this path at the repository root so the source package
+# `gpa/storage` remains trackable.
+/storage/
+/build/
+/dist/
+/artifacts/
+# The hosted product site has its own Git history and Sites deployment source.
+/web/
 demo_output/
 .omx/
 *.egg-info/
