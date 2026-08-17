@@ -68,7 +68,9 @@ class DistributionTests(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "demo_web" / "setup.html"
         ).read_text(encoding="utf-8")
         self.assertIn("本次会话授权", page)
-        self.assertIn("下次启动自动申请授权", page)
+        self.assertIn("下次启动时提醒授权", page)
+        self.assertIn("每次启动仍需你在本机确认", page)
+        self.assertNotIn("下次启动将自动申请", page)
         self.assertIn("startup_default_enabled", page)
 
     def test_community_is_a_user_facing_replay_hub(self):

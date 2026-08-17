@@ -636,6 +636,7 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.addEventListener('pageshow', () => window.scrollTo(0, 0), { once: true });
 let status = null;
 let workflows = [];
+let workflowAliases = {};
 let runHistories = [];
 let selected = null;
 let selectedMode = 'workflow';
@@ -1547,14 +1548,20 @@ async function loadWorkflows() {
     const data = await getJson('/api/workflows', { timeoutMs: 20000 });
     if (!isLatestRequest()) return false;
     workflows = data.workflows;
+    workflowAliases = data.aliases || {};
     renderWorkflowList();
-    const requested = !deepLinkApplied && REQUESTED_WORKFLOW_ID
-      ? workflows.find(item => item.id === REQUESTED_WORKFLOW_ID)
+    const requestedId = workflowAliases[REQUESTED_WORKFLOW_ID] || REQUESTED_WORKFLOW_ID;
+    const requested = !deepLinkApplied && requestedId
+      ? workflows.find(item => item.id === requestedId)
       : null;
     const rememberedContext = readWorkspaceContext();
-    const remembered = workflows.find(item => item.id === rememberedContext.workflowId);
+    const rememberedId = workflowAliases[rememberedContext.workflowId] || rememberedContext.workflowId;
+    const remembered = workflows.find(item => item.id === rememberedId);
     if (!deepLinkApplied) deepLinkApplied = true;
     if (rememberedContext.workflowId && !remembered) forgetWorkspaceContext(rememberedContext.workflowId);
+    if (selectedMode === 'workflow' && selected && workflowAliases[selected]) {
+      selected = workflowAliases[selected];
+    }
     if (selectedMode === 'workflow' && selected && !workflows.some(item => item.id === selected)) {
       forgetWorkspaceContext(selected);
       selected = null;

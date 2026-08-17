@@ -136,6 +136,21 @@ class CommunityRepositoryTests(unittest.TestCase):
         self.assertEqual(detail["stats"]["success_rate"], 0.5)
         self.assertEqual(len(detail["recent_feedback"]), 2)
 
+    def test_import_without_requested_id_reuses_identical_local_source(self):
+        record = self.publish()
+
+        reused = self.repository.import_record(
+            record["record_id"],
+            storage=self.storage,
+        )
+
+        self.assertTrue(reused.already_saved)
+        self.assertEqual(reused.workflow_id, "shareable")
+        self.assertEqual(
+            {item["id"] for item in self.storage.list_workflows()},
+            {"shareable"},
+        )
+
     def test_publish_requires_explicit_privacy_review(self):
         with self.assertRaisesRegex(ValueError, "privacy"):
             self.repository.publish_package(

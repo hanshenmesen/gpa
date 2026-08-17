@@ -9,9 +9,12 @@ import shutil
 import tempfile
 import threading
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+import yaml
 
 from gpa.community.package import (
     DEFAULT_MAX_PACKAGE_BYTES,
@@ -88,6 +91,43 @@ def _content_fingerprint(manifest: dict) -> str:
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def _semantic_workflow_payload(raw: object) -> dict:
+    """Return the portable task definition, excluding host/session evidence."""
+    if not isinstance(raw, dict):
+        return {}
+    payload = dict(raw)
+    payload.pop("workflow_id", None)
+    for field in ("provenance", "environment", "understanding", "artifacts"):
+        payload.pop(field, None)
+    return payload
+
+
+def _package_matches_existing_source(package_path: Path, storage: WorkflowStorage) -> str:
+    """Find an unchanged source Replay without importing a second copy.
+
+    Community packages intentionally carry environment and evidence captured on
+    another host.  Those fields must not make an otherwise identical task look
+    like a different Replay in the local library.
+    """
+    manifest = inspect_workflow_package(package_path)
+    source_id = str(manifest.get("workflow_id") or "").strip()
+    if not source_id:
+        return ""
+    try:
+        workflow, _ = storage.load(source_id)
+    except (FileNotFoundError, ValueError, KeyError):
+        return ""
+    try:
+        with zipfile.ZipFile(package_path) as archive:
+            packaged = yaml.safe_load(archive.read("workflow/workflow.yaml"))
+    except (KeyError, OSError, ValueError, zipfile.BadZipFile, yaml.YAMLError):
+        return ""
+    local = workflow.to_yaml_dict()
+    if _semantic_workflow_payload(packaged) != _semantic_workflow_payload(local):
+        return ""
+    return workflow.workflow_id
 
 
 def _clean_text(value, *, limit: int, fallback: str = "") -> str:
@@ -393,6 +433,22 @@ class CommunityRepository:
                     )
 
             path = self.package_path(record_id)
+            if workflow_id is None:
+                source_id = _package_matches_existing_source(path, storage)
+                if source_id:
+                    workflow, _ = storage.load(source_id)
+                    saved[record_id] = {
+                        "workflow_id": source_id,
+                        "saved_at": _utc_now(),
+                    }
+                    _atomic_json(self.root / SAVED_FILENAME, saved)
+                    return PackageImportResult(
+                        workflow_id=workflow.workflow_id,
+                        workflow_name=workflow.workflow_name,
+                        storage_dir=workflow.storage_dir,
+                        was_renamed=False,
+                        already_saved=True,
+                    )
             result = import_workflow_package(
                 path,
                 workflow_id=workflow_id,
@@ -407,6 +463,8 @@ class CommunityRepository:
                         "record_id": record_id,
                         "package_sha256": str(record.get("package_sha256") or ""),
                         "imported_at": _utc_now(),
+                        "source_workflow_id": str(record.get("workflow_id") or ""),
+                        "named_copy": workflow_id is not None,
                     },
                 }
                 storage.save(imported_workflow, imported_subgraphs)

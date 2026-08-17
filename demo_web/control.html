@@ -273,10 +273,11 @@
     renderRecentRuns();
     const runsByWorkflow=new Map();
     (data.recent_runs||[]).forEach(run=>{
-      if(!runsByWorkflow.has(run.workflow_id))runsByWorkflow.set(run.workflow_id,[]);
-      runsByWorkflow.get(run.workflow_id).push(run);
+      const workflowId=(data.workflow_aliases||{})[run.workflow_id]||run.workflow_id;
+      if(!runsByWorkflow.has(workflowId))runsByWorkflow.set(workflowId,[]);
+      runsByWorkflow.get(workflowId).push(run);
     });
-    const workflowHealth=(data.workflows||[]).map((workflow,index)=>{
+    const workflowHealth=(data.workflows||[]).filter(workflow=>!workflow.alias_of).map((workflow,index)=>{
       const runHistory=runsByWorkflow.get(workflow.id)||[];
       const run=runHistory[0];
       if(!run)return{workflow,run:null,label:'无近期记录',kind:'idle',order:3,index};
@@ -305,7 +306,7 @@
       : workflowRunningCount?`${workflowRunningCount} 运行中`:'无需处理';
     const priorityHtml=priorityWorkflowHealth.map(renderWorkflowHealthRow).join('');
     const clearHtml=!priorityWorkflowHealth.length&&workflowHealth.length
-      ? `<div class="replay-health-clear state-surface is-success"><span class="state-surface-mark" aria-hidden="true">✓</span><div><strong>Replay 无需处理</strong><p>当前没有失败或正在等待处理的任务。</p></div></div>`:'';
+      ? `<div class="replay-health-clear state-surface is-success"><span class="state-surface-mark" aria-hidden="true">✓</span><div><strong>当前库状态正常</strong><p>已保存的 Replay 没有失败或正在等待处理的任务。</p></div></div>`:'';
     const routineHtml=routineWorkflowHealth.length
       ? `<details class="replay-health-more"${routineExpanded?' open':''}><summary><span>${priorityWorkflowHealth.length?'其他 Replay':'查看全部 Replay'}</span><strong>${esc(routineSummary||`${routineWorkflowHealth.length} 个`)}</strong><i aria-hidden="true"></i></summary><div class="replay-health-more-list">${routineWorkflowHealth.map(renderWorkflowHealthRow).join('')}</div></details>`:'';
     document.getElementById('workflows').innerHTML=workflowHealth.length

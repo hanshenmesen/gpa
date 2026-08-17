@@ -118,6 +118,28 @@ class ReplayServerApiTests(unittest.TestCase):
         self.assertEqual(workflow["workflow"]["id"], "api_replay")
         self.assertEqual(runs["runs"], [])
 
+    def test_workflow_catalog_collapses_unchanged_automatic_import_alias(self):
+        storage = server_module._storage()
+        imported, subgraphs = storage.load("api_replay")
+        imported.workflow_id = "api_replay_deadbeef"
+        imported.provenance = {
+            "community_import": {
+                "record_id": "rec_0000000000000000",
+                "source_workflow_id": "api_replay",
+                "named_copy": False,
+            }
+        }
+        storage.save(imported, subgraphs)
+
+        catalog = self.get_json("/api/workflows")
+        overview = self.get_json("/api/product/overview")
+
+        self.assertEqual(catalog["aliases"], {"api_replay_deadbeef": "api_replay"})
+        self.assertNotIn("api_replay_deadbeef", {item["id"] for item in catalog["workflows"]})
+        alias = next(item for item in overview["workflows"] if item["id"] == "api_replay_deadbeef")
+        self.assertEqual(alias["alias_of"], "api_replay")
+        self.assertEqual(overview["summary"]["workflow_count"], 2)
+
     def test_runtime_setup_page_and_settings_never_return_api_key(self):
         setup = self.get_text("/setup")
         with patch("gpa.config.LLM_API_KEY", "secret-value-1234"):
@@ -179,6 +201,27 @@ class ReplayServerApiTests(unittest.TestCase):
                 )
             self.assertEqual(settings["base_url"], "https://models.example.com/v1")
 
+            captured = {}
+
+            class ProviderResponse:
+                status = 200
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *_):
+                    return False
+
+                def read(self, _limit):
+                    return b'{"data":[]}'
+
+            class ProviderOpener:
+                def open(self, request, timeout):
+                    captured["url"] = request.full_url
+                    captured["authorization"] = request.get_header("Authorization")
+                    captured["timeout"] = timeout
+                    return ProviderResponse()
+
             test_request = urllib.request.Request(
                 self.base + "/api/settings/llm/test",
                 data=json.dumps({
@@ -188,10 +231,18 @@ class ReplayServerApiTests(unittest.TestCase):
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with self.assertRaises(urllib.error.HTTPError) as test_error:
-                urllib.request.urlopen(test_request, timeout=5)
-            self.assertEqual(test_error.exception.code, 422)
-            self.assertIn("built-in providers", json.load(test_error.exception)["error"])
+            with (
+                patch("gpa.execution.safe_web.static_public_url_error", return_value=""),
+                patch("gpa.execution.safe_web.public_http_url_error", return_value=""),
+                patch("urllib.request.build_opener", return_value=ProviderOpener()),
+            ):
+                with urllib.request.urlopen(test_request, timeout=5) as response:
+                    tested = json.load(response)
+            self.assertTrue(tested["ok"])
+            self.assertEqual(tested["provider_host"], "models.example.com")
+            self.assertEqual(captured["url"], "https://models.example.com/v1/models")
+            self.assertEqual(captured["authorization"], "Bearer sk-test")
+            self.assertEqual(captured["timeout"], 12)
 
     def test_desktop_access_can_be_enabled_and_revoked_for_current_session(self):
         previous_enabled = server_module.DESKTOP_AUTOMATION_ENABLED
@@ -890,6 +941,32 @@ class ReplayServerApiTests(unittest.TestCase):
         self.assertIsInstance(crash["new_reports_since_start"], int)
         self.assertIsInstance(crash["crash_free_since_start"], bool)
         self.assertNotIn(str(Path.home()), json.dumps(crash))
+
+    def test_product_overview_keeps_every_saved_workflow_for_status_mapping(self):
+        storage = server_module._storage()
+        for index in range(9):
+            storage.save(
+                Workflow(
+                    workflow_id=f"status_replay_{index}",
+                    workflow_name=f"status_replay_{index}",
+                    workflow_title=f"Status Replay {index}",
+                    description="Status mapping fixture",
+                    steps=[WorkflowStep(1, "Wait", action_type="wait", value="0")],
+                ),
+                {},
+            )
+
+        overview = self.get_json("/api/product/overview")
+
+        self.assertEqual(len(overview["workflows"]), overview["summary"]["workflow_count"])
+        self.assertEqual(overview["summary"]["workflow_count"], 11)
+
+    def test_public_community_transparency_reports_discoverable_catalog_count(self):
+        transparency = self.get_json("/api/community/transparency")["overview"]
+        records = self.get_json("/api/community/records")["records"]
+
+        self.assertEqual(transparency["records"]["discoverable"], len(records))
+        self.assertEqual(transparency["records"]["community_contributions"], 0)
 
     def test_workflow_detail_compares_the_requesting_browser_environment(self):
         detail = self.get_json(

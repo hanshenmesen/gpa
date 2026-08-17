@@ -821,6 +821,88 @@ class ExecutorSafetyTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(opened, [(target, "Google Chrome")])
 
+    def test_agent_first_uses_unique_accessibility_button_when_ocr_is_empty(self):
+        step = WorkflowStep(
+            1,
+            "Close the blocking reminder",
+            id="close-reminder",
+            action_type="click",
+            active_app_name="Google Chrome",
+            metadata={
+                "target_hint": "关闭提醒",
+                "target_contract": {
+                    "name": "关闭提醒",
+                    "role": "button",
+                    "actionability": {
+                        "requires_unique": True,
+                        "requires_visible": True,
+                        "requires_stable": True,
+                        "requires_enabled": True,
+                        "requires_unobscured": True,
+                    },
+                },
+            },
+        )
+        workflow = Workflow(
+            "empty_ocr_accessibility",
+            "Empty OCR Accessibility",
+            "Close one named browser button.",
+            "Smoke",
+            steps=[step],
+        )
+        subgraph = StepSubgraph(
+            target_element_id=0,
+            click_coordinates=[720.0, 610.0],
+            ui_graph=UIGraph(
+                nodes=[UINode(0, [680.0, 590.0, 80.0, 40.0], "button", "关闭提醒")],
+                image_size=[1000, 800],
+            ),
+            window_bounds=[0.0, 0.0, 1000.0, 800.0],
+        )
+        pressed = []
+        coordinate_clicks = []
+
+        def press_named_control(app, hint):
+            pressed.append((app, hint))
+            return len(pressed) >= 2
+
+        with patched_executor(
+            _ensure_active_app=lambda *args, **kwargs: True,
+            _prepare_window_for_coordinate_replay=lambda *args, **kwargs: None,
+            call_json_llm=lambda *args, **kwargs: {
+                "should_execute": True,
+                "action_type": "click",
+                "target_hint": "关闭提醒",
+                "target_x": 0.72,
+                "target_y": 0.61,
+                "target_coordinate_space": "normalized",
+                "confidence": 1.0,
+            },
+            capture_screenshot=lambda: FakeScreenshot(),
+            parse_screenshot=lambda shot: UIGraph(nodes=[], image_size=[shot.width, shot.height]),
+            get_active_app=lambda: "Google Chrome",
+            _press_accessibility_control=press_named_control,
+            click=lambda x, y: coordinate_clicks.append((x, y)),
+        ):
+            result = Executor(
+                workflow,
+                {"close-reminder": subgraph},
+                max_retries=2,
+                agent_first=True,
+            ).run()
+
+        self.assertTrue(result.success)
+        self.assertEqual(
+            pressed,
+            [("Google Chrome", "关闭提醒"), ("Google Chrome", "关闭提醒")],
+        )
+        self.assertEqual(coordinate_clicks, [])
+        self.assertEqual(result.step_results[0].retries, 1)
+        self.assertEqual(
+            result.step_results[0].localization.method,
+            "accessibility_semantic_unique",
+        )
+
     def test_browser_navigation_repair_can_be_disabled_by_env(self):
         os.environ[executor_module.BROWSER_NAVIGATION_REPAIR_ENV] = "0"
         workflow = Workflow(

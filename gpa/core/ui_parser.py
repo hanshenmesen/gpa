@@ -256,7 +256,15 @@ def _detect_icons(image: Image.Image) -> list[dict]:
 def _detect_text_ocrmac(image: Image.Image) -> list[dict]:
     """Use ocrmac (Apple Vision) for text detection. Accepts PIL image directly."""
     from ocrmac.ocrmac import OCR
-    results = OCR(image, recognition_level="accurate").recognize()
+    # Vision otherwise tends to prefer English on mixed-language desktops and
+    # may silently omit Chinese button labels such as “关闭提醒”.  Keep both
+    # Simplified/Traditional Chinese and English enabled for GPA's UI and
+    # real-world cross-language workflows.
+    results = OCR(
+        image,
+        recognition_level="accurate",
+        language_preference=["zh-Hans", "zh-Hant", "en-US"],
+    ).recognize()
     texts = []
     iw, ih = image.size
     for item in results:

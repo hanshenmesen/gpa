@@ -41,6 +41,9 @@ dependencies = [
   "pyobjc-framework-Quartz==11.1; platform_system == 'Darwin'",
   "pyobjc-framework-ApplicationServices==11.1; platform_system == 'Darwin'",
   "pyobjc-framework-CoreText==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-CoreML==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-Vision==11.1; platform_system == 'Darwin'",
+  "ocrmac>=0.3.0; platform_system == 'Darwin'",
   "mcp>=2.0.0,<3; python_version >= '3.10'",
   "opencv-python>=4.8.0",
 ]
@@ -68,7 +71,6 @@ visual = [
   "ultralytics>=8.2.0",
   "huggingface-hub>=0.23.0",
   "sentence-transformers>=3.0.0",
-  "ocrmac>=0.3.0",
 ]
 dev = [
   "build>=1.2",

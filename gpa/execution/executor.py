@@ -1262,7 +1262,12 @@ def _browser_visible_control_center(app_name: str, target_hint: str) -> Optional
 
 
 def _press_accessibility_control(app_name: str, target_hint: str) -> bool:
-    """Press a named visible control through Accessibility, if available."""
+    """Press one uniquely named visible control through Accessibility.
+
+    This is a safety-preserving fallback when visual reasoning can identify a
+    browser control but the local OCR graph is empty.  Never press the first
+    fuzzy match: count all matching buttons and act only on one unique result.
+    """
     app = (app_name or "").strip()
     hint = (target_hint or "").strip()
     if not app or not hint:
@@ -1273,6 +1278,8 @@ def _press_accessibility_control(app_name: str, target_hint: str) -> bool:
         'tell application "System Events"\n'
         f'  tell process "{safe_app}"\n'
         "    if (count of windows) = 0 then return \"\"\n"
+        "    set matchCount to 0\n"
+        "    set matchedItem to missing value\n"
         "    set allItems to entire contents of front window\n"
         "    repeat with itemRef in allItems\n"
         "      try\n"
@@ -1292,16 +1299,19 @@ def _press_accessibility_control(app_name: str, target_hint: str) -> bool:
         "            end try\n"
         "          end if\n"
         f'          if labelText is not \"\" and (labelText contains "{safe_hint}" or "{safe_hint}" contains labelText) then\n'
-        "            try\n"
-        "              click itemRef\n"
-        "            on error\n"
-        "              perform action \"AXPress\" of itemRef\n"
-        "            end try\n"
-        "            return \"pressed\"\n"
+        "            set matchCount to matchCount + 1\n"
+        "            set matchedItem to itemRef\n"
         "          end if\n"
         "        end if\n"
         "      end try\n"
         "    end repeat\n"
+        "    if matchCount is not 1 then return \"\"\n"
+        "    try\n"
+        "      click matchedItem\n"
+        "    on error\n"
+        "      perform action \"AXPress\" of matchedItem\n"
+        "    end try\n"
+        "    return \"pressed\"\n"
         "  end tell\n"
         "end tell\n"
         "return \"\""
@@ -3665,8 +3675,110 @@ class Executor:
                     return step_result
                 actionability_error = _target_actionability_error(step, runtime_graph, agent_loc)
                 if actionability_error:
-                    raise RuntimeError(actionability_error)
-                _execute_step_action(step, agent_loc, self.variables)
+                    contract = dict((step.metadata or {}).get("target_contract") or {})
+                    semantic_hint = str(
+                        contract.get("name")
+                        or agent_decision.get("target_hint")
+                        or (step.metadata or {}).get("target_hint")
+                        or ""
+                    ).strip()
+                    recoverable_unique_failure = bool(
+                        actionability_error == "Semantic target failed actionability checks: unique"
+                        and step.action_type == "click"
+                        and _is_browser_app(step.active_app_name)
+                        and semantic_hint
+                    )
+                    action_executed = False
+                    recovery_limit = max(1, min(self.max_retries + 1, 4))
+                    if recoverable_unique_failure:
+                        for recovery_attempt in range(recovery_limit):
+                            step_result.retries = recovery_attempt
+                            if _press_accessibility_control(step.active_app_name, semantic_hint):
+                                agent_loc = LocalizationResult(
+                                    x=0.0,
+                                    y=0.0,
+                                    confidence=1.0,
+                                    likelihood_conf=1.0,
+                                    spatial_conf=1.0,
+                                    method="accessibility_semantic_unique",
+                                )
+                                step_result.corrections.append({
+                                    "phase": "actionability_recovery",
+                                    "attempt": recovery_attempt + 1,
+                                    "method": "accessibility_semantic_unique",
+                                    "target_hint": semantic_hint,
+                                })
+                                action_executed = True
+                                break
+                            if recovery_attempt + 1 >= recovery_limit:
+                                break
+                            if not self._sleep_interruptible(
+                                max(0.25, min(1.0, step.pause_duration * 0.5))
+                            ):
+                                step_result.state = StepState.FAILED
+                                step_result.error = "Replay stopped during target recovery."
+                                return step_result
+                            refreshed_graph = None
+                            screenshot_ms = 0.0
+                            observation_error = ""
+                            try:
+                                screenshot_started = time.perf_counter()
+                                refreshed_screenshot = self._capture_settled_screenshot()
+                                screenshot_ms = _elapsed_ms(screenshot_started)
+                                observation_live_size = (
+                                    refreshed_screenshot.width,
+                                    refreshed_screenshot.height,
+                                )
+                                refreshed_graph = parse_screenshot(refreshed_screenshot)
+                                runtime_graph = refreshed_graph
+                                refreshed_loc = _agent_action_localization(
+                                    agent_decision,
+                                    refreshed_graph,
+                                    observation_live_size,
+                                )
+                                refreshed_error = _target_actionability_error(
+                                    step,
+                                    refreshed_graph,
+                                    refreshed_loc,
+                                ) if refreshed_loc is not None else actionability_error
+                                if refreshed_loc is not None and not refreshed_error:
+                                    _execute_step_action(step, refreshed_loc, self.variables)
+                                    agent_loc = refreshed_loc
+                                    step_result.corrections.append({
+                                        "phase": "actionability_recovery",
+                                        "attempt": recovery_attempt + 1,
+                                        "method": "refreshed_visual_graph",
+                                        "target_hint": semantic_hint,
+                                    })
+                                    action_executed = True
+                                    break
+                            except Exception as exc:
+                                observation_error = str(exc)
+                                logger.warning(
+                                    "Step %s target recovery observation %s/%s failed: %s",
+                                    step.step_number,
+                                    recovery_attempt + 1,
+                                    recovery_limit,
+                                    exc,
+                                )
+                            finally:
+                                _record_observation_metrics(
+                                    step_result,
+                                    "actionability_reobserve",
+                                    screenshot_ms=screenshot_ms,
+                                    runtime_graph=refreshed_graph,
+                                    error=observation_error,
+                                )
+                    if not action_executed:
+                        recovery_summary = (
+                            f" after {recovery_limit} safe recovery attempts "
+                            "(unique Accessibility match and refreshed visual observation)"
+                            if recoverable_unique_failure
+                            else ""
+                        )
+                        raise RuntimeError(actionability_error + recovery_summary)
+                else:
+                    _execute_step_action(step, agent_loc, self.variables)
                 self._precheck.invalidate(step_idx)
                 step_result.localization = agent_loc
                 step_result.state = StepState.DONE

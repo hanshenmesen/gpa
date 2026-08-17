@@ -132,9 +132,6 @@ REPLAY_AGENT_FIRST = env_bool(REPLAY_AGENT_FIRST_ENV, False)
 REPLAY_VERIFY_FINAL_ENV = "GPA_VERIFY_FINAL_STATE"
 REPLAY_VERIFY_FINAL = env_bool(REPLAY_VERIFY_FINAL_ENV, REPLAY_AGENT_FIRST)
 TRUSTED_LLM_PROVIDER_HOSTS = frozenset({"api.openai.com"})
-TRUSTED_LLM_PROVIDER_TEST_URLS = {
-    "api.openai.com": "https://api.openai.com/v1/models",
-}
 _CHATGPT_REFERENCE_RE = re.compile(
     r"(?<![a-z0-9.-])(?:chatgpt(?:\.com)?|chat\.openai\.com)(?![a-z0-9.-])",
     re.IGNORECASE,
@@ -2189,9 +2186,19 @@ def _ensure_demo_community_records() -> list[dict]:
     workflows_dir.mkdir(parents=True, exist_ok=True)
     workflow_module.WORKFLOWS_DIR = workflows_dir
     seeded = []
+    existing_by_workflow = {
+        str(record.get("workflow_id") or ""): record
+        for record in repository.list_records()
+        if record.get("author") == "GPA Examples"
+        and bool({"demo", "case", "tutorial"} & set(record.get("tags") or []))
+    }
     try:
         storage = WorkflowStorage()
         for workflow, tags, subgraphs in _demo_community_workflows():
+            existing = existing_by_workflow.get(workflow.workflow_id)
+            if existing is not None:
+                seeded.append({**existing, "duplicate": True})
+                continue
             storage.save(_prepare_workflow_evidence(workflow, step_subgraphs=subgraphs), subgraphs)
             package_path = export_workflow_package(
                 workflow.workflow_id,
@@ -2879,11 +2886,27 @@ def _ensure_local_real_community_records() -> list[dict]:
     packages_dir.mkdir(parents=True, exist_ok=True)
     published = []
     storage = WorkflowStorage()
+    existing_records = repository.list_records()
     try:
         for workflow_id, metadata in MAINTAINED_COMMUNITY_WORKFLOWS.items():
             try:
                 workflow, subgraphs = storage.load(workflow_id)
             except (FileNotFoundError, ValueError):
+                continue
+            existing = next(
+                (
+                    record for record in existing_records
+                    if record.get("workflow_id") == workflow_id
+                    and record.get("author") == metadata["author"]
+                    and bool(set(metadata["tags"]) & set(record.get("tags") or []))
+                ),
+                None,
+            )
+            if existing is not None:
+                repository.remember_saved_workflow(
+                    existing["record_id"], workflow_id, storage=storage
+                )
+                published.append({**existing, "duplicate": True})
                 continue
             if "internal-regression" in metadata["tags"] and not workflow.provenance:
                 workflow.provenance = {
@@ -2996,6 +3019,61 @@ def _repair_local_workflow_evidence() -> dict[str, int]:
             storage.save(workflow, subgraphs)
             repaired += 1
     return {"repaired": repaired, "recordings": recordings}
+
+
+def _workflow_library() -> tuple[list[dict], list[dict], dict[str, str]]:
+    """Collapse unchanged automatic Store imports into source aliases."""
+    from gpa.community.repository import _semantic_workflow_payload
+
+    storage = _storage()
+    summaries = storage.list_workflows()
+    available = {str(item.get("id") or "") for item in summaries}
+    aliases: dict[str, str] = {}
+    for summary in summaries:
+        workflow_id = str(summary.get("id") or "")
+        try:
+            workflow, _ = storage.load(workflow_id)
+        except (FileNotFoundError, ValueError, KeyError):
+            continue
+        imported = (workflow.provenance or {}).get("community_import")
+        if not isinstance(imported, dict):
+            continue
+        source_id = str(imported.get("source_workflow_id") or "").strip()
+        if not source_id:
+            try:
+                source_id = str(
+                    _community_repository()
+                    .get_record(str(imported.get("record_id") or ""))
+                    .get("workflow_id")
+                    or ""
+                ).strip()
+            except (FileNotFoundError, ValueError, KeyError):
+                continue
+        legacy_automatic_copy = bool(
+            source_id
+            and re.fullmatch(rf"{re.escape(source_id)}_[a-f0-9]{{8}}", workflow_id)
+        )
+        if imported.get("named_copy") is True or not (
+            imported.get("named_copy") is False or legacy_automatic_copy
+        ):
+            continue
+        if source_id == workflow_id or source_id not in available:
+            continue
+        try:
+            source, _ = storage.load(source_id)
+        except (FileNotFoundError, ValueError, KeyError):
+            continue
+        if _semantic_workflow_payload(workflow.to_yaml_dict()) != _semantic_workflow_payload(
+            source.to_yaml_dict()
+        ):
+            continue
+        aliases[workflow_id] = source_id
+    annotated = [
+        {**item, **({"alias_of": aliases[item["id"]]} if item["id"] in aliases else {})}
+        for item in summaries
+    ]
+    visible = [item for item in annotated if "alias_of" not in item]
+    return visible, annotated, aliases
 
 
 def _has_visual_context_for_payload(subgraph) -> bool:
@@ -4024,7 +4102,7 @@ def _run_evidence(run: dict) -> dict:
 def _product_overview() -> dict:
     _cleanup_package_inspections()
     storage = _storage()
-    workflows = storage.list_workflows()
+    workflows, workflow_status_entries, workflow_aliases = _workflow_library()
     workflow_evidence = []
     for item in workflows:
         try:
@@ -4366,7 +4444,12 @@ def _product_overview() -> dict:
             _run_evidence(run) | {"success": run.get("success"), "error": run.get("error", "")}
             for run in latest_by_workflow.values()
         ],
-        "workflows": sorted(workflows, key=lambda item: int(item.get("steps") or 0), reverse=True)[:8],
+        "workflows": sorted(
+            workflow_status_entries,
+            key=lambda item: int(item.get("steps") or 0),
+            reverse=True,
+        ),
+        "workflow_aliases": workflow_aliases,
         "recent_runs": runs[:8],
     }
 
@@ -4516,7 +4599,8 @@ def _runtime_settings_payload() -> dict:
             "enabled": bool(DESKTOP_AUTOMATION_ENABLED),
             "requested": bool(DESKTOP_AUTOMATION_REQUESTED),
             "startup_default_enabled": env_bool(DESKTOP_STARTUP_ENV, False),
-            "session_only": not env_bool(DESKTOP_STARTUP_ENV, False),
+            "startup_reminder_enabled": env_bool(DESKTOP_STARTUP_ENV, False),
+            "session_only": True,
             "recovery_safe_mode": bool(RECOVERY_SAFE_MODE_ACTIVE),
             "can_change": not bool(
                 STATE.get("recording", {}).get("active")
@@ -4604,8 +4688,8 @@ def _set_desktop_automation(handler: BaseHTTPRequestHandler) -> None:
     )
     if startup_default is not None:
         _log(
-            "Desktop automation will be requested automatically on next startup."
-            if startup_default else "Desktop automation will default to off on next startup."
+            "Desktop automation reminder will be shown on next startup."
+            if startup_default else "Desktop automation startup reminder is disabled."
         )
     _json_response(handler, _runtime_settings_payload())
 
@@ -4697,22 +4781,35 @@ def _save_llm_settings(handler: BaseHTTPRequestHandler) -> None:
 def _test_llm_settings(handler: BaseHTTPRequestHandler) -> None:
     import urllib.error
     import urllib.request
+    from urllib.parse import urljoin
+
+    from gpa.execution.safe_web import public_http_url_error
 
     body = _read_json(handler, max_bytes=32 * 1024)
     settings = _validated_llm_settings(body, require_key=True)
     provider_host = str(urlsplit(settings["base_url"]).hostname or "").casefold()
-    models_url = TRUSTED_LLM_PROVIDER_TEST_URLS.get(provider_host)
-    if models_url is None:
-        raise ValueError(
-            "Connection testing is available only for built-in providers. "
-            "Custom providers can be saved after explicit host confirmation."
-        )
+    models_url = urljoin(f"{settings['base_url']}/", "models")
+    network_error = public_http_url_error(models_url)
+    if network_error:
+        raise ValueError(network_error)
+
+    class _SameProviderRedirectHandler(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, request, response, code, message, headers, new_url):
+            target = urljoin(request.full_url, new_url)
+            parsed = urlsplit(target)
+            if parsed.scheme != "https" or str(parsed.hostname or "").casefold() != provider_host:
+                raise ValueError("Provider connection test blocked a cross-host redirect.")
+            redirect_error = public_http_url_error(target)
+            if redirect_error:
+                raise ValueError(redirect_error)
+            return super().redirect_request(request, response, code, message, headers, target)
     request = urllib.request.Request(
         models_url,
         headers={"Authorization": f"Bearer {settings['api_key']}", "Accept": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=12) as response:
+        opener = urllib.request.build_opener(_SameProviderRedirectHandler())
+        with opener.open(request, timeout=12) as response:
             status = int(response.status)
             response.read(64 * 1024)
     except urllib.error.HTTPError as exc:
@@ -4721,10 +4818,10 @@ def _test_llm_settings(handler: BaseHTTPRequestHandler) -> None:
             return
         _error(handler, f"Provider returned HTTP {exc.code} while checking /models.", 422)
         return
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
         _error(handler, f"Could not reach the provider: {exc}", 422)
         return
-    _json_response(handler, {"ok": True, "status": status, "provider_host": urlsplit(models_url).hostname})
+    _json_response(handler, {"ok": True, "status": status, "provider_host": provider_host})
 
 
 def _require_desktop_automation(handler: BaseHTTPRequestHandler, operation: str) -> bool:
@@ -7135,7 +7232,19 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/community/transparency":
             try:
-                overview = _community_repository().moderation_overview()
+                repository = _community_repository()
+                overview = repository.moderation_overview()
+                discoverable_records = repository.list_records()
+                system_publishers = {
+                    "GPA Examples",
+                    "GPA Engineering",
+                    "AssistantBench · GPA reproduction",
+                }
+                overview.setdefault("records", {})["discoverable"] = len(discoverable_records)
+                overview["records"]["community_contributions"] = sum(
+                    str(record.get("author") or "") not in system_publishers
+                    for record in discoverable_records
+                )
                 public_overview = {
                     "schema": "gpa.community-transparency/v1",
                     "generated_at": overview["generated_at"],
@@ -7331,8 +7440,11 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/workflows":
             try:
-                workflows = _storage().list_workflows()
-                _json_response(self, {"ok": True, "workflows": workflows})
+                workflows, _, aliases = _workflow_library()
+                _json_response(
+                    self,
+                    {"ok": True, "workflows": workflows, "aliases": aliases},
+                )
             except Exception as exc:
                 _error(self, str(exc), 500)
             return
