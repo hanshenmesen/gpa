@@ -4,7 +4,6 @@ export LC_ALL=C
 export LANG=C
 
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
-python_bin="${GPA_BUILD_PYTHON:-$repo_dir/.venv/bin/python}"
 build_dir="$repo_dir/build/macos"
 artifact_dir="$repo_dir/artifacts"
 image_root="$build_dir/dmg-root"
@@ -15,8 +14,25 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "GPA macOS bundles must be built on macOS." >&2
   exit 1
 fi
-if [[ ! -x "$python_bin" ]]; then
-  echo "Python environment not found: $python_bin" >&2
+
+configured_python="${GPA_BUILD_PYTHON:-}"
+if [[ -n "$configured_python" ]]; then
+  if [[ -x "$configured_python" ]]; then
+    python_bin="$configured_python"
+  elif command -v "$configured_python" >/dev/null 2>&1; then
+    python_bin="$(command -v "$configured_python")"
+  else
+    echo "Configured Python environment not found: $configured_python" >&2
+    exit 1
+  fi
+elif [[ -x "$repo_dir/.venv/bin/python" ]]; then
+  python_bin="$repo_dir/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  python_bin="$(command -v python3)"
+elif command -v python >/dev/null 2>&1; then
+  python_bin="$(command -v python)"
+else
+  echo "Python environment not found. Set GPA_BUILD_PYTHON explicitly." >&2
   exit 1
 fi
 
