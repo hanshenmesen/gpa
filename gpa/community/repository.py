@@ -117,7 +117,7 @@ class CommunityRepository:
 
     def publish_package(
         self,
-        package: str | Path | bytes,
+        package: bytes,
         *,
         author: str,
         tags: list[str],
@@ -140,25 +140,11 @@ class CommunityRepository:
         staging = Path(tempfile.mkdtemp(prefix=".community-publish-", dir=self.root))
         staged_package = staging / PACKAGE_FILENAME
         try:
-            if isinstance(package, bytes):
-                if len(package) > self.max_package_bytes:
-                    raise ValueError("Package exceeds maximum package size.")
-                staged_package.write_bytes(package)
-            else:
-                allowed_root = self.root.resolve().parent
-                try:
-                    source = Path(package).resolve(strict=True)
-                    relative_source = source.relative_to(allowed_root)
-                except (OSError, ValueError) as exc:
-                    raise ValueError(
-                        "Package path must be inside the community data workspace."
-                    ) from exc
-                source = allowed_root / relative_source
-                if not source.is_file():
-                    raise FileNotFoundError(f"Package not found: {source}")
-                if source.stat().st_size > self.max_package_bytes:
-                    raise ValueError("Package exceeds maximum package size.")
-                shutil.copyfile(source, staged_package)
+            if not isinstance(package, bytes):
+                raise TypeError("Community packages must be supplied as an immutable byte snapshot.")
+            if len(package) > self.max_package_bytes:
+                raise ValueError("Package exceeds maximum package size.")
+            staged_package.write_bytes(package)
 
             manifest = inspect_workflow_package(
                 staged_package,

@@ -56,6 +56,7 @@ class CommunityRepositoryTests(unittest.TestCase):
             self.root / "packages",
             storage=self.storage,
         )
+        self.package_bytes = self.package_path.read_bytes()
         self.repository = CommunityRepository(self.root / "community")
 
     def tearDown(self):
@@ -64,7 +65,7 @@ class CommunityRepositoryTests(unittest.TestCase):
 
     def publish(self):
         return self.repository.publish_package(
-            self.package_path,
+            self.package_bytes,
             author="Alice",
             tags=["Browser", "Demo", "browser"],
             license_id="CC-BY-4.0",
@@ -138,30 +139,27 @@ class CommunityRepositoryTests(unittest.TestCase):
     def test_publish_requires_explicit_privacy_review(self):
         with self.assertRaisesRegex(ValueError, "privacy"):
             self.repository.publish_package(
-                self.package_path,
+                self.package_bytes,
                 author="Alice",
                 tags=[],
                 license_id="CC-BY-4.0",
                 privacy_reviewed=False,
             )
 
-    def test_publish_path_must_stay_inside_repository_workspace(self):
-        with tempfile.TemporaryDirectory() as outside:
-            outside_package = Path(outside) / "outside.gpa-record.zip"
-            outside_package.write_bytes(self.package_path.read_bytes())
-            with self.assertRaisesRegex(ValueError, "community data workspace"):
-                self.repository.publish_package(
-                    outside_package,
-                    author="Alice",
-                    tags=[],
-                    license_id="CC-BY-4.0",
-                    privacy_reviewed=True,
-                )
+    def test_publish_rejects_file_path_reference(self):
+        with self.assertRaisesRegex(TypeError, "immutable byte snapshot"):
+            self.repository.publish_package(
+                self.package_path,  # type: ignore[arg-type]
+                author="Alice",
+                tags=[],
+                license_id="CC-BY-4.0",
+                privacy_reviewed=True,
+            )
 
     def test_publisher_declaration_requires_every_commitment(self):
         with self.assertRaisesRegex(ValueError, "Publisher declaration"):
             self.repository.publish_package(
-                self.package_path,
+                self.package_bytes,
                 author="Alice",
                 tags=[],
                 license_id="CC-BY-4.0",
@@ -245,7 +243,7 @@ class CommunityRepositoryTests(unittest.TestCase):
         }
 
         upgraded = self.repository.publish_package(
-            self.package_path,
+            self.package_bytes,
             author="Alice",
             tags=["browser"],
             license_id="CC-BY-4.0",
@@ -289,7 +287,7 @@ class CommunityRepositoryTests(unittest.TestCase):
         )
 
         record = self.repository.publish_package(
-            package,
+            package.read_bytes(),
             author="Alice",
             tags=["browser"],
             license_id="CC-BY-4.0",

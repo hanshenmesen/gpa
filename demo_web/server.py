@@ -668,8 +668,15 @@ def _error(handler: BaseHTTPRequestHandler, message: str, status: int = 400) -> 
 def _send_local_cors_headers(handler: BaseHTTPRequestHandler) -> None:
     headers = getattr(handler, "headers", None)
     origin = str(headers.get("Origin") or "").strip() if hasattr(headers, "get") else ""
-    if origin in {f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"}:
-        handler.send_header("Access-Control-Allow-Origin", origin)
+    ip_origin = f"http://127.0.0.1:{PORT}"
+    localhost_origin = f"http://localhost:{PORT}"
+    if origin == ip_origin:
+        handler.send_header("Access-Control-Allow-Origin", ip_origin)
+    elif origin == localhost_origin:
+        handler.send_header("Access-Control-Allow-Origin", localhost_origin)
+    else:
+        return
+    if origin:
         handler.send_header("Vary", "Origin")
         handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         handler.send_header("Access-Control-Allow-Headers", "Content-Type")
@@ -2177,7 +2184,7 @@ def _ensure_demo_community_records() -> list[dict]:
             )
             seeded.append(
                 repository.publish_package(
-                    package_path,
+                    package_path.read_bytes(),
                     author="GPA Examples",
                     tags=tags,
                     license_id="CC0-1.0",
@@ -2882,7 +2889,7 @@ def _ensure_local_real_community_records() -> list[dict]:
                 else {}
             )
             record = repository.publish_package(
-                package_path,
+                package_path.read_bytes(),
                 author=metadata["author"],
                 tags=metadata["tags"],
                 license_id="CC0-1.0",
@@ -6403,7 +6410,7 @@ def _publish_inspected_community_package(handler: BaseHTTPRequestHandler) -> Non
 
         tags = list_field(body.get("tags", []), field="tags")
         record = _community_repository().publish_package(
-            package_path,
+            package_path.read_bytes(),
             author=str(body.get("author") or "Anonymous"),
             tags=[str(item) for item in tags],
             license_id=str(body.get("record_license") or "CC-BY-4.0"),
@@ -6457,7 +6464,7 @@ def _publish_community_package_upload(handler: BaseHTTPRequestHandler) -> None:
         )
         try:
             record = _community_repository().publish_package(
-                upload_path,
+                upload_path.read_bytes(),
                 author=author,
                 tags=tags,
                 license_id=license_id,
