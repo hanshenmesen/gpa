@@ -132,6 +132,13 @@ REPLAY_AGENT_FIRST = env_bool(REPLAY_AGENT_FIRST_ENV, False)
 REPLAY_VERIFY_FINAL_ENV = "GPA_VERIFY_FINAL_STATE"
 REPLAY_VERIFY_FINAL = env_bool(REPLAY_VERIFY_FINAL_ENV, REPLAY_AGENT_FIRST)
 TRUSTED_LLM_PROVIDER_HOSTS = frozenset({"api.openai.com"})
+TRUSTED_LLM_PROVIDER_TEST_URLS = {
+    "api.openai.com": "https://api.openai.com/v1/models",
+}
+_CHATGPT_REFERENCE_RE = re.compile(
+    r"(?<![a-z0-9.-])(?:chatgpt(?:\.com)?|chat\.openai\.com)(?![a-z0-9.-])",
+    re.IGNORECASE,
+)
 HEALTH_CACHE_TTL_SECONDS = 10.0
 ROOT = pathlib.Path(__file__).parent
 PROJECT_ROOT = ROOT.parent
@@ -563,6 +570,15 @@ def _media_headers(
     content_type: str,
     filename: str,
 ) -> tuple[int, int]:
+    safe_filename = re.sub(r"[^A-Za-z0-9._-]", "_", pathlib.Path(filename).name)[:128]
+    if not safe_filename:
+        safe_filename = "media.bin"
+    safe_content_type = content_type if content_type in {
+        "video/mp4",
+        "video/webm",
+        "application/zip",
+        "application/octet-stream",
+    } else "application/octet-stream"
     try:
         try:
             requested = _media_range(handler, size)
@@ -576,9 +592,9 @@ def _media_headers(
             return -1, -1
         start, end = requested or (0, max(0, size - 1))
         handler.send_response(206 if requested else 200)
-        handler.send_header("Content-Type", content_type)
+        handler.send_header("Content-Type", safe_content_type)
         handler.send_header("Content-Length", str(max(0, end - start + 1)))
-        handler.send_header("Content-Disposition", f'inline; filename="{filename}"')
+        handler.send_header("Content-Disposition", f'inline; filename="{safe_filename}"')
         handler.send_header("Accept-Ranges", "bytes")
         if requested:
             handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
@@ -3074,12 +3090,11 @@ def _workflow_quality_payload(workflow, subgraphs: dict) -> dict:
             ],
         ]
     )
-    mentions_chatgpt = "chatgpt" in workflow_action_text or "chat.openai.com" in workflow_action_text
+    mentions_chatgpt = _CHATGPT_REFERENCE_RE.search(workflow_action_text) is not None
     requests_wechat_delivery = (
         _quality_mentions_wechat(workflow_action_text)
         and _quality_has_send_intent(workflow_action_text)
     )
-    chatgpt_nav_tokens = ("chatgpt", "chatgpt.com", "chat.openai.com", "openai.com")
     opens_chatgpt = False
     has_wechat_delivery_step = False
     for step in workflow.steps:
@@ -3088,8 +3103,8 @@ def _workflow_quality_payload(workflow, subgraphs: dict) -> dict:
         step_text = " ".join([step_action, step_value])
         if _quality_step_is_wechat_delivery(step, step_text):
             has_wechat_delivery_step = True
-        has_chatgpt_target = any(token in step_text for token in chatgpt_nav_tokens)
-        has_url_value = any(token in step_value for token in ("http://", "https://", "chatgpt.com", "chat.openai.com"))
+        has_chatgpt_target = _CHATGPT_REFERENCE_RE.search(step_text) is not None
+        has_url_value = step_value.startswith(("http://", "https://"))
         has_navigation_intent = any(
             token in step_action
             for token in ("open", "navigate", "url", "website", "site", "address", "打开", "导航", "网址", "网站", "地址")
@@ -4660,14 +4675,15 @@ def _test_llm_settings(handler: BaseHTTPRequestHandler) -> None:
     import urllib.error
     import urllib.request
 
-    from gpa.execution.safe_web import public_http_url_error
-
     body = _read_json(handler, max_bytes=32 * 1024)
     settings = _validated_llm_settings(body, require_key=True)
-    models_url = settings["base_url"] + "/models"
-    public_error = public_http_url_error(models_url)
-    if public_error:
-        raise ValueError(public_error)
+    provider_host = str(urlsplit(settings["base_url"]).hostname or "").casefold()
+    models_url = TRUSTED_LLM_PROVIDER_TEST_URLS.get(provider_host)
+    if models_url is None:
+        raise ValueError(
+            "Connection testing is available only for built-in providers. "
+            "Custom providers can be saved after explicit host confirmation."
+        )
     request = urllib.request.Request(
         models_url,
         headers={"Authorization": f"Bearer {settings['api_key']}", "Accept": "application/json"},
@@ -5916,13 +5932,14 @@ def _upload_preview_media(handler: BaseHTTPRequestHandler) -> None:
         if not preview or preview.get("preview_id") != preview_id:
             _error(handler, "Preview is no longer active.", 409)
             return
+        stored_preview_id = str(preview["preview_id"])
     data = _read_request_bytes(handler, max_bytes=MAX_RECORDING_MEDIA_BYTES)
     if not data:
         _error(handler, "Recording is empty.", 422)
         return
     PREVIEW_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-    destination = PREVIEW_MEDIA_DIR / f"{preview_id}.{extensions[content_type]}"
-    fd, temporary_name = tempfile.mkstemp(prefix=f".{preview_id}.", dir=PREVIEW_MEDIA_DIR)
+    destination = PREVIEW_MEDIA_DIR / f"{stored_preview_id}.{extensions[content_type]}"
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{stored_preview_id}.", dir=PREVIEW_MEDIA_DIR)
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(data)
@@ -5933,7 +5950,7 @@ def _upload_preview_media(handler: BaseHTTPRequestHandler) -> None:
         pathlib.Path(temporary_name).unlink(missing_ok=True)
     with STATE_LOCK:
         current = STATE.get("preview")
-        if not current or current.get("preview_id") != preview_id:
+        if not current or current.get("preview_id") != stored_preview_id:
             destination.unlink(missing_ok=True)
             _error(handler, "Preview is no longer active.", 409)
             return
@@ -5948,7 +5965,7 @@ def _upload_preview_media(handler: BaseHTTPRequestHandler) -> None:
         _delete_preview_media({"media_path": previous_path})
     _json_response(handler, {
         "ok": True,
-        "preview_id": preview_id,
+        "preview_id": stored_preview_id,
         "mime_type": content_type,
         "bytes": len(data),
         "capture": media_capture,

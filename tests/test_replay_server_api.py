@@ -179,6 +179,20 @@ class ReplayServerApiTests(unittest.TestCase):
                 )
             self.assertEqual(settings["base_url"], "https://models.example.com/v1")
 
+            test_request = urllib.request.Request(
+                self.base + "/api/settings/llm/test",
+                data=json.dumps({
+                    **body,
+                    "provider_host_acknowledgement": "models.example.com",
+                }).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as test_error:
+                urllib.request.urlopen(test_request, timeout=5)
+            self.assertEqual(test_error.exception.code, 422)
+            self.assertIn("built-in providers", json.load(test_error.exception)["error"])
+
     def test_desktop_access_can_be_enabled_and_revoked_for_current_session(self):
         previous_enabled = server_module.DESKTOP_AUTOMATION_ENABLED
         previous_requested = server_module.DESKTOP_AUTOMATION_REQUESTED
@@ -1110,7 +1124,7 @@ class ReplayServerApiTests(unittest.TestCase):
                 storage=storage,
             )
             record = server_module._community_repository().publish_package(
-                package,
+                package.read_bytes(),
                 author="Privacy Test",
                 tags=["privacy-test"],
                 license_id="CC-BY-4.0",

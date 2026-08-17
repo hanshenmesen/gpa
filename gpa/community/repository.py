@@ -145,8 +145,16 @@ class CommunityRepository:
                     raise ValueError("Package exceeds maximum package size.")
                 staged_package.write_bytes(package)
             else:
-                source = Path(package)
-                if not source.exists():
+                allowed_root = self.root.resolve().parent
+                try:
+                    source = Path(package).resolve(strict=True)
+                    relative_source = source.relative_to(allowed_root)
+                except (OSError, ValueError) as exc:
+                    raise ValueError(
+                        "Package path must be inside the community data workspace."
+                    ) from exc
+                source = allowed_root / relative_source
+                if not source.is_file():
                     raise FileNotFoundError(f"Package not found: {source}")
                 if source.stat().st_size > self.max_package_bytes:
                     raise ValueError("Package exceeds maximum package size.")
@@ -156,7 +164,14 @@ class CommunityRepository:
                 staged_package,
                 max_package_bytes=self.max_package_bytes,
             )
-            safety_scan = require_safe_workflow_package(staged_package)
+            scan_result = require_safe_workflow_package(staged_package)
+            safety_scan = {
+                "schema": "gpa.community-safety-scan/v1",
+                "passed": True,
+                "finding_count": 0,
+                "findings": [],
+                "scanned_bytes": int(scan_result.get("scanned_bytes") or 0),
+            }
             fingerprint = _content_fingerprint(manifest)
             package_sha256 = _sha256(staged_package)
             now = _utc_now()

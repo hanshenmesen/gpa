@@ -145,6 +145,19 @@ class CommunityRepositoryTests(unittest.TestCase):
                 privacy_reviewed=False,
             )
 
+    def test_publish_path_must_stay_inside_repository_workspace(self):
+        with tempfile.TemporaryDirectory() as outside:
+            outside_package = Path(outside) / "outside.gpa-record.zip"
+            outside_package.write_bytes(self.package_path.read_bytes())
+            with self.assertRaisesRegex(ValueError, "community data workspace"):
+                self.repository.publish_package(
+                    outside_package,
+                    author="Alice",
+                    tags=[],
+                    license_id="CC-BY-4.0",
+                    privacy_reviewed=True,
+                )
+
     def test_publisher_declaration_requires_every_commitment(self):
         with self.assertRaisesRegex(ValueError, "Publisher declaration"):
             self.repository.publish_package(
