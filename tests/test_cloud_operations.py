@@ -150,12 +150,14 @@ class CloudOperationsTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         self.assertTrue((root / "packaging/macos/GPA.spec").is_file())
         self.assertTrue((root / "packaging/macos/GPA.entitlements").is_file())
+        self.assertTrue((root / "packaging/macos/GPA.svg").is_file())
         build_script = root / "scripts/build_macos_app.sh"
         self.assertTrue(build_script.is_file())
         script = build_script.read_text(encoding="utf-8")
         self.assertIn("GPA_BUILD_PYTHON", script)
         self.assertIn("command -v python3", script)
         self.assertIn(".venv/bin/python", script)
+        self.assertIn("packaging/macos/GPA.svg", script)
 
     def test_pairing_challenge_is_short_lived_and_secrets_are_only_hashed(self):
         key = "k" * 32
