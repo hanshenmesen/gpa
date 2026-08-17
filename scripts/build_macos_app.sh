@@ -7,6 +7,7 @@ repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 python_bin="${GPA_BUILD_PYTHON:-$repo_dir/.venv/bin/python}"
 build_dir="$repo_dir/build/macos"
 artifact_dir="$repo_dir/artifacts"
+image_root="$build_dir/dmg-root"
 icon_source="$repo_dir/web/public/favicon.svg"
 iconset_dir="$build_dir/GPA.iconset"
 
@@ -44,7 +45,11 @@ fi
 
 dmg_path="$artifact_dir/GPA-macOS.dmg"
 rm -f "$dmg_path"
-hdiutil create -volname "GPA" -srcfolder "$app_path" -ov -format UDZO "$dmg_path" >/dev/null
+rm -rf "$image_root"
+mkdir -p "$image_root"
+ditto "$app_path" "$image_root/GPA.app"
+ln -s /Applications "$image_root/Applications"
+hdiutil create -volname "GPA" -srcfolder "$image_root" -ov -format UDZO "$dmg_path" >/dev/null
 
 if [[ -n "${GPA_MACOS_NOTARY_PROFILE:-}" ]]; then
   xcrun notarytool submit "$dmg_path" --keychain-profile "$GPA_MACOS_NOTARY_PROFILE" --wait
@@ -52,5 +57,9 @@ if [[ -n "${GPA_MACOS_NOTARY_PROFILE:-}" ]]; then
   xcrun stapler staple "$dmg_path"
 fi
 
-shasum -a 256 "$dmg_path" > "$dmg_path.sha256"
+(
+  cd "$artifact_dir"
+  shasum -a 256 "$(basename "$dmg_path")" > "$(basename "$dmg_path").sha256"
+)
+"$repo_dir/scripts/verify_macos_artifact.sh" "$dmg_path"
 echo "Built: $dmg_path"

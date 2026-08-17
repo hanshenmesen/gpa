@@ -112,6 +112,22 @@ class CloudOperationsTests(unittest.TestCase):
             {"GPA_MACOS_SIGNING_IDENTITY", "GPA_MACOS_NOTARY_PROFILE"},
         )
 
+        unsigned_preview = desktop_findings(
+            environ={},
+            which=lambda _name: "/usr/bin/tool",
+            module_available=lambda _name: True,
+            system="Darwin",
+            allow_unsigned_preview=True,
+        )
+        signing_findings = {
+            item.name: item
+            for item in unsigned_preview
+            if item.name.startswith("GPA_MACOS_")
+        }
+        self.assertEqual(set(signing_findings), blocked_names)
+        self.assertTrue(all(item.status == "warning" for item in signing_findings.values()))
+        self.assertFalse(any(item.blocking for item in unsigned_preview))
+
         cloud = cloud_findings(environ={}, which=lambda _name: "/usr/bin/tool")
         self.assertTrue(any(item.name == "GPA_CLOUD_SERVER_DATABASE_URL" for item in cloud))
         self.assertTrue(all(item.blocking for item in cloud if item.name.startswith("GPA_")))

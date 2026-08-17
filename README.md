@@ -10,6 +10,8 @@
 
 [Quick start](#safe-local-setup) · [Product design](DESIGN.md) ·
 [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) ·
+[Download](https://github.com/hanshenmesen/gpa/releases) ·
+[macOS install guide](docs/install_macos_preview.md) ·
 [Feedback program](docs/feedback_program.md) ·
 [Report a bug](https://github.com/hanshenmesen/gpa/issues/new/choose) ·
 [Join the discussion](https://github.com/hanshenmesen/gpa/discussions)
@@ -129,6 +131,11 @@ The MCP server requires Python 3.10 or newer and MCP SDK 2.x.
 Visual parsing is optional and downloads several larger local models.
 
 ## Safe local setup
+
+For the packaged technical preview, download the latest GitHub prerelease and
+follow the [macOS installation and checksum guide](docs/install_macos_preview.md).
+The unsigned preview requires a one-time **Open Anyway** choice; never disable
+Gatekeeper globally.
 
 This installs the local development package without enabling desktop input:
 

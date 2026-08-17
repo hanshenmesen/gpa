@@ -34,6 +34,7 @@ def desktop_findings(
     which: Callable[[str], str | None] = shutil.which,
     module_available: Callable[[str], bool] | None = None,
     system: str | None = None,
+    allow_unsigned_preview: bool = False,
 ) -> list[Finding]:
     env = environ or os.environ
     has_module = module_available or (lambda name: importlib.util.find_spec(name) is not None)
@@ -73,8 +74,20 @@ def desktop_findings(
             Finding(
                 "desktop",
                 variable,
-                "ready" if _present(env.get(variable)) else "blocked",
-                label if _present(env.get(variable)) else f"missing {label}",
+                (
+                    "ready"
+                    if _present(env.get(variable))
+                    else "warning"
+                    if allow_unsigned_preview
+                    else "blocked"
+                ),
+                (
+                    label
+                    if _present(env.get(variable))
+                    else f"missing {label}; unsigned technical preview only"
+                    if allow_unsigned_preview
+                    else f"missing {label}"
+                ),
             )
         )
     return findings
@@ -131,10 +144,12 @@ def cloud_findings(
     return findings
 
 
-def run_preflight(component: str = "all") -> list[Finding]:
+def run_preflight(
+    component: str = "all", *, allow_unsigned_preview: bool = False
+) -> list[Finding]:
     findings: list[Finding] = []
     if component in {"desktop", "all"}:
-        findings.extend(desktop_findings())
+        findings.extend(desktop_findings(allow_unsigned_preview=allow_unsigned_preview))
     if component in {"cloud", "all"}:
         findings.extend(cloud_findings())
     return findings
@@ -144,8 +159,16 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("component", choices=("desktop", "cloud", "all"), nargs="?", default="all")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--allow-unsigned-preview",
+        action="store_true",
+        help="treat missing Apple signing and notarization credentials as warnings",
+    )
     args = parser.parse_args(argv)
-    findings = run_preflight(args.component)
+    findings = run_preflight(
+        args.component,
+        allow_unsigned_preview=args.allow_unsigned_preview,
+    )
     if args.json:
         print(json.dumps([asdict(item) for item in findings], ensure_ascii=False, indent=2))
     else:
