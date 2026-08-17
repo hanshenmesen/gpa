@@ -36,6 +36,7 @@ jobs:
           node scripts/verify_frontend.js
           python scripts/verify_public_project.py
           python -m unittest discover -s tests -p "test_*.py"
+          gpa-release-preflight desktop --allow-unsigned-preview
 
       - name: Build wheel and unsigned macOS preview
         run: |
@@ -44,7 +45,11 @@ jobs:
           ./scripts/build_macos_app.sh
           architecture="$(uname -m)"
           cp artifacts/GPA-macOS.dmg "artifacts/GPA-macOS-${architecture}-unsigned.dmg"
-          shasum -a 256 "artifacts/GPA-macOS-${architecture}-unsigned.dmg" > "artifacts/GPA-macOS-${architecture}-unsigned.dmg.sha256"
+          (
+            cd artifacts
+            shasum -a 256 "GPA-macOS-${architecture}-unsigned.dmg" > "GPA-macOS-${architecture}-unsigned.dmg.sha256"
+          )
+          ./scripts/verify_macos_artifact.sh "artifacts/GPA-macOS-${architecture}-unsigned.dmg"
 
       - name: Write safety notice
         run: |
@@ -54,12 +59,15 @@ jobs:
             '' \
             'This release is intended for technical evaluation and real-workflow feedback.' \
             'The macOS DMG is not signed with Apple Developer ID and is not notarized.' \
-            'Prefer source installation, verify the SHA-256 file, and do not disable Gatekeeper globally.' \
+            'Verify the SHA-256 file. Never disable Gatekeeper globally.' \
+            'Install by dragging GPA.app into Applications. On first launch, use System Settings > Privacy & Security > Open Anyway only if the checksum matches.' \
             'Desktop automation is disabled by default. Review every Replay before granting local authority.' \
             '' \
             "Build architecture: ${architecture}" \
             '' \
             'Report bugs, compatibility results, and safe real-world tasks using the repository Issue forms.' \
+            '' \
+            'Installation guide: https://github.com/hanshenmesen/gpa/blob/main/docs/install_macos_preview.md' \
             > artifacts/TECHNICAL_PREVIEW.md
 
       - uses: actions/upload-artifact@v7

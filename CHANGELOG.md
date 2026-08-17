@@ -3,7 +3,7 @@
 All notable public-preview changes will be documented here. The project follows
 semantic versioning once the first preview tag is published.
 
-## Unreleased
+## 0.1.0-preview.1 - 2026-08-17
 
 ### Added
 
