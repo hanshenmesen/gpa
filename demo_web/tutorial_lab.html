@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPA 实战教程实验室</title>
+  <style>
+    :root {
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #1d2629; background: #f4f6f4; --ink: #1d2629; --muted: #647074;
+      --line: #dfe4e1; --surface: #fff; --teal: #275f63; --soft: #e9f2f0;
+      --green: #27745a; --amber: #94642a; --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    header {
+      min-height: 66px; padding: 0 24px; background: rgba(255,255,255,.96);
+      border-bottom: 1px solid var(--line); display: flex; align-items: center;
+      justify-content: space-between; gap: 20px; position: sticky; top: 0; z-index: 30;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--ink); color: #fff; font-weight: 800; }
+    .brand strong { display: block; font-size: 14px; }
+    .brand span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .header-actions { display: flex; align-items: center; gap: 9px; }
+    .button, button.button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 9px; padding: 8px 12px; text-decoration: none; font-weight: 700; font-size: 12px; }
+    .button.primary { background: var(--teal); color: #fff; border-color: var(--teal); }
+    .layout { width: min(1280px, calc(100% - 40px)); margin: 24px auto 54px; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; }
+    aside, .workspace { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    aside { padding: 20px; align-self: start; position: sticky; top: 90px; }
+    .eyebrow { color: var(--teal); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 7px 0 8px; font-size: 22px; line-height: 1.25; }
+    .intro { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .source-card { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .source-card small, .progress-label { color: var(--muted); font-size: 11px; font-weight: 750; }
+    .source-card strong { display: block; margin: 6px 0 10px; font-size: 13px; line-height: 1.45; }
+    .source-card a { color: var(--teal); font-size: 12px; font-weight: 750; }
+    .boundary { margin-top: 18px; background: var(--soft); color: #315c5c; border-radius: 9px; padding: 11px 12px; font-size: 12px; line-height: 1.5; }
+    .progress { margin-top: 18px; }
+    .progress-track { margin-top: 7px; height: 6px; border-radius: 99px; overflow: hidden; background: #edf0ee; }
+    .progress-track span { display: block; height: 100%; width: 0; background: var(--green); transition: width .25s ease; }
+    .workspace { min-height: 680px; overflow: hidden; }
+    .workspace-head { padding: 15px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .workspace-head strong { font-size: 13px; }
+    .status { font-size: 11px; font-weight: 800; color: var(--green); display: flex; align-items: center; gap: 6px; }
+    .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    #app { min-height: 620px; background: #fafbfa; }
+    .toast { position: fixed; right: 24px; bottom: 24px; z-index: 50; max-width: min(420px, calc(100vw - 48px)); border-radius: 10px; padding: 13px 16px; background: var(--green); color: #fff; box-shadow: 0 12px 35px #17262230; font-size: 13px; font-weight: 750; }
+    [hidden] { display: none !important; }
+
+    .app-shell { min-height: 620px; background: #fff; }
+    .appbar { height: 58px; border-bottom: 1px solid #e6e9e7; display: flex; align-items: center; gap: 12px; padding: 0 18px; }
+    .app-logo { width: 30px; height: 30px; border-radius: 8px; background: #e9f0ee; display: grid; place-items: center; color: var(--teal); font-weight: 900; }
+    .appbar strong { font-size: 14px; }
+    .appbar .spacer { flex: 1; }
+    .ghost, .solid { border: 1px solid #cfd6d2; border-radius: 8px; background: #fff; padding: 8px 12px; color: #354145; }
+    .solid { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 750; }
+    .content { padding: 22px; }
+    .panel { border: 1px solid #dfe4e1; border-radius: 10px; background: #fff; overflow: hidden; }
+    .menu { position: absolute; z-index: 12; background: #fff; border: 1px solid #d9dfdb; border-radius: 9px; box-shadow: 0 12px 32px #26342f26; padding: 6px; min-width: 210px; }
+    .menu button { display: block; width: 100%; border: 0; background: transparent; text-align: left; border-radius: 6px; padding: 9px 10px; }
+    .menu button:hover { background: #edf4f2; }
+    input { border: 1px solid #cbd3cf; border-radius: 7px; padding: 9px 10px; color: var(--ink); background: #fff; }
+    input:focus { outline: 3px solid #275f6320; border-color: var(--teal); }
+
+    .mail-search { margin: 0 auto; width: min(640px, 70%); background: #eef3f2; border-radius: 10px; display: flex; align-items: center; padding: 5px 8px 5px 14px; }
+    .mail-search input { border: 0; background: transparent; flex: 1; min-width: 0; outline: 0; }
+    .mail-search button { border: 0; background: transparent; color: var(--teal); font-weight: 800; }
+    .mail-list { margin-top: 16px; }
+    .mail-row { display: grid; grid-template-columns: 42px 180px 1fr 70px; gap: 10px; padding: 13px 15px; border-bottom: 1px solid #edf0ee; font-size: 13px; }
+    .search-options { width: min(620px, calc(100% - 50px)); margin: 8px auto 0; padding: 18px; box-shadow: 0 10px 35px #26342f1f; }
+    .field { display: grid; gap: 6px; }
+    .field label { font-size: 11px; font-weight: 800; color: var(--muted); }
+    .form-actions { margin-top: 16px; display: flex; justify-content: flex-end; gap: 9px; }
+    .filter-actions { display: grid; gap: 11px; padding: 18px; }
+    .check { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+
+    .sheet-toolbar { height: 42px; border-bottom: 1px solid #e4e8e5; display: flex; align-items: center; padding: 0 14px; gap: 3px; position: relative; }
+    .sheet-toolbar button { border: 0; background: transparent; padding: 7px 10px; border-radius: 6px; }
+    .sheet-toolbar button:hover { background: #edf2ef; }
+    .filter-view-bar { background: #384247; color: #fff; padding: 9px 14px; display: flex; align-items: center; gap: 12px; }
+    .filter-view-bar input { background: #4a565b; color: #fff; border-color: #697478; width: 220px; }
+    .filter-view-bar .spacer { flex: 1; }
+    table.sheet { border-collapse: collapse; width: 100%; font-size: 12px; }
+    table.sheet th, table.sheet td { border: 1px solid #dfe4e1; height: 40px; padding: 7px 10px; text-align: left; }
+    table.sheet th { background: #f1f3f2; position: relative; }
+    table.sheet th button { float: right; border: 0; background: #dfe6e2; border-radius: 4px; }
+    .view-menu { top: 39px; left: 202px; }
+    .column-menu { top: 235px; right: 150px; }
+
+    .excel-ribbon { background: #f4f5f4; border-bottom: 1px solid #dfe3e0; }
+    .excel-tabs { height: 38px; display: flex; align-items: end; gap: 4px; padding-left: 16px; }
+    .excel-tabs button { border: 0; background: transparent; padding: 9px 13px; }
+    .excel-tabs button.active { color: #176c43; border-bottom: 2px solid #176c43; font-weight: 800; }
+    .excel-tools { height: 68px; display: flex; align-items: center; gap: 10px; padding: 8px 18px; border-top: 1px solid #e2e6e3; }
+    .excel-tools button { border: 1px solid #d8ddda; background: #fff; border-radius: 7px; padding: 10px 13px; }
+    .cell-selected { box-shadow: inset 0 0 0 2px #217346; background: #f4fbf7; }
+    .validation-dialog { width: min(480px, calc(100% - 40px)); margin: 28px auto; padding: 20px; }
+    .dialog-grid { display: grid; grid-template-columns: 130px 1fr; gap: 13px; align-items: center; }
+    .dialog-grid label { font-size: 12px; font-weight: 750; }
+    .select-like { border: 1px solid #cbd3cf; background: #fff; border-radius: 7px; padding: 9px 10px; text-align: left; position: relative; }
+    .allow-menu { top: 105px; left: 170px; }
+    .cell-menu { top: 308px; right: 70px; }
+
+    .shortcut-shell { display: grid; grid-template-columns: 210px 1fr; min-height: 620px; }
+    .shortcut-sidebar { background: #f4f5f5; border-right: 1px solid #dde2df; padding: 16px; }
+    .shortcut-sidebar button { width: 100%; border: 0; background: #e3ebe8; border-radius: 7px; padding: 9px; margin-top: 12px; color: var(--teal); font-weight: 800; }
+    .shortcut-editor { padding: 20px; position: relative; }
+    .shortcut-title { display: flex; align-items: center; gap: 10px; }
+    .shortcut-title input { font-size: 17px; font-weight: 800; width: min(420px, 70%); }
+    .shortcut-title .spacer { flex: 1; }
+    .action-card { margin-top: 22px; padding: 16px; border: 1px solid #d9dfdb; border-radius: 12px; background: #f8faf9; }
+    .action-card strong { display: block; font-size: 13px; margin-bottom: 10px; }
+    .action-card input { width: 100%; }
+    .action-library { top: 85px; right: 24px; }
+
+    @media (max-width: 850px) {
+      header { padding: 10px 14px; align-items: flex-start; }
+      .layout { width: min(100% - 20px, 700px); grid-template-columns: 1fr; margin-top: 12px; }
+      aside { position: static; }
+      .workspace { min-height: 600px; }
+      .shortcut-shell { grid-template-columns: 150px 1fr; }
+      .mail-row { grid-template-columns: 30px 120px 1fr; }
+      .mail-row span:last-child { display: none; }
+    }
+  </style>
+  <script src="/assets/environment.js"></script>
+</head>
+<body>
+    <header>
+    <div class="brand"><span class="brand-mark">G</span><div><strong>实战教程实验室</strong><span>真实教程步骤 · 本地隔离数据</span></div></div>
+    <div class="header-actions"><button class="button" id="resetCase">重置</button><a class="button" href="/store?collection=tutorial">返回商店</a></div>
+  </header>
+  <main class="layout">
+    <aside>
+      <div class="eyebrow" id="publisher"></div>
+      <h1 id="title"></h1>
+      <p class="intro" id="description"></p>
+      <div class="source-card"><small>官方教程</small><strong id="sourceTitle"></strong><a id="sourceLink" target="_blank" rel="noopener">查看原始教程 ↗</a></div>
+      <div class="boundary">此页面只使用模拟账号和示例数据。操作不会发送邮件、修改云端表格或启动本机快捷指令。</div>
+      <div class="progress"><span class="progress-label" id="progressLabel">尚未开始</span><div class="progress-track"><span id="progressBar"></span></div></div>
+    </aside>
+    <section class="workspace">
+      <div class="workspace-head"><strong id="workspaceLabel"></strong><span class="status">隔离环境</span></div>
+      <div id="app"></div>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script>
+    const cases = {
+      'gmail-filter': {
+        publisher: 'Google · Gmail', title: '把项目邮件自动归类',
+        description: '按发件人创建筛选器，并自动应用“项目更新”标签。',
+        sourceTitle: 'Create rules to filter your emails', sourceUrl: 'https://support.google.com/mail/answer/6579?hl=en-419', total: 5, render: renderGmail,
+      },
+      'sheets-filter-view': {
+        publisher: 'Google · Sheets', title: '保存团队筛选视图',
+        description: '创建只影响自己视图的状态筛选，并保存为“待跟进”。',
+        sourceTitle: 'Sort & filter your data', sourceUrl: 'https://support.google.com/docs/answer/3540681?hl=en-ZA', total: 5, render: renderSheets,
+      },
+      'excel-dropdown': {
+        publisher: 'Microsoft · Excel', title: '为状态列创建下拉列表',
+        description: '通过数据验证建立三个状态选项，并实际选择“进行中”。',
+        sourceTitle: 'Create a drop-down list', sourceUrl: 'https://support.microsoft.com/en-US/Excel/get-started/create-a-drop-down-list', total: 6, render: renderExcel,
+      },
+      'macos-shortcut': {
+        publisher: 'Apple · Shortcuts', title: '一键打开晨间工作区',
+        description: '组合一个“打开网址”动作，并在不打开真实网页的情况下预演。',
+        sourceTitle: 'Create a custom shortcut on Mac', sourceUrl: 'https://support.apple.com/en-euro/guide/shortcuts-mac/apd84c576f8c/mac', total: 5, render: renderShortcut,
+      },
+    };
+    const requested = new URLSearchParams(location.search).get('case') || 'gmail-filter';
+    const activeKey = cases[requested] ? requested : 'gmail-filter';
+    const activeCase = cases[activeKey];
+    const app = document.getElementById('app');
+    const toast = document.getElementById('toast');
+    let state = {};
+    window.__gpaTutorial = { case: activeKey, state, completed: false, audit: [] };
+
+    function setProgress(value, label = '') {
+      const current = Math.max(0, Math.min(activeCase.total, value));
+      document.getElementById('progressBar').style.width = `${Math.round(current / activeCase.total * 100)}%`;
+      document.getElementById('progressLabel').textContent = label || `${current}/${activeCase.total} 个关键阶段`;
+    }
+    function audit(event, details = {}) {
+      window.__gpaTutorial.audit.push({ event, ...details });
+    }
+    function complete(message) {
+      window.__gpaTutorial.completed = true;
+      setProgress(activeCase.total, '演练已完成');
+      toast.textContent = message; toast.hidden = false;
+      audit('complete', { message });
+      clearTimeout(window.__tutorialToast); window.__tutorialToast = setTimeout(() => { toast.hidden = true; }, 4500);
+    }
+    function reset() {
+      state = {};
+      window.__gpaTutorial.state = state;
+      window.__gpaTutorial.completed = false;
+      window.__gpaTutorial.audit = [];
+      toast.hidden = true; setProgress(0, '尚未开始'); activeCase.render();
+    }
+    function bind(id, handler) { document.getElementById(id)?.addEventListener('click', handler); }
+
+    function renderGmail() {
+      app.innerHTML = `<div class="app-shell"><div class="appbar"><span class="app-logo">M</span><strong>模拟收件箱</strong><div class="mail-search"><input aria-label="搜索邮件" placeholder="搜索邮件"><button id="mailOptions" aria-label="显示搜索选项">搜索选项</button></div></div><div id="mailArea" class="content"><section class="panel mail-list"><div class="mail-row"><b>☆</b><strong>updates@northstar.example</strong><span>项目里程碑更新 · 本周交付清单</span><span>10:42</span></div><div class="mail-row"><b>☆</b><strong>team@example.test</strong><span>周会纪要</span><span>昨天</span></div></section></div></div>`;
+      bind('mailOptions', () => {
+        state.options = true; setProgress(1); audit('open_search_options');
+        document.getElementById('mailArea').innerHTML = `<section class="panel search-options"><div class="field"><label for="fromAddress">发件人</label><input id="fromAddress" autocomplete="off" placeholder="name@example.com"></div><div class="form-actions"><button class="ghost" id="testSearch">搜索匹配邮件</button></div></section>`;
+        bind('testSearch', () => {
+          const sender = document.getElementById('fromAddress').value.trim();
+          if (!sender) return document.getElementById('fromAddress').focus();
+          state.sender = sender; setProgress(2); audit('test_search', { sender });
+          document.getElementById('mailArea').innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="solid" id="createFilter">创建筛选器</button></div><section class="panel mail-list"><div class="mail-row"><b>✓</b><strong>${escapeText(sender)}</strong><span>项目里程碑更新 · 本周交付清单</span><span>1 封</span></div></section>`;
+          bind('createFilter', () => {
+            setProgress(3); audit('open_filter_actions');
+            document.getElementById('mailArea').innerHTML = `<section class="panel filter-actions"><strong>匹配邮件时执行</strong><label class="check"><input type="checkbox" id="applyLabel"> 应用标签：项目更新</label><label class="check"><input type="checkbox"> 标记为已读</label><div class="form-actions"><button class="solid" id="confirmFilter">完成创建</button></div></section>`;
+            document.getElementById('applyLabel').onchange = event => { state.label = event.target.checked; if (state.label) setProgress(4); audit('toggle_label', { checked: state.label }); };
+            bind('confirmFilter', () => {
+              if (!state.label) return document.getElementById('applyLabel').focus();
+              app.innerHTML = resultShell('筛选器已创建', `来自 ${escapeText(state.sender)} 的新邮件将自动添加“项目更新”标签。`);
+              complete('筛选器已创建');
+            });
+          });
+        });
+      });
+    }
+
+    function renderSheets() {
+      app.innerHTML = `<div class="app-shell"><div class="appbar"><span class="app-logo">S</span><strong>项目进度表</strong><span class="spacer"></span><span style="font-size:12px;color:#667">所有更改已保存到模拟环境</span></div><div class="sheet-toolbar"><button>文件</button><button>编辑</button><button id="dataMenu">数据</button><div id="sheetMenu"></div></div><div id="viewBar"></div><div class="content" style="padding:16px;position:relative"><table class="sheet"><thead><tr><th>项目</th><th>负责人</th><th>状态 <button id="statusFilter" aria-label="状态筛选" hidden>▽</button></th></tr></thead><tbody id="sheetRows"><tr><td>官网重构</td><td>Lin</td><td>待跟进</td></tr><tr><td>增长实验</td><td>Mei</td><td>进行中</td></tr><tr><td>结算修复</td><td>Alex</td><td>待跟进</td></tr></tbody></table><div id="columnMenu"></div></div></div>`;
+      bind('dataMenu', () => {
+        setProgress(1); audit('open_data_menu');
+        document.getElementById('sheetMenu').innerHTML = `<div class="menu view-menu"><button id="createView">创建筛选视图</button><button>对范围排序</button></div>`;
+        bind('createView', () => {
+          state.view = true; setProgress(2); audit('create_filter_view');
+          document.getElementById('sheetMenu').innerHTML = '';
+          document.getElementById('viewBar').innerHTML = `<div class="filter-view-bar"><input id="viewName" value="待跟进" aria-label="筛选视图名称"><span class="spacer"></span><button class="solid" id="saveView">保存视图</button></div>`;
+          document.getElementById('statusFilter').hidden = false;
+          bind('statusFilter', () => {
+            setProgress(3); audit('open_status_filter');
+            document.getElementById('columnMenu').innerHTML = `<div class="menu column-menu"><button id="pendingOnly">仅显示待跟进</button><button>显示全部</button></div>`;
+            bind('pendingOnly', () => {
+              state.filtered = true; setProgress(4); audit('filter_pending');
+              document.getElementById('sheetRows').innerHTML = `<tr><td>官网重构</td><td>Lin</td><td>待跟进</td></tr><tr><td>结算修复</td><td>Alex</td><td>待跟进</td></tr>`;
+              document.getElementById('columnMenu').innerHTML = '';
+            });
+          });
+          bind('saveView', () => {
+            if (!state.filtered) return document.getElementById('statusFilter').focus();
+            const name = document.getElementById('viewName').value.trim() || '待跟进';
+            app.innerHTML = resultShell(`筛选视图“${escapeText(name)}”已保存`, '只保留 2 个待跟进项目；原始表格数据没有被删除。');
+            complete(`筛选视图“${name}”已保存`);
+          });
+        });
+      });
+    }
+
+    function renderExcel() {
+      app.innerHTML = `<div class="app-shell"><div class="appbar"><span class="app-logo">X</span><strong>项目状态.xlsx</strong><span class="spacer"></span><span style="font-size:12px;color:#667">本地模拟工作簿</span></div><div class="excel-ribbon"><div class="excel-tabs"><button>开始</button><button>插入</button><button id="excelData">数据</button><button>审阅</button></div><div class="excel-tools" id="excelTools"><span style="color:#7a8580;font-size:12px">选择“数据”以查看数据工具</span></div></div><div id="excelBody" class="content" style="position:relative"><table class="sheet"><thead><tr><th>A</th><th>B</th><th>C</th></tr></thead><tbody><tr><td>项目</td><td>负责人</td><td>状态</td></tr><tr><td>官网重构</td><td>Lin</td><td id="statusCell" class="cell-selected">选择状态</td></tr></tbody></table><div id="excelPopup"></div></div></div>`;
+      bind('excelData', () => {
+        setProgress(1); audit('open_data_tab'); document.getElementById('excelData').classList.add('active');
+        document.getElementById('excelTools').innerHTML = `<button>排序</button><button>筛选</button><button id="validation">数据验证</button>`;
+        bind('validation', () => {
+          setProgress(2); audit('open_validation');
+          document.getElementById('excelBody').innerHTML = `<section class="panel validation-dialog" style="position:relative"><h3 style="margin-top:0">数据验证</h3><div class="dialog-grid"><label>允许</label><button class="select-like" id="allowType">任何值 ▾</button><label for="listSource">来源</label><input id="listSource" autocomplete="off" disabled placeholder="输入以逗号分隔的列表"><span></span><div class="form-actions" style="margin:0"><button class="solid" id="applyValidation">应用</button></div></div><div id="allowMenu"></div></section>`;
+          bind('allowType', () => {
+            document.getElementById('allowMenu').innerHTML = `<div class="menu allow-menu"><button id="chooseList">列表</button><button>整数</button><button>日期</button></div>`;
+            bind('chooseList', () => {
+              state.list = true; setProgress(3); audit('choose_list'); document.getElementById('allowType').textContent = '列表 ▾';
+              document.getElementById('listSource').disabled = false; document.getElementById('listSource').focus(); document.getElementById('allowMenu').innerHTML = '';
+            });
+          });
+          bind('applyValidation', () => {
+            const source = document.getElementById('listSource').value.trim();
+            if (!state.list || !source) return document.getElementById('listSource').focus();
+            state.values = source.split(',').map(value => value.trim()).filter(Boolean); setProgress(4); audit('apply_validation', { values: state.values });
+            document.getElementById('excelBody').innerHTML = `<table class="sheet"><thead><tr><th>A</th><th>B</th><th>C</th></tr></thead><tbody><tr><td>项目</td><td>负责人</td><td id="validatedStatusCell" class="cell-selected">状态：选择状态 ▾</td></tr></tbody></table><div id="validatedExcelPopup"></div>`;
+            bind('validatedStatusCell', () => {
+              setProgress(5); audit('open_cell_dropdown');
+              document.getElementById('validatedExcelPopup').innerHTML = `<div class="menu cell-menu">${state.values.map(value => `<button data-cell-value="${escapeAttribute(value)}">${escapeText(value)}</button>`).join('')}</div>`;
+              document.querySelectorAll('[data-cell-value]').forEach(button => button.onclick = () => {
+                const value = button.dataset.cellValue;
+                document.getElementById('validatedStatusCell').textContent = value;
+                document.getElementById('validatedExcelPopup').innerHTML = '';
+                if (value === '进行中') { document.getElementById('excelBody').insertAdjacentHTML('beforeend', `<div style="margin-top:16px;padding:12px;background:#eaf5ef;color:#236646;border-radius:8px;font-weight:750">数据验证已生效</div>`); complete('数据验证已生效'); }
+              });
+            });
+          });
+        });
+      });
+    }
+
+    function renderShortcut() {
+      app.innerHTML = `<div class="shortcut-shell"><aside class="shortcut-sidebar" style="position:static;border-radius:0;border-width:0 1px 0 0"><strong>快捷指令</strong><p style="font-size:12px;color:#667;line-height:1.5">所有快捷指令<br>快速操作<br>菜单栏</p><button id="newShortcut">＋ 新建快捷指令</button></aside><div class="shortcut-editor" id="shortcutEditor"><div style="height:100%;display:grid;place-items:center;color:#7a8580"><span>选择“新建快捷指令”开始</span></div></div></div>`;
+      bind('newShortcut', () => {
+        setProgress(1); audit('new_shortcut');
+        document.getElementById('shortcutEditor').innerHTML = `<div class="shortcut-title"><input id="shortcutName" aria-label="快捷指令名称" placeholder="快捷指令名称"><span class="spacer"></span><button class="solid" id="runShortcut">运行快捷指令</button></div><div id="shortcutActions"><button class="ghost" id="addAction" style="margin-top:24px">＋ 添加动作</button></div><div id="actionLibrary"></div>`;
+        document.getElementById('shortcutName').oninput = event => { if (event.target.value.trim()) { state.named = true; setProgress(Math.max(2, state.action ? 3 : 2)); } };
+        bind('addAction', () => {
+          setProgress(Math.max(3, state.named ? 3 : 2)); audit('open_action_library');
+          document.getElementById('actionLibrary').innerHTML = `<div class="menu action-library"><button id="chooseOpenUrl">打开网址</button><button>显示通知</button><button>打开 App</button></div>`;
+          bind('chooseOpenUrl', () => {
+            state.action = true; setProgress(4); audit('add_open_url'); document.getElementById('actionLibrary').innerHTML = '';
+            document.getElementById('shortcutActions').innerHTML = `<div class="action-card"><strong>打开网址</strong><input id="shortcutUrl" autocomplete="off" placeholder="https://example.com"></div>`;
+          });
+        });
+        bind('runShortcut', () => {
+          const name = document.getElementById('shortcutName').value.trim();
+          const url = document.getElementById('shortcutUrl')?.value.trim() || '';
+          if (!name) return document.getElementById('shortcutName').focus();
+          if (!state.action || !url) return document.getElementById('addAction')?.focus();
+          audit('dry_run_shortcut', { name, url });
+          app.innerHTML = resultShell('预演完成：将打开 1 个网页', `“${escapeText(name)}”已保存到模拟快捷指令库；未实际访问 ${escapeText(url)}。`);
+          complete('预演完成：将打开 1 个网页');
+        });
+      });
+    }
+
+    function resultShell(title, detail) {
+      return `<div class="app-shell"><div style="min-height:620px;display:grid;place-items:center;padding:30px"><section style="width:min(520px,100%);text-align:center"><div style="width:48px;height:48px;border-radius:50%;background:#e6f3ec;color:#27745a;display:grid;place-items:center;margin:0 auto 16px;font-size:22px;font-weight:900">✓</div><h2 style="margin:0 0 8px">${title}</h2><p style="margin:0;color:#647074;line-height:1.55">${detail}</p><button class="ghost" style="margin-top:20px" onclick="reset()">重新演练</button></section></div></div>`;
+    }
+    function escapeText(value) { const span = document.createElement('span'); span.textContent = String(value ?? ''); return span.innerHTML; }
+    function escapeAttribute(value) { return escapeText(value).replace(/`/g, '&#96;'); }
+
+    document.getElementById('publisher').textContent = activeCase.publisher;
+    document.getElementById('title').textContent = activeCase.title;
+    document.getElementById('description').textContent = activeCase.description;
+    document.getElementById('sourceTitle').textContent = activeCase.sourceTitle;
+    document.getElementById('sourceLink').href = activeCase.sourceUrl;
+    document.getElementById('workspaceLabel').textContent = `模拟 ${activeCase.publisher.split(' · ').pop()} 工作区`;
+    document.getElementById('resetCase').onclick = reset;
+    reset();
+  </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+title: "[Idea] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What real problem should GPA solve?
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How is it handled today?
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence, frequency, and safety constraints
+    validations:
+      required: true

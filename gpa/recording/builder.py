@@ -24,7 +24,7 @@ from gpa.config import KNN_K
 from gpa.core.ui_graph import StepSubgraph, UIGraph, UINode
 from gpa.core.ui_parser import parse_screenshot
 from gpa.llm import call_json_llm
-from gpa.recording.recorder import Recording, RecordedEvent
+from gpa.recording.recorder import RecordedEvent, Recording
 from gpa.storage.workflow import Workflow, WorkflowStep, WorkflowVariable
 
 logger = logging.getLogger(__name__)
@@ -41,20 +41,25 @@ structured automation templates. Given a list of recorded GUI actions, you must:
 2. Keep only necessary, intentional actions required to reproduce the task.
 3. Discard accidental clicks, wrong navigation, backtracking, duplicate clicks, exploratory moves,
    corrections, and any action that only undoes a previous mistake.
-4. Merge low-level events into one task-level step when they represent a single user intent.
+4. Merge low-level events only when one executor action can reproduce the merged result.
    Examples:
    - multiple TYPE chunks, pauses, backspaces/corrections, or retyping in one field -> one TYPE step
      whose value is the final intended text;
    - repeated identical hotkeys caused by uncertainty -> one HOTKEY step;
    - tiny click jitter on the same target -> one CLICK step using the final intentional click.
-   Do not merge actions that must be replayed separately, such as clicking a field and then typing
-   into it; those should remain two ordered workflow steps.
+   Do not merge actions that must be replayed separately. In particular, never merge multiple
+   navigation clicks, different hotkeys, or a click/hotkey/type sequence into one step. Clicking a
+   field and typing into it must remain two ordered workflow steps. event_indices may contain more
+   than one item only for adjacent TYPE chunks, an adjacent scroll burst, repeated identical
+   hotkeys, or another sequence that truly executes as one atomic action.
 5. Assign a concise natural-language description to each retained or merged step.
 6. Identify any parameterisable fields — values that a user might want to change each run
    (e.g. email addresses, search terms, dates, form values). Replace those literal values
    with {{variable_name}} placeholders.
 7. Generate a short snake_case workflow name, a title-case workflow title, and a one-sentence
    description of what the workflow does.
+8. Suggest zero to three observable success criteria only when grounded in the task description
+   or recorded UI evidence. They are review suggestions, never invented executable actions.
 
 Return a JSON object with this exact schema:
 {
@@ -62,6 +67,9 @@ Return a JSON object with this exact schema:
   "workflow_name": "draft_email",
   "workflow_title": "Draft Email",
   "description": "Compose and save a draft email with recipient, subject, and body.",
+  "success_criteria": [
+    {"type": "assert_text", "expected": "Draft saved", "description": "Confirm the task outcome"}
+  ],
   "variables": [
     {"name": "recipient_email", "default_value": "user@example.com", "description": "Email address of the recipient"}
   ],
@@ -91,6 +99,9 @@ necessary despite looking like navigation or correction, keep it. Keep DRAG even
 text or define a target range. Keep copy HOTKEY steps when they capture clipboard text from the
 user's selection. For merged TYPE steps, value must be the final intended text after corrections,
 not the raw keystroke history.
+Every generated step must cite at least one compatible recorded event: CLICK from a click, TYPE from
+typed input or a paste event with captured clipboard text, HOTKEY from a hotkey, SCROLL from a scroll,
+and DRAG from a drag. Never invent a missing action solely because the task description implies it.
 Only return valid JSON, nothing else."""
 
 
@@ -107,11 +118,13 @@ def _build_action_summary(events: list[RecordedEvent]) -> str:
         elif ev.event_type == "type":
             lines.append(f'{i}. TYPE "{ev.value}"')
         elif ev.event_type == "hotkey":
-            copy_suffix = ""
+            clipboard_suffix = ""
             if ev.clipboard_after:
                 preview = ev.clipboard_after.strip().replace("\n", " ")[:160]
-                copy_suffix = f' copied {len(ev.clipboard_after)} chars: "{preview}"'
-            lines.append(f'{i}. HOTKEY {ev.value}{copy_suffix}')
+                operation = str(ev.metadata.get("clipboard_operation") or "").casefold()
+                verb = "pasted" if operation == "paste" or _is_paste_event(ev) else "copied"
+                clipboard_suffix = f' {verb} {len(ev.clipboard_after)} chars: "{preview}"'
+            lines.append(f'{i}. HOTKEY {ev.value}{clipboard_suffix}')
         elif ev.event_type == "scroll":
             lines.append(f'{i}. SCROLL ({ev.scroll_dx}, {ev.scroll_dy}) at ({ev.x:.0f}, {ev.y:.0f})')
     return "\n".join(lines)
@@ -189,11 +202,16 @@ def _local_merge_steps(events: list[RecordedEvent]) -> list[dict]:
             indices = [event_index]
             text_parts = [event.value]
             j = i + 1
-            while j < len(events) and events[j].event_type == "type" and events[j].active_app == event.active_app:
+            while (
+                j < len(events)
+                and events[j].event_type == "type"
+                and events[j].active_app == event.active_app
+                and _same_recorded_target(event, events[j])
+            ):
                 indices.append(j + 1)
                 text_parts.append(events[j].value)
                 j += 1
-            value = "".join(text_parts)
+            value = _final_typed_value(text_parts)
             steps.append({
                 "event_indices": indices,
                 "action_type": "type",
@@ -210,9 +228,12 @@ def _local_merge_steps(events: list[RecordedEvent]) -> list[dict]:
             while (
                 j < len(events)
                 and events[j].event_type == "hotkey"
-                and events[j].value == event.value
+                and _normalised_hotkey(events[j].value) == _normalised_hotkey(event.value)
                 and events[j].active_app == event.active_app
-                and events[j].pause_before <= 1.0
+                and events[j].pause_before <= 0.35
+                and _is_deduplicable_hotkey(event.value)
+                and (event.metadata or {}).get("input_source") != "accessibility_automation"
+                and (events[j].metadata or {}).get("input_source") != "accessibility_automation"
             ):
                 indices.append(j + 1)
                 j += 1
@@ -221,6 +242,27 @@ def _local_merge_steps(events: list[RecordedEvent]) -> list[dict]:
                 "action_type": "hotkey",
                 "description": f"Press {event.value}",
                 "value": event.value,
+                "variables": [],
+            })
+            i = j
+            continue
+
+        if event.event_type == "scroll":
+            indices = [event_index]
+            j = i + 1
+            while (
+                j < len(events)
+                and events[j].event_type == "scroll"
+                and events[j].active_app == event.active_app
+                and events[j].pause_before <= 1.0
+            ):
+                indices.append(j + 1)
+                j += 1
+            steps.append({
+                "event_indices": indices,
+                "action_type": "scroll",
+                "description": "Scroll the page" if len(indices) > 1 else _event_description(event, event_index),
+                "value": "",
                 "variables": [],
             })
             i = j
@@ -246,6 +288,37 @@ def _local_merge_steps(events: list[RecordedEvent]) -> list[dict]:
         })
         i += 1
     return steps
+
+
+def _final_typed_value(chunks: list[str]) -> str:
+    """Fold recorder chunks while preserving the user's final correction."""
+    value = ""
+    for raw in chunks:
+        chunk = str(raw or "")
+        if not chunk:
+            continue
+        if chunk == value:
+            continue
+        common_prefix = 0
+        for left, right in zip(value, chunk, strict=False):
+            if left != right:
+                break
+            common_prefix += 1
+        correction_prefix = (
+            common_prefix >= 2
+            and common_prefix >= min(len(value), len(chunk)) * 0.6
+        )
+        if value.startswith(chunk) or correction_prefix:
+            # Accessibility/event clients may report the full field value after
+            # each edit. A shorter or closely related value is a correction,
+            # while unrelated chunks such as "hello" + " world" are appended.
+            value = chunk
+            continue
+        if chunk.startswith(value):
+            value = chunk
+        else:
+            value += chunk
+    return value
 
 
 def _event_description(event: RecordedEvent, event_index: int) -> str:
@@ -367,7 +440,7 @@ def _event_indices(item: dict, fallback: int, event_count: int) -> list[int]:
             continue
         if 1 <= index <= event_count and index not in indices:
             indices.append(index)
-    return indices
+    return sorted(indices)
 
 
 def _replace_variable_defaults(value: str, variables: list[WorkflowVariable]) -> str:
@@ -377,6 +450,141 @@ def _replace_variable_defaults(value: str, variables: list[WorkflowVariable]) ->
         if default:
             result = result.replace(default, f"{{{{{var.name}}}}}")
     return result
+
+
+def _normalised_hotkey(value: str) -> str:
+    return str(value or "").strip().casefold().replace("command", "cmd")
+
+
+def _is_deduplicable_hotkey(value: str) -> bool:
+    """Return whether repeating a shortcut has the same observable intent."""
+    return _normalised_hotkey(value) in {
+        "cmd+a",
+        "cmd+c",
+        "cmd+s",
+        "ctrl+a",
+        "ctrl+c",
+        "ctrl+s",
+    }
+
+
+def _same_recorded_target(left: RecordedEvent, right: RecordedEvent) -> bool:
+    """Reject merges that are known to span two distinct UI targets."""
+    left_hint = str((left.metadata or {}).get("target_hint") or "").strip().casefold()
+    right_hint = str((right.metadata or {}).get("target_hint") or "").strip().casefold()
+    return not (left_hint and right_hint and left_hint != right_hint)
+
+
+def _is_paste_event(event: RecordedEvent) -> bool:
+    return (
+        event.event_type == "hotkey"
+        and _normalised_hotkey(event.value) in {"cmd+v", "cmd+paste", "ctrl+v"}
+        and bool(event.clipboard_after)
+    )
+
+
+def _step_has_recorded_evidence(events: list[RecordedEvent], action_type: str) -> bool:
+    """Require at least one compatible source event for an LLM-generated step."""
+    if any(event.event_type == action_type for event in events):
+        return True
+    # A paste is semantically a TYPE action when the recorder captured the
+    # clipboard payload.  A bare cmd+v without payload is not sufficient: the
+    # model must not invent text from the task description.
+    return action_type == "type" and any(_is_paste_event(event) for event in events)
+
+
+def _can_execute_as_one_step(
+    indices: list[int],
+    events: list[RecordedEvent],
+    action_type: str,
+) -> bool:
+    """Return whether one executor call can faithfully replay all source events."""
+    if len(events) <= 1:
+        return True
+    if any(
+        right != left + 1
+        for left, right in zip(indices, indices[1:], strict=False)
+    ):
+        return False
+    if len({event.active_app for event in events}) > 1:
+        return False
+    if action_type == "type":
+        return (
+            all(event.event_type == "type" for event in events)
+            and all(_same_recorded_target(events[0], event) for event in events[1:])
+        )
+    if action_type == "scroll":
+        return all(event.event_type == "scroll" for event in events)
+    if action_type == "hotkey":
+        values = {_normalised_hotkey(event.value) for event in events}
+        return all(event.event_type == "hotkey" for event in events) and len(values) == 1
+    # A click, drag, or mixed sequence always contains multiple physical
+    # actions. Collapsing it produces a step that can execute only the final
+    # event and silently loses navigation or selection state.
+    return False
+
+
+def _atomic_step_item(event: RecordedEvent, event_index: int, parent: Optional[dict] = None) -> dict:
+    """Describe one recorded event without asking the executor to emulate a group."""
+    parent = parent or {}
+    hint = str((event.metadata or {}).get("target_hint") or "").strip()
+    if event.event_type == "click":
+        description = f"Click {hint}" if hint else _event_description(event, event_index)
+        value = ""
+    elif event.event_type == "type":
+        description = f"Type {event.value!r}" + (f" in {hint}" if hint else "")
+        value = event.value
+    elif event.event_type == "hotkey":
+        description = f"Press {event.value}" + (f" — {hint}" if hint else "")
+        value = event.value
+    else:
+        description = _event_description(event, event_index)
+        value = event.value
+
+    # Preserve an LLM-provided variable only for the exact TYPE action that it
+    # describes. A parent step covering mixed actions must not leak its value
+    # into the surrounding hotkeys or clicks.
+    if event.event_type == "type" and str(parent.get("action_type") or "").casefold() == "type":
+        value = str(parent.get("value") if "value" in parent else value)
+        if parent.get("description"):
+            description = str(parent["description"])
+
+    return {
+        "event_indices": [event_index],
+        "action_type": event.event_type,
+        "description": description,
+        "value": value,
+        "variables": list(parent.get("variables") or []) if event.event_type == "type" else [],
+    }
+
+
+def _expand_non_atomic_step(
+    indices: list[int],
+    item: dict,
+    recorded_events: list[RecordedEvent],
+) -> list[tuple[list[int], dict]]:
+    """Split an LLM task-level group into executable action-level steps."""
+    events = [recorded_events[index - 1] for index in indices]
+    action_type = str(item.get("action_type") or "").strip().casefold()
+    if len(events) == 1 and (events[0].metadata or {}).get("input_source") == "accessibility_automation":
+        return [(indices, _atomic_step_item(events[0], indices[0], item))]
+    if _can_execute_as_one_step(indices, events, action_type):
+        return [(indices, item)]
+    logger.warning("Splitting non-atomic LLM step mapped to events %s.", indices)
+    atomic_parent = item
+    if action_type == "type" and len(events) > 1:
+        # A model can incorrectly group text entered into different fields.
+        # Once target evidence proves the group is non-atomic, keep each
+        # event's actual text instead of duplicating the model's merged value.
+        atomic_parent = {
+            key: value
+            for key, value in item.items()
+            if key not in {"value", "variables", "description"}
+        }
+    return [
+        ([index], _atomic_step_item(event, index, atomic_parent))
+        for index, event in zip(indices, events, strict=True)
+    ]
 
 
 def _merged_step_action(
@@ -391,12 +599,19 @@ def _merged_step_action(
         action_type = max(set(event_types), key=event_types.count)
 
     same_type_events = [event for event in events if event.event_type == action_type]
+    if action_type == "type" and not same_type_events:
+        same_type_events = [event for event in events if _is_paste_event(event)]
     representative = same_type_events[-1] if same_type_events else events[-1]
 
     if "value" in llm_step:
         value = str(llm_step.get("value") or "")
     elif action_type == "type":
-        value = "".join(event.value for event in events if event.event_type == "type")
+        typed_parts = [event.value for event in events if event.event_type == "type"]
+        if typed_parts:
+            value = "".join(typed_parts)
+        else:
+            pasted_parts = [event.clipboard_after for event in events if _is_paste_event(event)]
+            value = pasted_parts[-1] if pasted_parts else ""
     elif action_type == "hotkey":
         values = [event.value for event in events if event.event_type == "hotkey"]
         value = values[-1] if values else representative.value
@@ -407,12 +622,48 @@ def _merged_step_action(
         value = _replace_variable_defaults(value, variables)
 
     pause = events[0].pause_before
+    if any((event.metadata or {}).get("input_source") == "accessibility_automation" for event in events):
+        # Pauses reported by an assistive/automation client often include test
+        # orchestration or inspection time rather than an application wait.
+        # Keep a short settle delay without baking minutes of idle time into
+        # every Replay.
+        pause = min(pause, 0.4)
     active_app = representative.active_app
     return representative, action_type, value, pause, active_app
 
 
 def _merged_step_metadata(events: list[RecordedEvent], action_type: str) -> dict:
-    metadata: dict = {}
+    metadata: dict = {
+        "recorded_event_indices": [
+            int((event.metadata or {}).get("recorded_event_index") or 0)
+            for event in events
+            if int((event.metadata or {}).get("recorded_event_index") or 0) > 0
+        ],
+    }
+    if not metadata["recorded_event_indices"]:
+        metadata.pop("recorded_event_indices")
+    if len(events) > 1:
+        strategy = {
+            "type": "typed_correction_or_continuation",
+            "scroll": "scroll_burst",
+            "hotkey": "duplicate_hotkey",
+        }.get(action_type, "semantic_group")
+        metadata["intent_normalization"] = {
+            "strategy": strategy,
+            "source_event_count": len(events),
+        }
+    target_hints = [str(event.metadata.get("target_hint") or "").strip() for event in events]
+    target_hints = [hint for hint in target_hints if hint]
+    if target_hints:
+        metadata["target_hint"] = target_hints[-1]
+    input_sources = [str(event.metadata.get("input_source") or "").strip() for event in events]
+    input_sources = [source for source in input_sources if source]
+    if input_sources:
+        metadata["input_source"] = input_sources[-1]
+    target_urls = [str(event.metadata.get("target_url") or "").strip() for event in events]
+    target_urls = [url for url in target_urls if url]
+    if target_urls:
+        metadata["target_url"] = target_urls[-1]
     scroll_events = [event for event in events if event.event_type == "scroll"]
     if action_type == "scroll" and scroll_events:
         metadata.update({
@@ -445,8 +696,6 @@ def _merged_step_metadata(events: list[RecordedEvent], action_type: str) -> dict
             "recorded_clipboard_length": len(event.clipboard_after or ""),
             "recorded_clipboard_changed": event.clipboard_after.strip() != event.clipboard_before.strip(),
         })
-        if event.clipboard_before:
-            metadata["recorded_clipboard_before"] = event.clipboard_before
     return metadata
 
 
@@ -503,10 +752,86 @@ def _prune_console_noise_steps(
     return pruned
 
 
+def _same_click_target(
+    left: WorkflowStep,
+    right: WorkflowStep,
+    step_subgraphs: dict[str, StepSubgraph],
+) -> bool:
+    if left.action_type != "click" or right.action_type != "click":
+        return False
+    if str(left.active_app_name or "").casefold() != str(right.active_app_name or "").casefold():
+        return False
+    left_hint = str((left.metadata or {}).get("target_hint") or "").strip().casefold()
+    right_hint = str((right.metadata or {}).get("target_hint") or "").strip().casefold()
+    if left_hint and right_hint and left_hint == right_hint:
+        return True
+    left_graph = step_subgraphs.get(left.id)
+    right_graph = step_subgraphs.get(right.id)
+    if left_graph is None or right_graph is None:
+        return False
+    left_xy = list(left_graph.click_coordinates or [])
+    right_xy = list(right_graph.click_coordinates or [])
+    return (
+        len(left_xy) >= 2
+        and len(right_xy) >= 2
+        and abs(float(left_xy[0]) - float(right_xy[0])) <= 6
+        and abs(float(left_xy[1]) - float(right_xy[1])) <= 6
+    )
+
+
+def _deterministic_cleanup_steps(
+    workflow_steps: list[WorkflowStep],
+    step_subgraphs: dict[str, StepSubgraph],
+) -> tuple[list[WorkflowStep], int]:
+    """Remove only provable recorder noise after semantic analysis."""
+    cleaned: list[WorkflowStep] = []
+    removed = 0
+    for step in workflow_steps:
+        if step.action_type == "type" and not str(step.value or ""):
+            step_subgraphs.pop(step.id, None)
+            removed += 1
+            continue
+        previous = cleaned[-1] if cleaned else None
+        duplicate_hotkey = bool(
+            previous
+            and previous.action_type == step.action_type == "hotkey"
+            and str(previous.active_app_name or "").casefold()
+            == str(step.active_app_name or "").casefold()
+            and _normalised_hotkey(previous.value) == _normalised_hotkey(step.value)
+            and _is_deduplicable_hotkey(step.value)
+            and float(step.pause_duration or 0) <= 0.35
+            and (previous.metadata or {}).get("input_source") != "accessibility_automation"
+            and (step.metadata or {}).get("input_source") != "accessibility_automation"
+        )
+        if duplicate_hotkey:
+            discarded = cleaned.pop()
+            step_subgraphs.pop(discarded.id, None)
+            previous_indices = list((discarded.metadata or {}).get("recorded_event_indices") or [])
+            current_indices = list((step.metadata or {}).get("recorded_event_indices") or [])
+            merged_indices = sorted({
+                int(index)
+                for index in [*previous_indices, *current_indices]
+                if isinstance(index, int) or str(index).isdigit()
+            })
+            step.metadata = {**dict(discarded.metadata or {}), **dict(step.metadata or {})}
+            if merged_indices:
+                step.metadata["recorded_event_indices"] = merged_indices
+            step.metadata["intent_normalization"] = {
+                "strategy": "duplicate_hotkey",
+                "source_event_count": max(2, len(merged_indices)),
+            }
+            removed += 1
+        cleaned.append(step)
+    for index, step in enumerate(cleaned, 1):
+        step.step_number = index
+    return cleaned, removed
+
+
 def build_workflow(
     recording: Recording,
     workflow_id: Optional[str] = None,
     task_description: str = "",
+    narration: str = "",
 ) -> BuildResult:
     """Convert a Recording into a Workflow + per-step subgraphs.
 
@@ -525,8 +850,17 @@ def build_workflow(
 
     # 1. Call LLM to enrich steps
     logger.info("Analysing workflow with LLM …")
+    for event_index, event in enumerate(recording.events, 1):
+        event.metadata = dict(event.metadata or {})
+        event.metadata.setdefault("recorded_event_index", event_index)
     summary = _build_action_summary(recording.events)
-    llm_result = _call_llm(summary, task_description, recording.events)
+    combined_description = task_description
+    if narration.strip():
+        combined_description = (
+            f"{task_description}\nOperator intent and exceptions: {narration.strip()}"
+            if task_description else narration.strip()
+        )
+    llm_result = _call_llm(summary, combined_description, recording.events)
 
     # 2. Map LLM-retained or merged steps back to original events by event_indices.
     llm_steps = llm_result.get("steps", [])
@@ -541,8 +875,36 @@ def build_workflow(
         indices = [index for index in indices if index not in seen_event_indices]
         if not indices:
             continue
-        seen_event_indices.update(indices)
-        retained_steps.append((indices, item))
+        action_type = str(item.get("action_type") or "").strip().lower()
+        source_events = [recording.events[index - 1] for index in indices]
+        if action_type in {"click", "scroll", "type", "hotkey", "drag"} and not (
+            _step_has_recorded_evidence(source_events, action_type)
+        ):
+            logger.warning(
+                "Dropping LLM step without compatible recorded evidence: %s mapped to events %s",
+                action_type,
+                indices,
+            )
+            continue
+        for atomic_indices, atomic_item in _expand_non_atomic_step(
+            indices,
+            item,
+            recording.events,
+        ):
+            seen_event_indices.update(atomic_indices)
+            retained_steps.append((atomic_indices, atomic_item))
+
+    # Accessibility clients report actions explicitly because macOS does not
+    # echo every synthetic event through the passive input listener. Those
+    # reports are intentional and auditable, so an LLM may enrich their labels
+    # but may not silently discard them from the executable Replay.
+    for index, event in enumerate(recording.events, 1):
+        if index in seen_event_indices:
+            continue
+        if (event.metadata or {}).get("input_source") == "accessibility_automation":
+            retained_steps.append(([index], _atomic_step_item(event, index)))
+            seen_event_indices.add(index)
+    retained_steps.sort(key=lambda retained: retained[0][0])
     if not retained_steps:
         logger.warning("LLM returned no valid retained steps; keeping all recorded events.")
         retained_steps = [
@@ -608,7 +970,21 @@ def build_workflow(
         str(llm_result.get("description") or ""),
         str(llm_result.get("workflow_title") or ""),
     ])
+    before_cleanup = len(workflow_steps)
     workflow_steps = _prune_console_noise_steps(workflow_steps, step_subgraphs, workflow_text)
+    workflow_steps, deterministic_removed = _deterministic_cleanup_steps(
+        workflow_steps,
+        step_subgraphs,
+    )
+    represented_event_indices = {
+        int(event_index)
+        for step in workflow_steps
+        for event_index in (step.metadata or {}).get("recorded_event_indices", [])
+        if int(event_index) > 0
+    }
+    represented_event_count = len(represented_event_indices)
+    discarded_or_noise_count = max(0, len(recording.events) - represented_event_count)
+    merged_event_count = max(0, represented_event_count - len(workflow_steps))
 
     workflow = Workflow(
         workflow_id=wid,
@@ -618,6 +994,28 @@ def build_workflow(
         variables=variables,
         steps=workflow_steps,
         task_description=llm_result.get("task_description") or task_description,
+        provenance={
+            "narration": narration.strip(),
+            "recording_analysis": {
+                "schema": "gpa.recording-analysis/v1",
+                "source_event_count": len(recording.events),
+                "represented_event_count": represented_event_count,
+                "retained_step_count": len(workflow_steps),
+                "merged_event_count": merged_event_count,
+                "discarded_or_noise_event_count": discarded_or_noise_count,
+                "step_reduction_count": max(0, len(recording.events) - len(workflow_steps)),
+                "model_discarded_event_count": len(discarded) if isinstance(discarded, list) else 0,
+                "deterministic_removed_step_count": (before_cleanup - len(workflow_steps)),
+                "deterministic_duplicate_count": deterministic_removed,
+                "strategy": "semantic_intent_plus_deterministic_cleanup",
+                "intent_source": "task_description+narration" if narration.strip() else "task_description",
+                "suggested_success_criteria": [
+                    dict(item)
+                    for item in (llm_result.get("success_criteria") or [])[:3]
+                    if isinstance(item, dict)
+                ],
+            }
+        },
     )
 
     logger.info(

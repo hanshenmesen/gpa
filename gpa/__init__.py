@@ -1,2 +1,3 @@
-"""GPA - GUI Process Automation (reproduction of arXiv:2604.01676)."""
+"""GPA — local-first GUI workflow recording and safe Replay."""
+
 __version__ = "0.1.0"

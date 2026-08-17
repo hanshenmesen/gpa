@@ -20,7 +20,6 @@ from typing import Callable, Iterable, Optional
 
 from gpa.core.grounding import GroundingRequest, run_grounder
 
-
 # ──────────────────────────────────────────────────────────────────────────── #
 # Grounding evaluation (ScreenSpot / ScreenSpot-Pro style)                      #
 # ──────────────────────────────────────────────────────────────────────────── #

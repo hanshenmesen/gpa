@@ -9,7 +9,6 @@ from gpa.replay.domain import (
     ReplayManifest,
 )
 
-
 PLATFORM_NAMES = {
     "darwin": "darwin",
     "macos": "darwin",
@@ -35,10 +34,14 @@ APP_ALIASES = {
     },
 }
 
+SEMANTIC_ACTIONS = {
+    "wait", "wait_for_text", "assert_text", "assert_not_text", "assert_link", "assert_url", "set_clipboard",
+    "assert_clipboard",
+}
 SUPPORTED_ACTIONS = {
-    "darwin": {"click", "drag", "scroll", "type", "hotkey", "open_url", "wait", "capture"},
-    "windows": {"click", "drag", "scroll", "type", "hotkey", "open_url", "wait", "capture"},
-    "linux": {"click", "drag", "scroll", "type", "hotkey", "open_url", "wait", "capture"},
+    "darwin": {"click", "drag", "scroll", "type", "hotkey", "open_url", *SEMANTIC_ACTIONS},
+    "windows": {"click", "drag", "scroll", "type", "hotkey", "open_url", *SEMANTIC_ACTIONS},
+    "linux": {"click", "drag", "scroll", "type", "hotkey", "open_url", *SEMANTIC_ACTIONS},
 }
 
 

@@ -11,7 +11,6 @@ from typing import Iterable
 
 from gpa.replay.domain import ReplayIntent, ReplayStep
 
-
 ACTION_CAPABILITIES = {
     "click": "pointer",
     "drag": "pointer",
@@ -20,6 +19,13 @@ ACTION_CAPABILITIES = {
     "hotkey": "keyboard",
     "open_url": "navigation",
     "wait": "timing",
+    "wait_for_text": "state_observation",
+    "assert_text": "state_verification",
+    "assert_not_text": "state_verification",
+    "assert_link": "state_verification",
+    "assert_url": "state_verification",
+    "set_clipboard": "clipboard",
+    "assert_clipboard": "state_verification",
     "capture": "screen_capture",
 }
 
@@ -27,6 +33,9 @@ CAPABILITY_PERMISSIONS = {
     "pointer": "accessibility",
     "keyboard": "input_control",
     "navigation": "browser_control",
+    "clipboard": "clipboard_control",
+    "state_observation": "screen_recording",
+    "state_verification": "screen_recording",
     "screen_capture": "screen_recording",
 }
 

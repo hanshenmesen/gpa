@@ -173,16 +173,18 @@ def start_demo_server():
     try:
         get_json(f"{base_url}/submissions")
         return base_url, None
-    except Exception:
+    except Exception as initial_error:
         srv = demo_server.start_server()
+        last_error = initial_error
         deadline = time.time() + 3
         while time.time() < deadline:
             try:
                 get_json(f"{base_url}/submissions")
                 return base_url, srv
-            except Exception:
+            except Exception as exc:
+                last_error = exc
                 time.sleep(0.05)
-        raise RuntimeError("Demo web server did not become ready.")
+        raise RuntimeError("Demo web server did not become ready.") from last_error
 
 
 def write_report(workflow: Workflow, submitted: list[dict], base_url: str) -> None:

@@ -15,22 +15,22 @@ import unittest
 
 from PIL import Image
 
-import gpa.core.grounding as grounding
 import gpa.core.doc_guidance as doc_guidance
+import gpa.core.grounding as grounding
 import gpa.execution.executor as executor_module
-import gpa.execution.safety_gate as safety_gate
 import gpa.execution.recovery as recovery
+import gpa.execution.safety_gate as safety_gate
 from gpa.core.app_graph import build_app_graphs
 from gpa.core.grounding import GroundingRequest, GroundingResult, run_grounder
 from gpa.execution.executor import Executor
 from gpa.integration.benchmarks import (
+    BenchmarkTask,
     GroundingSample,
     evaluate_grounding,
     load_benchmark_tasks,
     point_in_box,
     register_benchmark_adapter,
     unregister_benchmark_adapter,
-    BenchmarkTask,
 )
 from gpa.storage.workflow import Workflow, WorkflowStep
 

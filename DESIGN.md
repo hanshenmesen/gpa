@@ -2,9 +2,9 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-08-05
-- Primary product surfaces: Replay Store (`/store`) and Replay Studio (`/`)
-- Evidence reviewed: `demo_web/index.html`, `demo_web/store.html`, `demo_web/server.py`, `demo_output/gpa_complete_console.png`, `docs/optimization_roadmap.md`, and the public `citrolabs/ego-lite` repository and documentation.
+- Last refreshed: 2026-08-10
+- Primary product surfaces: GPA Desktop, Replay Store (`/store`), Product Control Center (`/control`), and Replay Studio (`/`)
+- Evidence reviewed: `demo_web/index.html`, `demo_web/store.html`, `demo_web/control.html`, `demo_web/server.py`, persisted Run History, `docs/optimization_roadmap.md`, and the public GPA repository.
 
 ## Brand
 - Personality: capable, calm, local-first, technical without looking like an admin console.
@@ -13,17 +13,17 @@
 
 ## Product goals
 - Goals: record a task, turn it into a portable Replay plugin, understand its intent, upload or discover it in the Store, install it locally, and replay it safely on a compatible system.
-- Non-goals: cloud account systems, public moderation, background remote control, or pretending that an incompatible desktop app can be replayed safely.
+- Non-goals: background remote control without local approval, cloud storage of local secrets, or pretending that an incompatible desktop app can be replayed safely.
 - Success signals: a user can record -> review intent -> save/upload -> install -> preflight -> replay; every transition has a visible status and no Store action can emit desktop input.
 
 ## Personas and jobs
 - Primary personas: operators who repeat GUI work; creators who share proven workflows; reviewers who assess safety and portability.
 - User jobs: capture actions, describe the goal, inspect parsed intent, publish a package, find and install a Replay, resolve variables, verify compatibility, and run or stop it.
-- Key contexts of use: desktop browser connected to a local service, authenticated app sessions, potentially sensitive text and irreversible GUI actions.
+- Key contexts of use: native desktop WebView connected to a loopback service, authenticated cloud sessions, potentially sensitive text and irreversible GUI actions.
 
 ## Information architecture
-- Primary navigation: `Replay Store` and `Replay Studio` (the existing `My Replays` surface).
-- Core routes/screens: `/store` for discovery/upload/publish and `/` for recording, installed Replays, intent review, preflight, execution, and run history.
+- Primary navigation: `Replay Store`, `Control Center`, and `Replay Studio`, using one fixed-height header contract so route changes do not move the page top.
+- Core routes/screens: `/store` for discovery/upload/publish, `/control` for product health and evidence, and `/` for recording, installed Replays, intent review, preflight, execution, and run history.
 - Content hierarchy: Store catalog -> Replay details -> Install -> Studio detail -> Intent and compatibility -> Variables -> Arm and run.
 
 ## Design principles
@@ -33,6 +33,8 @@
 - Prefer a compressed semantic plan over repeated UI probing; screenshots remain evidence and recovery input, not the primary package format.
 - Record-first, intent-aware: deterministic recorded actions are preserved while intent guides validation and recovery.
 - Portability is explicit: the system reports supported, degraded, or blocked instead of silently guessing across operating systems.
+- Complexity is evidence-based: a task is only presented as verified when a persisted successful run proves its step count, failures, elapsed time, and model cost.
+- Semantic assertions fail closed on wrong URL, missing browser text, or incorrect clipboard output; a long sequence of unverified waits does not count as a mature task.
 
 ## Visual language
 - Color: preserve GPA teal (`#245f68` family), clay accent, warm off-white surfaces, restrained green success, amber warning, and red destructive states.
@@ -44,7 +46,7 @@
 
 ## Components
 - Existing components to reuse: product navigation, GPA mark, chips, badges, cards, detail panels, status boxes, buttons, workflow editor, feedback regions, and safety copy.
-- New/changed components: Replay manifest summary, intent card, capability/permission chips, platform compatibility matrix, Space status, upload validation result, and preflight checklist.
+- New/changed components: Replay manifest summary, intent card, capability/permission chips, platform compatibility matrix, Space status, upload validation result, preflight checklist, live maturity metrics, complexity leaderboard, and persisted run evidence.
 - Variants and states: local/store/installed Replay; draft/ready/blocked; compatible/degraded/unsupported; idle/recording/planning/running/stopped/failed.
 - Token/component ownership: page-local CSS variables stay canonical; no new frontend framework or design-system dependency.
 
@@ -74,7 +76,7 @@
 - Microcopy rules: explain prerequisites before actions; distinguish 上传/发布/安装/运行; never label installation as execution.
 
 ## Implementation constraints
-- Framework/styling system: static HTML/CSS/JavaScript served by the Python standard-library HTTP server; no new runtime dependency.
+- Framework/styling system: static HTML/CSS/JavaScript served by the Python loopback service inside a lightweight system WebView; the public website reuses the same product language.
 - Architecture: the web layer calls an application service; domain objects and platform planning cannot import HTTP or desktop drivers; legacy Workflow/Community packages are adapters.
 - Design-token constraints: extend current CSS variables and components instead of replacing the visual system.
 - Performance constraints: Store browsing and manifest inspection cannot initialize visual models or desktop automation.
@@ -83,6 +85,6 @@
 - Test/screenshot expectations: domain and API regression tests, full unittest suite, server smoke tests, browser-visible route checks, and no automatic desktop input during verification.
 
 ## Open questions
-- [ ] Hosted identity, synchronization, and moderation / product owner / required before public multi-user launch.
+- [ ] Hosted identity, synchronization, and moderation implementation / product owner / required before public multi-user launch.
 - [ ] Signing and trust levels for third-party Replay plugins / security owner / required before remote plugin execution.
 - [ ] First supported non-macOS end-to-end runner / product owner / current implementation provides portable planning and adapter contracts, but this machine can only verify macOS execution.

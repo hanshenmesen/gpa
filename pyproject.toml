@@ -5,8 +5,21 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gpa"
 version = "0.1.0"
-description = "GUI Process Automation - reproduce of Salesforce GPA paper (arXiv:2604.01676)"
-requires-python = ">=3.9"
+description = "Local-first GUI workflow recording and safe Replay platform"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.10"
+keywords = ["gui-automation", "replay", "local-first", "workflow"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: MacOS X",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
 dependencies = [
   "Pillow>=10.0.0",
   "mss>=9.0.0",
@@ -14,7 +27,7 @@ dependencies = [
   "networkx>=3.0",
   "scipy>=1.10.0",
   "rapidfuzz>=3.0.0",
-  "pynput>=1.7.6",
+  "pynput>=1.7.6; platform_system != 'Darwin'",
   "pyautogui>=0.9.54",
   "pyyaml>=6.0",
   "orjson>=3.9.0",
@@ -23,15 +36,31 @@ dependencies = [
   "rich>=13.0.0",
   "python-dotenv>=1.0.0",
   "tqdm>=4.66.0",
-  "pyobjc-core==11.1; platform_system == 'Darwin' and python_version < '3.10'",
-  "pyobjc-framework-Cocoa==11.1; platform_system == 'Darwin' and python_version < '3.10'",
-  "pyobjc-framework-Quartz==11.1; platform_system == 'Darwin' and python_version < '3.10'",
-  "pyobjc-framework-ApplicationServices==11.1; platform_system == 'Darwin' and python_version < '3.10'",
-  "pyobjc-framework-CoreText==11.1; platform_system == 'Darwin' and python_version < '3.10'",
-  "mcp>=1.0.0; python_version >= '3.10'",
+  "pyobjc-core==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-Cocoa==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-Quartz==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-ApplicationServices==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-CoreText==11.1; platform_system == 'Darwin'",
+  "mcp>=2.0.0,<3; python_version >= '3.10'",
+  "opencv-python>=4.8.0",
 ]
 
 [project.optional-dependencies]
+desktop = [
+  "pywebview>=6.2.1,<7",
+  "pyobjc-framework-WebKit==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-Security==11.1; platform_system == 'Darwin'",
+]
+package = [
+  "pyinstaller>=6.21,<7; python_version >= '3.10'",
+]
+cloud = [
+  "fastapi==0.139.2; python_version >= '3.10'",
+  "pydantic-settings==2.14.2; python_version >= '3.10'",
+  "PyJWT[crypto]>=2.10,<3; python_version >= '3.10'",
+  "psycopg[binary,pool]==3.3.4; python_version >= '3.10'",
+  "uvicorn[standard]>=0.52,<1; python_version >= '3.10'",
+]
 visual = [
   "torch>=2.0.0",
   "torchvision>=0.15.0",
@@ -39,13 +68,49 @@ visual = [
   "ultralytics>=8.2.0",
   "huggingface-hub>=0.23.0",
   "sentence-transformers>=3.0.0",
-  "opencv-python>=4.8.0",
   "ocrmac>=0.3.0",
 ]
+dev = [
+  "build>=1.2",
+  "coverage[toml]>=7.6",
+  "ruff>=0.9",
+]
+
+[project.urls]
+Repository = "https://github.com/hanshenmesen/gpa"
+Documentation = "https://github.com/hanshenmesen/gpa#readme"
+Issues = "https://github.com/hanshenmesen/gpa/issues"
+Discussions = "https://github.com/hanshenmesen/gpa/discussions"
+Changelog = "https://github.com/hanshenmesen/gpa/blob/main/CHANGELOG.md"
 
 [project.scripts]
 gpa = "gpa.integration.cli:main"
+gpa-cloud = "gpa.cloud_server.app:main"
+gpa-cloud-migrate = "gpa.cloud_server.migrations:main"
+gpa-release-preflight = "gpa.cloud_server.preflight:main"
+gpa-desktop = "gpa.desktop.app:main"
+gpa-web = "demo_web.server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["gpa*"]
+include = ["gpa*", "demo_web*"]
+
+[tool.setuptools.package-data]
+demo_web = ["*.html", "*.css", "*.js"]
+"gpa.cloud_server" = ["migrations/*.sql"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
+[tool.coverage.run]
+branch = true
+source = ["gpa", "demo_web"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 60

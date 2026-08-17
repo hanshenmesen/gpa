@@ -68,6 +68,23 @@ class PlatformPlannerTests(unittest.TestCase):
         self.assertIn("semantic_target", report.missing_capabilities)
         self.assertFalse(report.runnable)
 
+    def test_safe_web_link_assertion_is_supported_on_every_platform(self):
+        manifest = self._manifest(
+            ReplayStep(
+                1,
+                "assert_link",
+                "Verify the official data-file link",
+                value="ftp://files.example/data/",
+            ),
+        )
+
+        for target in ("darwin", "windows", "linux"):
+            with self.subTest(target=target):
+                steps, report = PlatformPlanner().plan_steps(manifest, target)
+                self.assertTrue(steps[0].supported)
+                self.assertTrue(report.runnable)
+                self.assertNotIn("action:assert_link", report.missing_capabilities)
+
     def test_host_platform_names_are_canonical(self):
         with patch("gpa.replay.platforms.host_platform.system", return_value="Windows"):
             self.assertEqual(current_platform(), "windows")

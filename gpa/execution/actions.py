@@ -4,18 +4,20 @@ Uses pyautogui for mouse/keyboard control on macOS.
 """
 from __future__ import annotations
 
+import atexit
 import logging
 import os
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
-import atexit
-import tempfile
 from typing import Callable, Optional
 
 import pyautogui
+
+from gpa.runtime_config import RuntimeConfigurationError, env_bool
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,11 @@ logger = logging.getLogger(__name__)
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.05     # small pause between pyautogui calls
 
-_abort_checker: Callable[[], bool] = lambda: False
+def _never_abort() -> bool:
+    return False
+
+
+_abort_checker: Callable[[], bool] = _never_abort
 _panic_stop = threading.Event()
 _panic_stop.set()
 _held_keys: set[str] = set()
@@ -40,7 +46,10 @@ _thread_state = threading.local()
 DESKTOP_AUTOMATION_ENV = "GPA_ENABLE_DESKTOP_AUTOMATION"
 INPUT_WATCHDOG_ENV = "GPA_ENABLE_INPUT_WATCHDOG"
 KEYBOARD_QUARANTINE_SECONDS_ENV = "GPA_KEYBOARD_QUARANTINE_SECONDS"
+PROTECTED_INPUT_APPS_ENV = "GPA_PROTECTED_INPUT_APPS"
+ALLOW_PROTECTED_INPUT_APPS_ENV = "GPA_ALLOW_PROTECTED_INPUT_APPS"
 DEFAULT_KEYBOARD_QUARANTINE_SECONDS = 1.5
+DEFAULT_PROTECTED_INPUT_APPS = ("chatgpt", "codex")
 
 _KEY_MAP = {
     "cmd": "command",
@@ -79,6 +88,14 @@ def set_abort_checker(checker: Optional[Callable[[], bool]]) -> None:
         _thread_state.abort_checker = checker
 
 
+def set_expected_target_app(app_name: Optional[str]) -> None:
+    value = str(app_name or "").strip()
+    if value:
+        _thread_state.expected_target_app = value
+    elif hasattr(_thread_state, "expected_target_app"):
+        delattr(_thread_state, "expected_target_app")
+
+
 def bind_action_token(token: Optional[int]) -> None:
     _thread_state.action_token = token
 
@@ -89,7 +106,11 @@ def clear_action_token() -> None:
 
 
 def desktop_automation_enabled() -> bool:
-    return os.environ.get(DESKTOP_AUTOMATION_ENV) == "1"
+    try:
+        return env_bool(DESKTOP_AUTOMATION_ENV, False)
+    except RuntimeConfigurationError as exc:
+        logger.error("Desktop automation is disabled: %s", exc)
+        return False
 
 
 def _mark_input_activity() -> None:
@@ -165,6 +186,22 @@ def panic_stop(token: Optional[int] = None) -> None:
         _start_keyboard_quarantine()
     if has_tracked_inputs:
         _release_inputs_safely()
+
+
+def emergency_release_inputs() -> None:
+    """Best-effort physical release for a replacement process after a worker crash."""
+    abort_actions()
+    _release_modifiers_with_quartz()
+    for key in ("command", "ctrl", "shift", "alt", "option"):
+        try:
+            pyautogui.keyUp(key)
+        except Exception:
+            logger.debug("Could not force-release key %s", key, exc_info=True)
+    for button in ("left", "right", "middle"):
+        try:
+            pyautogui.mouseUp(button=button)
+        except Exception:
+            logger.debug("Could not force-release mouse button %s", button, exc_info=True)
 
 
 def actions_stopped() -> bool:
@@ -598,7 +635,61 @@ def _write_clipboard_text(text: str) -> None:
     _write_clipboard_bytes(str(text or "").encode("utf-8"))
 
 
-def _menu_command(command: str) -> None:
+def _frontmost_process_identity() -> tuple[int, str]:
+    script = (
+        'tell application "System Events"\n'
+        '  set frontProc to first application process whose frontmost is true\n'
+        '  return (unix id of frontProc as text) & tab & (name of frontProc as text)\n'
+        'end tell'
+    )
+    completed = subprocess.run(
+        ["osascript", "-e", script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=2,
+        check=True,
+    )
+    raw_pid, _, app_name = completed.stdout.strip().partition("\t")
+    pid = int(raw_pid)
+    normalized_actual = app_name.casefold().replace(" browser", "").strip()
+    configured_protected = str(
+        os.environ.get(PROTECTED_INPUT_APPS_ENV, ",".join(DEFAULT_PROTECTED_INPUT_APPS))
+        or ""
+    )
+    protected_apps = {
+        item.casefold().replace(" browser", "").strip()
+        for item in configured_protected.split(",")
+        if item.strip()
+    }
+    allow_protected = str(
+        os.environ.get(ALLOW_PROTECTED_INPUT_APPS_ENV, "") or ""
+    ).strip().casefold() in {"1", "true", "yes", "on"}
+    if not allow_protected and any(
+        protected == normalized_actual
+        or protected in normalized_actual
+        or normalized_actual in protected
+        for protected in protected_apps
+    ):
+        raise ActionAborted(
+            f"Refusing automated keyboard input in protected app {app_name}. "
+            f"Set {ALLOW_PROTECTED_INPUT_APPS_ENV}=1 only for an explicitly trusted workflow."
+        )
+    expected = str(getattr(_thread_state, "expected_target_app", "") or "").strip()
+    if expected:
+        normalized_expected = expected.casefold().replace(" browser", "").strip()
+        aliases = {normalized_expected, normalized_expected.replace("google ", "")}
+        if normalized_actual not in aliases and not any(
+            alias and (alias in normalized_actual or normalized_actual in alias)
+            for alias in aliases
+        ):
+            raise ActionAborted(
+                f"Focused app changed before keyboard input: expected {expected}, got {app_name}."
+            )
+    return pid, app_name
+
+
+def _menu_command(command: str, *, expected_identity: Optional[tuple[int, str]] = None) -> None:
     """Invoke a front-app Edit menu command without synthesizing a hotkey."""
     if sys.platform != "darwin":
         raise RuntimeError("Menu commands are only supported on macOS.")
@@ -609,6 +700,7 @@ def _menu_command(command: str) -> None:
     }.get(command)
     if not candidates:
         raise ValueError(f"Unsupported menu command: {command}")
+    expected_pid, _ = expected_identity or _frontmost_process_identity()
     attempts = []
     for menu_name, item_name in candidates:
         attempts.append(
@@ -620,6 +712,7 @@ end try'''
     script = (
         'tell application "System Events"\n'
         '  set frontProc to first application process whose frontmost is true\n'
+        f'  if (unix id of frontProc) is not {expected_pid} then error "Focused app changed before {command}"\n'
         '  tell frontProc\n'
         f"{chr(10).join(attempts)}\n"
         f'    error "{command} menu command is unavailable"\n'
@@ -640,11 +733,12 @@ def _apple_script_string(value: str) -> str:
 
 
 def _paste_text_via_clipboard(text: str) -> None:
+    expected_identity = _frontmost_process_identity()
     previous = _read_clipboard_bytes()
     try:
         _ensure_not_aborted()
         _write_clipboard_text(text)
-        _menu_command("paste")
+        _menu_command("paste", expected_identity=expected_identity)
         _sleep_interruptible(0.08)
     finally:
         try:
@@ -664,8 +758,54 @@ def _menu_command_for_hotkey(combo: str) -> str:
     return ""
 
 
+def _press_hotkey_macos(combo: str) -> None:
+    expected_pid, _ = _frontmost_process_identity()
+    parts = [_normalise_key(k) for k in combo.split("+") if k.strip()]
+    if not parts:
+        raise ValueError("Hotkey must include at least one key.")
+    modifiers = {
+        "command": "command down",
+        "ctrl": "control down",
+        "alt": "option down",
+        "shift": "shift down",
+    }
+    key_codes = {
+        "enter": 36,
+        "tab": 48,
+        "space": 49,
+        "backspace": 51,
+        "delete": 51,
+        "escape": 53,
+        "left": 123,
+        "right": 124,
+        "down": 125,
+        "up": 126,
+    }
+    modifier_values = [modifiers[item] for item in parts[:-1] if item in modifiers]
+    key = parts[-1]
+    using = f" using {{{', '.join(modifier_values)}}}" if modifier_values else ""
+    if key in key_codes:
+        action = f"key code {key_codes[key]}{using}"
+    elif len(key) == 1:
+        action = f'keystroke "{_apple_script_string(key)}"{using}'
+    else:
+        raise ValueError(f"Unsupported macOS hotkey key: {key}")
+    script = (
+        'tell application "System Events"\n'
+        '  set frontProc to first application process whose frontmost is true\n'
+        f'  if (unix id of frontProc) is not {expected_pid} then error "Focused app changed before hotkey"\n'
+        f"  {action}\n"
+        "end tell"
+    )
+    _ensure_not_aborted()
+    _mark_input_activity()
+    _run_action_subprocess(["osascript", "-e", script], timeout=3)
+    _ensure_not_aborted()
+
+
 def _input_watchdog_enabled() -> bool:
-    return os.environ.get(INPUT_WATCHDOG_ENV) == "1" and sys.platform == "darwin"
+    raw = str(os.environ.get(INPUT_WATCHDOG_ENV, "1") or "").strip().casefold()
+    return raw not in {"0", "false", "no", "off"} and sys.platform == "darwin"
 
 
 def _start_input_watchdog() -> None:
@@ -831,10 +971,7 @@ def _stop_input_watchdog() -> None:
         try:
             proc.wait(timeout=0.5)
         except subprocess.TimeoutExpired:
-            try:
-                proc.terminate()
-            except Exception:
-                pass
+            terminate_process(proc)
 
 
 def _sleep_interruptible(duration: float) -> None:
@@ -895,6 +1032,9 @@ def press_hotkey(combo: str) -> None:
     if menu_command and sys.platform == "darwin":
         _menu_command(menu_command)
         _ensure_not_aborted()
+        return
+    if sys.platform == "darwin":
+        _press_hotkey_macos(combo)
         return
     parts = [_normalise_key(k) for k in combo.split("+") if k.strip()]
     pressed: list[str] = []
@@ -962,4 +1102,27 @@ def move_to(x: float, y: float, duration: float = 0.1) -> None:
     _ensure_not_aborted()
 
 
-atexit.register(panic_stop)
+def _shutdown_actions() -> None:
+    """Finish native-input cleanup and reap its helper before Python exits."""
+    panic_stop()
+    with _input_state_lock:
+        proc = _quarantine_process
+    if proc is None or proc.poll() is not None:
+        if proc is not None:
+            try:
+                proc.wait(timeout=0)
+            except Exception:
+                pass
+        return
+    try:
+        # The helper intentionally stays alive for the quarantine window.  A
+        # bounded wait prevents a live child from leaking out of the replay
+        # worker and avoids Python's "subprocess is still running" warning.
+        proc.wait(timeout=_keyboard_quarantine_seconds() + 0.5)
+    except subprocess.TimeoutExpired:
+        terminate_process(proc)
+    except Exception:
+        logger.debug("Could not reap keyboard quarantine helper", exc_info=True)
+
+
+atexit.register(_shutdown_actions)

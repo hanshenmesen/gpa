@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPA · 运行状态</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --line:#dfe3e8; --line-strong:#c8d0d9; --text:#1f2328; --muted:#667085; --accent:#255f75; --accent-soft:#e9f3f6; --green:#27745a; --orange:#a65f1a; --red:#a53a2a; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; color:var(--text); background:var(--bg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  header { position:sticky; top:0; z-index:20; height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 22px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .header-left { display:flex; align-items:center; gap:24px; min-width:0; }
+  .brand { display:flex; align-items:center; gap:12px; min-width:0; color:inherit; text-decoration:none; }
+  .mark { width:34px; height:34px; border:1px solid var(--line-strong); border-radius:7px; background:linear-gradient(135deg,var(--accent) 0 50%,transparent 50%),linear-gradient(135deg,transparent 54%,#d17a44 54%),#e8c14c; flex:0 0 auto; }
+  h1 { margin:0; font-size:18px; line-height:1.2; }
+  .sub { margin-top:2px; color:var(--muted); font-size:12px; }
+  .product-nav { display:flex; align-items:center; gap:4px; }
+  .product-nav a { min-height:34px; display:inline-flex; align-items:center; padding:0 11px; border-radius:999px; color:var(--muted); text-decoration:none; font-size:12px; font-weight:800; }
+  .product-nav a.active { color:var(--accent); background:var(--accent-soft); }
+  .topbar { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+  .chip { display:inline-flex; align-items:center; height:26px; padding:0 10px; border:1px solid var(--line); border-radius:999px; background:#fbfcfd; white-space:nowrap; }
+  .dot { width:7px; height:7px; margin-right:7px; border-radius:50%; background:var(--green); }
+  .dot.recording { background:var(--red); } .dot.running { background:var(--orange); }
+  main { width:min(1460px,calc(100% - 32px)); margin:0 auto; padding:16px 0 48px; }
+  .hero { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:18px; background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+  .eyebrow { color:var(--accent); font-size:11px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+  .hero h2 { margin:6px 0 7px; font-size:22px; }
+  .hero p { max-width:760px; margin:0; color:var(--muted); font-size:13px; line-height:1.55; }
+  .runtime-badge { display:inline-flex; align-items:center; gap:8px; min-height:32px; padding:0 11px; border:1px solid #b8d8c9; border-radius:999px; color:var(--green); background:#effaf4; font-size:12px; font-weight:800; white-space:nowrap; }
+  .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:12px 0; }
+  .metric,.panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+  .metric { min-height:112px; padding:14px; }
+  .metric span { display:block; color:var(--muted); font-size:11px; }
+  .metric strong { display:block; margin:8px 0 4px; font-size:27px; }
+  .metric small { color:var(--muted); font-size:11px; line-height:1.4; }
+  .layout { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(330px,.75fr); gap:12px; align-items:start; }
+  .panel { overflow:hidden; }
+  .panel-head { min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 14px; border-bottom:1px solid var(--line); }
+  .panel-head strong { font-size:13px; } .panel-head span { color:var(--muted); font-size:11px; }
+  .panel-body { padding:14px; }
+  .cap-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .cap { min-height:86px; padding:11px; border:1px solid var(--line); border-radius:7px; background:#fbfcfd; }
+  .cap b { display:block; color:var(--accent); font-size:12px; } .cap p { margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.45; }
+  .bar { height:7px; margin-top:8px; overflow:hidden; border-radius:99px; background:#e9edf0; }
+  .bar span { display:block; height:100%; background:var(--accent); }
+  .list { display:grid; gap:8px; }
+  .row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:10px; border:1px solid var(--line); border-radius:7px; }
+  .row b { display:block; font-size:12px; } .row p { margin:4px 0 0; color:var(--muted); font-size:11px; line-height:1.4; }
+  .score { min-width:58px; text-align:right; color:var(--accent); font-size:12px; font-weight:850; }
+  .status { display:inline-flex; min-height:22px; align-items:center; padding:0 8px; border-radius:999px; background:#effaf4; color:var(--green); font-size:10px; font-weight:850; }
+  .status.failed { background:#fff0ef; color:var(--red); }
+  .status.warn { background:#fff4df; color:#8a5514; }
+  .stability-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .stability-card { padding:11px; border:1px solid var(--line); border-radius:10px; background:rgba(249,251,250,.82); }
+  .stability-card span { display:block; color:var(--muted); font-size:10px; }
+  .stability-card strong { display:block; margin-top:5px; font-size:12px; line-height:1.4; }
+  .models { display:flex; gap:6px; flex-wrap:wrap; }
+  .models span { padding:5px 8px; border-radius:6px; background:var(--accent-soft); color:var(--accent); font-size:11px; font-weight:750; }
+  .empty { padding:18px; color:var(--muted); text-align:center; font-size:12px; }
+  @media (max-width:1100px) { .metrics{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:1000px) { .layout{grid-template-columns:1fr} }
+  @media (max-width:680px) { header{height:auto;align-items:flex-start;flex-direction:column;padding:14px}.header-left{width:100%;align-items:flex-start;flex-direction:column;gap:10px}.product-nav{width:100%}.product-nav a{flex:1;justify-content:center}.topbar{width:100%;flex-wrap:wrap}.hero{flex-direction:column}.metrics,.cap-grid{grid-template-columns:1fr} }
+</style>
+<link rel="stylesheet" href="/assets/product.css">
+<script src="/assets/environment.js"></script>
+<script src="/assets/product.js" defer></script>
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <a class="brand" href="/" aria-label="GPA 我的回放首页"><div class="mark"></div><div><h1>GPA</h1><div class="sub">Replay Studio</div></div></a>
+    <nav class="product-nav" aria-label="产品导航"><a href="/store" data-icon="store">商店</a><a href="/community" data-icon="community">社区</a><a href="/setup" data-icon="setup">运行准备</a><a class="active" href="/control" data-icon="control" aria-current="page">运行状态</a><a href="/" data-icon="studio">工作台</a></nav>
+  </div>
+  <div class="topbar"><span class="workspace-status" id="controlWorkspaceStatus" data-state="limited" role="status" aria-live="polite"><span class="workspace-status-mark" aria-hidden="true"><i></i></span><span class="workspace-status-copy"><strong id="controlWorkspaceStatusTitle">正在读取运行状态</strong><small id="controlWorkspaceStatusMeta">汇总执行器与最近运行</small></span></span></div>
+</header>
+<main class="control-page">
+  <section class="hero control-overview" id="controlOverview">
+    <div class="control-overview-main"><span class="control-status-mark" id="controlStatusMark" aria-hidden="true">···</span><div><div class="eyebrow">运行总览</div><h2 id="controlStatusTitle" aria-live="polite">正在读取状态</h2><p id="controlStatusCopy">正在汇总执行器、最近运行与稳定性事件。</p></div></div>
+    <div class="hero-actions"><span class="runtime-badge" id="runtimeBadge">正在读取运行状态</span><span class="updated-label" id="updatedLabel">正在同步</span><button class="control-retry" id="retryControl" type="button" hidden>立即重试</button></div>
+  </section>
+  <section class="metrics control-metrics is-loading" id="metrics" aria-label="运行关键指标" aria-busy="true"><article class="metric skeleton-metric"></article><article class="metric skeleton-metric"></article><article class="metric skeleton-metric"></article></section>
+  <section class="layout">
+    <div class="list">
+      <section class="panel recent-runs"><div class="panel-head"><strong>最近运行</strong><div class="run-filters" role="group" aria-label="筛选运行记录"><button type="button" data-run-filter="all" aria-pressed="true">全部 <span>0</span></button><button type="button" data-run-filter="issues" aria-pressed="false">异常 <span>0</span></button></div></div><div class="panel-body"><div class="list is-loading" id="runs" aria-busy="true"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div></div></section>
+      <details class="panel collapsible-panel"><summary class="panel-head"><strong>执行能力</strong><span id="capabilityCount">—</span></summary><div class="panel-body"><div class="cap-grid" id="capabilities"></div></div></details>
+      <details class="panel collapsible-panel"><summary class="panel-head"><strong>安全与稳定</strong><span>当前服务</span></summary><div class="panel-body"><div class="stability-grid" id="stability"></div></div></details>
+    </div>
+    <div class="list">
+      <section class="panel replay-health-panel"><div class="panel-head"><strong>Replay 状态</strong><span id="replayHealthSummary">正在同步</span></div><div class="panel-body"><div class="list is-loading" id="workflows" aria-busy="true"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div></div></section>
+      <details class="panel collapsible-panel"><summary class="panel-head"><strong>证据链追溯</strong><span>环境 · 理解 · 录屏</span></summary><div class="panel-body"><div class="list" id="evidence"></div></div></details>
+      <details class="panel collapsible-panel"><summary class="panel-head"><strong>执行配置</strong><span>当前服务</span></summary><div class="panel-body"><div class="models" id="models"></div><div id="runtimeText" style="margin-top:12px;color:var(--muted);font-size:12px;line-height:1.6"></div></div></details>
+    </div>
+  </section>
+</main>
+<script>
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  window.addEventListener('pageshow', () => window.scrollTo(0, 0), { once: true });
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const archivedTitles={assistantbench_beluga_gff3:'AssistantBench：定位白鲸 GFF3 历史文件'};
+  function displayTime(value){if(!value)return'时间未记录';const d=new Date(String(value).replace(' ','T'));if(Number.isNaN(d.getTime()))return String(value);const n=new Date(),a=new Date(n.getFullYear(),n.getMonth(),n.getDate()),b=new Date(d.getFullYear(),d.getMonth(),d.getDate()),days=Math.round((a-b)/86400000),time=new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false}).format(d);if(days===0)return`今天 ${time}`;if(days===1)return`昨天 ${time}`;if(days===2)return`前天 ${time}`;return new Intl.DateTimeFormat('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(d)}
+  let lastOverviewToken='';
+  let refreshInFlight=false;
+  let activeRunFilter='all';
+  let runFilterTouched=false;
+  let latestRunContext={runs:[],workflowTitleById:new Map()};
+  let latestControlConclusion={state:'limited',title:'正在读取运行状态',meta:'汇总执行器与最近运行'};
+  const runtimeBadge=document.getElementById('runtimeBadge');
+  const updatedLabel=document.getElementById('updatedLabel');
+  const metricsPanel=document.getElementById('metrics');
+  const runsPanel=document.getElementById('runs');
+  const workflowsPanel=document.getElementById('workflows');
+  function renderOverviewUnavailable(message='运行汇总暂时不可用'){
+    metricsPanel.classList.remove('is-loading');metricsPanel.setAttribute('aria-busy','false');metricsPanel.innerHTML=`<article class="metric control-state-metric state-surface is-error"><span>运行汇总</span><strong>暂不可用</strong><small>${esc(message)}</small></article>`;
+    runsPanel.classList.remove('is-loading');runsPanel.setAttribute('aria-busy','false');runsPanel.innerHTML='<div class="state-surface is-error control-state-surface"><span class="state-surface-mark" aria-hidden="true">!</span><strong>最近运行尚未载入</strong><p>恢复连接后会自动更新，也可以立即重试。</p></div>';
+    workflowsPanel.classList.remove('is-loading');workflowsPanel.setAttribute('aria-busy','false');workflowsPanel.innerHTML='<div class="state-surface is-muted control-state-surface"><span class="state-surface-mark" aria-hidden="true">↻</span><strong>Replay 状态等待同步</strong><p>已连接的实时状态仍然可用。</p></div>';
+    document.getElementById('replayHealthSummary').textContent='等待汇总';
+  }
+  function paintControlWorkspaceStatus(state,title,meta){const node=document.getElementById('controlWorkspaceStatus');node.dataset.state=state;document.getElementById('controlWorkspaceStatusTitle').textContent=title;document.getElementById('controlWorkspaceStatusMeta').textContent=meta}
+  function renderControlWorkspaceStatus(status={}){const rec=status.recording||{},run=status.run||{};if(rec.active){paintControlWorkspaceStatus('recording','正在录制 Replay','工作台正在捕获真实操作');return}if(run.active){const step=run.current_step?.number||run.steps_run||0,total=run.total_steps||0;paintControlWorkspaceStatus('running','Replay 正在运行',total?`进度 · ${step}/${total} 步`:'执行器正在工作');return}paintControlWorkspaceStatus(latestControlConclusion.state,latestControlConclusion.title,latestControlConclusion.meta)}
+  async function json(path){return GPAClient.requestJson(path,{timeoutMs:8000})}
+  function isRunIssue(run){return run.failure_category==='external_blocker'||run.success===false||['failed','cancelled','timed_out'].includes(run.status)}
+  function failedStepNumber(run){const declared=Number(run.failed_step||0);if(Number.isInteger(declared)&&declared>0)return declared;const failed=(run.steps||[]).find(step=>step.state==='failed'||step.error);return Number(failed?.step_number||0)}
+  function runIssueDiagnosis(run){
+    const raw=String(run.error||'');
+    const step=failedStepNumber(run);
+    const prefix=step?`第 ${step} 步`:'运行过程';
+    const urlMismatch=raw.match(/^Expected URL fragment '([^']+)'; current source is '([^']+)'/i);
+    if(urlMismatch){
+      let current=urlMismatch[2];
+      try{current=new URL(current).hostname}catch(_){/* Keep the original source. */}
+      return{label:'来源地址不匹配',summary:`${prefix}打开了 ${current}，但这一步要求来源包含 ${urlMismatch[1]}。`,suggestion:'检查该步骤的来源地址，或更新已经过期的 URL 断言。'};
+    }
+    const httpFailure=raw.match(/^Public source returned HTTP (\d+):\s*(.+)$/i);
+    if(httpFailure){
+      const code=Number(httpFailure[1]);
+      const reason=code===403?'拒绝了自动访问':code===404?'已不存在':code>=500?'暂时不可用':`返回了 HTTP ${code}`;
+      return{label:'外部来源不可用',summary:`${prefix}访问 ${httpFailure[2]} 时，网站${reason}。`,suggestion:code===403?'更换公开来源，或稍后在工作台重新验证。':'检查来源地址后再运行。'};
+    }
+    if(run.failure_category==='external_blocker')return{label:'外部网站阻止运行',summary:`${prefix}被外部网站或网络条件阻止。`,suggestion:'任务结构没有被修改；可更换来源或稍后重试。'};
+    if(run.failure_category==='url_assertion')return{label:'来源地址不匹配',summary:`${prefix}没有到达预期页面。`,suggestion:'检查跳转后的地址和 URL 断言。'};
+    if(run.failure_category==='text_assertion')return{label:'页面内容不匹配',summary:`${prefix}没有找到预期内容。`,suggestion:'检查页面是否更新，或调整文本断言。'};
+    if(run.status==='timed_out')return{label:'运行超时',summary:`${prefix}在限定时间内没有完成。`,suggestion:'检查等待条件或适当延长最长运行时间。'};
+    if(run.status==='cancelled')return{label:'运行已停止',summary:`${prefix}被主动停止。`,suggestion:'确认目标状态后可在工作台重新运行。'};
+    return{label:'运行失败',summary:raw||`${prefix}没有返回具体错误信息。`,suggestion:'进入工作台检查失败步骤和运行条件。'};
+  }
+  function renderRecentRuns(){
+    const runsElement=document.getElementById('runs');
+    const allRuns=latestRunContext.runs||[];
+    const issueRuns=allRuns.filter(isRunIssue);
+    const visibleRuns=activeRunFilter==='issues'?issueRuns:allRuns;
+    document.querySelectorAll('[data-run-filter]').forEach(button=>{
+      const active=button.dataset.runFilter===activeRunFilter;
+      button.setAttribute('aria-pressed',active?'true':'false');
+      button.querySelector('span').textContent=String(button.dataset.runFilter==='issues'?issueRuns.length:allRuns.length);
+    });
+    const openRunKeys=new Set([...runsElement.querySelectorAll('.run-diagnostic-row[open]')].map(node=>node.dataset.runKey));
+    runsElement.innerHTML=visibleRuns.map(r=>{
+      const external=r.failure_category==='external_blocker';
+      const issue=isRunIssue(r);
+      const statusText=external?'外部阻止':({succeeded:'成功',failed:'失败',cancelled:'已停止',timed_out:'超时',running:'运行中',queued:'排队中'}[r.status]||r.status||'未知');
+      const title=latestRunContext.workflowTitleById.get(r.workflow_id)||archivedTitles[r.workflow_id]||'已归档 Replay';
+      const statusClass=external?'warn':issue?'failed':'';
+      const failedStep=failedStepNumber(r);
+      const diagnosis=issue?runIssueDiagnosis(r):null;
+      const runContext=r.run_id?`&run=${encodeURIComponent(r.run_id)}`:'';
+      const href=latestRunContext.workflowTitleById.has(r.workflow_id)?`/?workflow_id=${encodeURIComponent(r.workflow_id)}${failedStep?`&step=${failedStep}`:''}${runContext}`:'';
+      const runKey=[r.workflow_id,r.started_at,r.finished_at].join('|');
+      const issueGlance=diagnosis?`<span class="run-issue-glance">${esc(diagnosis.label)}${failedStep?` · 第 ${failedStep} 步`:''}</span>`:'';
+      const runCopy=`<div class="run-row-copy"><b>${esc(title)}</b><p>${esc(displayTime(r.finished_at||r.started_at))} · ${Number(r.steps_run||0)} 步 · ${Number(r.elapsed_seconds||0)} 秒</p>${issueGlance}</div>`;
+      if(issue){
+        const rawErrorHtml=r.error?`<details class="raw-run-error"><summary>查看原始错误</summary><code>${esc(r.error)}</code></details>`:'';
+        const actionLabel=r.status==='cancelled'?'在工作台重新运行':failedStep?`在工作台修复第 ${failedStep} 步`:'在工作台检查 Replay';
+        const nextAction=href?`<a class="diagnostic-action" href="${href}">${actionLabel} <span aria-hidden="true">→</span></a>`:'<span class="diagnostic-archive-note">Replay 已归档，记录保留用于审计。</span>';
+        return `<details class="run-diagnostic-row" data-run-key="${esc(runKey)}"${openRunKeys.has(runKey)?' open':''}><summary class="row">${runCopy}<span class="diagnostic-state"><span class="status ${statusClass}">${esc(statusText)}</span><span class="diagnostic-chevron" aria-hidden="true"></span></span></summary><div class="run-diagnostic-detail"><span>${esc(diagnosis.label)}${failedStep?` · 第 ${failedStep} 步`:''}</span><p>${esc(diagnosis.summary)}</p><small>${esc(diagnosis.suggestion)}</small>${rawErrorHtml}${nextAction}</div></details>`;
+      }
+      if(href)return `<a class="row row-link run-row-link" href="${href}">${runCopy}<span class="status ${statusClass}">${esc(statusText)}</span></a>`;
+      return `<div class="row">${runCopy}<span class="status ${statusClass}">${esc(statusText)}</span></div>`;
+    }).join('')||(activeRunFilter==='issues'
+      ? '<div class="run-filter-empty state-surface is-success"><span class="state-surface-mark" aria-hidden="true">✓</span><strong>最近运行均正常</strong><p>当前没有失败、超时或外部阻断。</p></div>'
+      : '<div class="state-surface is-empty control-state-surface"><span class="state-surface-mark" aria-hidden="true">·</span><strong>还没有运行记录</strong><p>从工作台运行 Replay 后，结果会显示在这里。</p></div>');
+    runsElement.classList.remove('is-loading');
+    runsElement.setAttribute('aria-busy','false');
+  }
+  function setRunFilter(filter,{focus=false,userInitiated=false}={}){
+    if(userInitiated)runFilterTouched=true;
+    activeRunFilter=filter==='issues'?'issues':'all';
+    renderRecentRuns();
+    if(focus){
+      document.querySelector('.recent-runs')?.scrollIntoView({behavior:'smooth',block:'start'});
+      document.querySelector(`[data-run-filter="${activeRunFilter}"]`)?.focus({preventScroll:true});
+    }
+  }
+  function render(data){
+    const s=data.summary||{}, rt=data.runtime||{}, caps=data.capabilities||{}, stability=data.stability||{};
+    const crashState=stability.python_crash_diagnostics||{};
+    const recentIssues=(data.recent_runs||[]).filter(isRunIssue);
+    const activeRuns=(data.recent_runs||[]).filter(run=>['running','queued'].includes(run.status));
+    const completedRuns=(data.recent_runs||[]).filter(run=>['succeeded','failed','cancelled','timed_out'].includes(run.status)).slice(0,10);
+    const successfulRuns=completedRuns.filter(run=>run.success===true||run.status==='succeeded').length;
+    const recentSuccessRate=completedRuns.length?`${Math.round(successfulRuns/completedRuns.length*100)}%`:'—';
+    if(!runFilterTouched)activeRunFilter=recentIssues.length?'issues':'all';
+    const statusOverview=document.getElementById('controlOverview');
+    const statusMark=document.getElementById('controlStatusMark');
+    let statusTitle='所有系统正常';
+    let statusCopy='执行器可用，最近运行无需处理。';
+    let statusKind='healthy';
+    if(crashState.incident_status==='active'){
+      statusTitle='运行服务需要处理';
+      statusCopy='检测到新的稳定性事件，请先查看安全与稳定详情。';
+      statusKind='issue';
+    }else if(recentIssues.length){
+      statusTitle=`${recentIssues.length} 个运行异常待处理`;
+      statusCopy='异常记录已优先显示，展开后可直接前往失败步骤。';
+      statusKind='issue';
+    }else if(activeRuns.length){
+      statusTitle=`${activeRuns.length} 个任务正在运行`;
+      statusCopy='执行器正在工作，完成后会自动刷新运行结果。';
+      statusKind='running';
+    }else if(crashState.incident_status==='recovered'){
+      statusTitle='运行服务已恢复';
+      statusCopy='上次异常已经结束，当前会话未发现新的稳定性事件。';
+      statusKind='recovered';
+    }
+    statusOverview.dataset.state=statusKind;
+    statusMark.textContent=statusKind==='issue'?'!':statusKind==='running'?'↗':statusKind==='recovered'?'↺':'✓';
+    latestControlConclusion={state:statusKind==='healthy'?'ready':statusKind,title:statusTitle,meta:statusKind==='issue'?'需要处理最近异常':statusKind==='recovered'?'服务当前可用':'执行器与最近运行'};
+    document.getElementById('controlStatusTitle').textContent=statusTitle;
+    document.getElementById('controlStatusCopy').textContent=statusCopy;
+    document.getElementById('runtimeBadge').textContent=crashState.incident_status==='active'?'检测到运行异常':crashState.incident_status==='recovered'?'服务已恢复':rt.recovery_safe_mode?'安全恢复模式':rt.desktop_automation?'桌面自动化已启用':'安全浏览模式';
+    document.getElementById('metrics').innerHTML=[
+      ['当前任务',activeRuns.length?`${activeRuns.length} 个`:'空闲',activeRuns.length?'正在执行或等待运行':'可以启动新的 Replay'],
+      ['待处理',recentIssues.length,Number(s.benchmark_external_blocked_count||0)>0?`${Number(s.benchmark_external_blocked_count)} 项外部来源仍受阻`:'最近运行无需处理',recentIssues.length?'attention':'','issues'],
+      ['最近成功率',recentSuccessRate,completedRuns.length?`${successfulRuns}/${completedRuns.length} 次已完成运行成功`:'完成运行后将在这里汇总','','all'],
+    ].map(x=>x[4]
+      ? `<button type="button" class="metric metric-action ${x[3]||''}" data-run-filter-trigger="${x[4]}" aria-label="${x[0]} ${x[1]}，${x[2]}，${x[4]==='issues'?'查看异常运行':'查看运行记录'}"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small><i aria-hidden="true">${x[4]==='issues'?'处理':'查看'} →</i></button>`
+      : `<article class="metric ${x[3]||''}"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small></article>`).join('');
+    document.querySelectorAll('[data-run-filter-trigger]').forEach(button=>button.addEventListener('click',()=>setRunFilter(button.dataset.runFilterTrigger,{focus:true,userInitiated:true})));
+    document.getElementById('metrics').classList.remove('is-loading');
+    document.getElementById('metrics').setAttribute('aria-busy','false');
+    const defs=[
+      ['wait','可中断等待','替代不可控的阻塞延迟'],['wait_for_text','条件等待','等待页面出现业务状态'],['assert_text','文本断言','失败时立即停止流程'],['assert_not_text','反向断言','证明页面未出现不应存在的状态'],['assert_url','URL 断言','防止在错误页面继续输入'],['set_clipboard','结构化输出','将审计结果写入剪贴板'],['assert_clipboard','输出验收','验证最终交付内容']
+    ];
+    const enabled=new Set(caps.semantic_checkpoints||[]);document.getElementById('capabilityCount').textContent=`${enabled.size} 项检查点`;
+    document.getElementById('capabilities').innerHTML=defs.map(x=>`<article class="cap"><b>${enabled.has(x[0])?'✓':'○'} ${x[0]}</b><p>${x[1]} · ${x[2]}</p></article>`).join('');
+    const crash=stability.python_crash_diagnostics||{};
+    const crashSignature=crash.latest_signature==='TextInputSources keyboard translation'
+      ? `TextInputSources${crash.known_signature_mitigated?'（已由 Quartz 绕过）':''}`
+      : crash.latest_signature||'未发现崩溃报告';
+    document.getElementById('stability').innerHTML=[
+      ['服务运行',`${Math.floor(Number(stability.uptime_seconds||0)/60)} 分钟`],
+      ['全局输入钩子',stability.global_input_hooks_active?'正在使用':'未启动'],
+      ['录制输入后端',stability.recording_input_backend==='quartz'?'Quartz 原始事件':stability.recording_input_backend||'待报告'],
+      ['系统键盘翻译',stability.text_input_sources_translation===false?'已绕过（防止 Python 崩溃）':'平台默认'],
+      ['权限探测',stability.input_permission_probe||'待报告'],
+      ['上次会话',stability.previous_session_unclean?'异常结束':'正常或首次启动'],
+      ['客户端断连',stability.normal_client_disconnects_suppressed?'已静默处理':'待配置'],
+      ['待发布检查快照',String(stability.active_package_inspections||0)],
+      ['隔离审计 Worker',stability.isolated_audit_active?'正在运行':stability.isolated_audit_process_isolation?'独立进程待命':'未隔离'],
+      ['审计凭据继承',stability.isolated_audit_credentials_inherited?'存在继承风险':'已剥离模型密钥'],
+      ['视频解码探测',stability.media_probe_process_isolation?'独立进程（主服务不加载编解码器）':'未隔离'],
+      ['解码凭据继承',stability.media_probe_credentials_inherited?'存在继承风险':'已剥离模型密钥'],
+      ['Python 崩溃监测',crash.available===false?'当前平台不适用':`启动后 ${Number(crash.new_reports_since_start||0)} 个新增`],
+      ['最近崩溃签名',crashSignature],
+      ['本次会话',crash.crash_free_since_start===false?'检测到新增 Python 崩溃':'自启动以来未发现新增崩溃'],
+      ['稳定性事件',crash.incident_status==='active'?'当前会话检测到新事件':crash.incident_status==='recovered'?'上次异常会话已关联崩溃报告':crash.incident_status==='warning'?'上次会话异常结束，未找到系统报告':'无活动事件'],
+      ['原生录制隔离',stability.recording_process_isolation?'独立工作进程（主服务受保护）':'未隔离'],
+      ['桌面回放隔离',stability.desktop_replay_process_isolation?(stability.desktop_replay_worker_active?'独立执行进程正在运行':'独立执行进程待命'):'未隔离'],
+      ['回放凭据策略',stability.desktop_replay_credentials_policy||'待报告'],
+      ['主服务原生输入',stability.native_input_in_server_process?'存在原生输入模块':'未加载（崩溃域隔离）'],
+    ].map(x=>`<div class="stability-card"><span>${x[0]}</span><strong>${esc(x[1])}</strong></div>`).join('');
+    const workflowTitleById=new Map((data.workflows||[]).map(w=>[w.id,w.title||w.name||w.id]));
+    latestRunContext={runs:data.recent_runs||[],workflowTitleById};
+    renderRecentRuns();
+    const runsByWorkflow=new Map();
+    (data.recent_runs||[]).forEach(run=>{
+      if(!runsByWorkflow.has(run.workflow_id))runsByWorkflow.set(run.workflow_id,[]);
+      runsByWorkflow.get(run.workflow_id).push(run);
+    });
+    const workflowHealth=(data.workflows||[]).map((workflow,index)=>{
+      const runHistory=runsByWorkflow.get(workflow.id)||[];
+      const run=runHistory[0];
+      if(!run)return{workflow,run:null,label:'无近期记录',kind:'idle',order:3,index};
+      if(isRunIssue(run))return{workflow,run,label:run.failure_category==='external_blocker'?'外部阻止':'异常',kind:'failed',order:0,index};
+      if(['running','queued'].includes(run.status))return{workflow,run,label:run.status==='queued'?'排队中':'运行中',kind:'running',order:1,index};
+      if(runHistory.some(isRunIssue))return{workflow,run,label:'已恢复',kind:'recovered',order:2,index};
+      return{workflow,run,label:'通过',kind:'passed',order:4,index};
+    }).sort((a,b)=>a.order-b.order||a.index-b.index);
+    const workflowIssueCount=workflowHealth.filter(item=>item.kind==='failed').length;
+    const workflowRunningCount=workflowHealth.filter(item=>item.kind==='running').length;
+    const priorityWorkflowHealth=workflowHealth.filter(item=>['failed','running'].includes(item.kind));
+    const routineWorkflowHealth=workflowHealth.filter(item=>!['failed','running'].includes(item.kind));
+    const routineExpanded=document.querySelector('#workflows .replay-health-more')?.open===true;
+    const renderWorkflowHealthRow=({workflow,run,label,kind})=>{
+      const meta=[`${Number(workflow.steps||0)} 步`,workflow.variables?`${Number(workflow.variables)} 个变量`:'无变量',run?displayTime(run.finished_at||run.started_at):'最近窗口内未运行'];
+      return `<a class="row row-link workflow-health-row is-${kind}" href="/?workflow_id=${encodeURIComponent(workflow.id)}"><span class="workflow-health-dot" aria-hidden="true"></span><div class="workflow-health-copy"><b>${esc(workflow.title||workflow.name)}</b><p>${meta.map(esc).join(' · ')}</p></div><span class="workflow-health-state ${kind}">${esc(label)}</span><span class="row-arrow" aria-hidden="true">→</span></a>`;
+    };
+    const routineCounts={
+      passed:routineWorkflowHealth.filter(item=>item.kind==='passed').length,
+      recovered:routineWorkflowHealth.filter(item=>item.kind==='recovered').length,
+      idle:routineWorkflowHealth.filter(item=>item.kind==='idle').length,
+    };
+    const routineSummary=[routineCounts.passed&&`${routineCounts.passed} 正常`,routineCounts.recovered&&`${routineCounts.recovered} 已恢复`,routineCounts.idle&&`${routineCounts.idle} 未运行`].filter(Boolean).join(' · ');
+    document.getElementById('replayHealthSummary').textContent=workflowIssueCount
+      ? `${workflowIssueCount} 异常${workflowRunningCount?` · ${workflowRunningCount} 运行中`:''}`
+      : workflowRunningCount?`${workflowRunningCount} 运行中`:'无需处理';
+    const priorityHtml=priorityWorkflowHealth.map(renderWorkflowHealthRow).join('');
+    const clearHtml=!priorityWorkflowHealth.length&&workflowHealth.length
+      ? `<div class="replay-health-clear state-surface is-success"><span class="state-surface-mark" aria-hidden="true">✓</span><div><strong>Replay 无需处理</strong><p>当前没有失败或正在等待处理的任务。</p></div></div>`:'';
+    const routineHtml=routineWorkflowHealth.length
+      ? `<details class="replay-health-more"${routineExpanded?' open':''}><summary><span>${priorityWorkflowHealth.length?'其他 Replay':'查看全部 Replay'}</span><strong>${esc(routineSummary||`${routineWorkflowHealth.length} 个`)}</strong><i aria-hidden="true"></i></summary><div class="replay-health-more-list">${routineWorkflowHealth.map(renderWorkflowHealthRow).join('')}</div></details>`:'';
+    document.getElementById('workflows').innerHTML=workflowHealth.length
+      ? `${priorityHtml}${clearHtml}${routineHtml}`
+      : '<div class="state-surface is-empty control-state-surface"><span class="state-surface-mark" aria-hidden="true">＋</span><strong>还没有 Replay</strong><p>在工作台录制或从 Store 保存后，这里会显示健康状态。</p></div>';
+    document.getElementById('workflows').classList.remove('is-loading');document.getElementById('workflows').setAttribute('aria-busy','false');
+    document.getElementById('evidence').innerHTML=(data.workflow_evidence||[]).map(w=>{
+      const privacy=w.recording_privacy||{};
+      const recordingText=!w.recording?'○ 无录屏':privacy.quarantined?'⚠ 录像已隔离':privacy.verified_for_transfer?'✓ 隐私可交接':'△ 捕获范围待复核';
+      const status=!w.recording?(w.environment&&w.understanding?'可移植':'待补齐'):privacy.quarantined?'已隔离':privacy.verified_for_transfer?'可交接':'待复核';
+      const statusClass=privacy.quarantined?'failed':privacy.verified_for_transfer?'':!w.recording&&w.environment&&w.understanding?'':'warn';
+      return `<div class="row"><div><b>${esc(workflowTitleById.get(w.workflow_id)||w.workflow_id)}</b><p>${w.environment?'✓ 环境':'○ 环境'} · ${w.understanding?'✓ Agent 理解':'○ Agent 理解'} · ${recordingText} · ${w.success_criteria||0} 个成功条件</p></div><span class="status ${statusClass}">${status}</span></div>`;
+    }).join('')||'<div class="empty">暂无证据数据</div>';
+    const policy=rt.model_policy||{};
+    const routes=[
+      policy.text_primary&&`文本 ${policy.text_primary}${policy.text_fallback?` → ${policy.text_fallback}`:''}`,
+      policy.vision_primary&&`视觉 ${policy.vision_primary}${policy.vision_fallback?` → ${policy.vision_fallback}`:''}`,
+    ].filter(Boolean);
+    document.getElementById('models').innerHTML=routes.map(route=>`<span>${esc(route)}</span>`).join('')||(rt.models||[]).map(m=>`<span>${esc(m)}</span>`).join('')||'<span>模型尚未配置</span>';
+    const provider=policy.provider_host||'provider unknown';
+    const timeout=Number(policy.timeout_seconds||0);
+    document.getElementById('runtimeText').textContent=`${provider} · ${timeout?`${timeout}s timeout · `:''}${Number(policy.client_max_retries||0)} SDK retry · Agent-first: ${rt.agent_first?'on':'off'} · Final verification: ${rt.verify_final_state?'on':'off'} · Store: ${s.benchmark_task_count||0} benchmark / ${s.internal_regression_count||0} internal / ${s.test_case_count||0} synthetic · Workflows: ${s.workflow_count||0}`;
+  }
+  document.querySelectorAll('[data-run-filter]').forEach(button=>button.addEventListener('click',()=>setRunFilter(button.dataset.runFilter,{userInitiated:true})));
+  const retryControl=document.getElementById('retryControl');
+  async function refresh(){
+    if(refreshInFlight)return false;
+    refreshInFlight=true;
+    retryControl.disabled=true;
+    try{
+      const [overviewResult,statusResult]=await Promise.allSettled([json('/api/product/overview'),json('/api/status')]);
+      const overviewReady=overviewResult.status==='fulfilled';
+      const statusReady=statusResult.status==='fulfilled';
+      if(overviewReady){
+        const overview=overviewResult.value;
+        const stability=overview.stability||{};
+        const token=JSON.stringify({...overview,stability:{...stability,uptime_seconds:Math.floor(Number(stability.uptime_seconds||0)/60)*60}});
+        if(token!==lastOverviewToken){render(overview);lastOverviewToken=token}
+      }
+      else if(!lastOverviewToken)renderOverviewUnavailable(overviewResult.reason?.message||overviewResult.reason||'运行汇总暂时不可用');
+      if(statusReady)renderControlWorkspaceStatus(statusResult.value);
+      if(overviewReady&&statusReady){
+        updatedLabel.textContent=`已更新 · ${new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date())}`;
+        updatedLabel.classList.remove('error');
+        runtimeBadge.removeAttribute('title');
+        retryControl.hidden=true;
+        return true;
+      }
+      const errors=[overviewReady?null:overviewResult.reason,statusReady?null:statusResult.reason].filter(Boolean);
+      paintControlWorkspaceStatus('limited',overviewReady||statusReady?'部分状态暂不可用':'运行状态暂不可用',overviewReady||statusReady?'已保留并更新可用内容':'正在重新连接服务');
+      runtimeBadge.textContent=overviewReady?'汇总已更新 · 实时状态待连接':statusReady?'实时状态已连接 · 汇总待更新':'暂时无法读取最新状态';
+      runtimeBadge.title=errors.map(error=>error?.message||error).join('；');
+      updatedLabel.textContent=overviewReady||statusReady?'部分更新':'同步失败';
+      updatedLabel.classList.add('error');
+      retryControl.hidden=false;
+      return false;
+    }catch(error){
+      if(!lastOverviewToken)renderOverviewUnavailable(error?.message||error);
+      paintControlWorkspaceStatus('limited','运行状态暂不可用','正在重新连接服务');
+      runtimeBadge.textContent='暂时无法读取最新状态';
+      runtimeBadge.title=error?.message||error;
+      updatedLabel.textContent='同步失败';
+      updatedLabel.classList.add('error');
+      retryControl.hidden=false;
+      return false;
+    }finally{
+      refreshInFlight=false;
+      retryControl.disabled=false;
+    }
+  }
+  retryControl.addEventListener('click',refresh);
+  GPAClient.createVisibilityPoller(refresh,{activeMs:2000,hiddenMs:15000});
+</script>
+</body>
+</html>

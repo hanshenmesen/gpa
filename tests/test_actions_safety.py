@@ -1,6 +1,8 @@
 import os
 import threading
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import gpa.execution.actions as actions
 
@@ -44,10 +46,18 @@ class ActionSafetyTests(unittest.TestCase):
     def setUp(self):
         self.old_env = os.environ.get(actions.DESKTOP_AUTOMATION_ENV)
         self.old_quarantine_env = os.environ.get(actions.KEYBOARD_QUARANTINE_SECONDS_ENV)
+        self.old_watchdog_env = os.environ.get(actions.INPUT_WATCHDOG_ENV)
+        self.old_protected_apps_env = os.environ.get(actions.PROTECTED_INPUT_APPS_ENV)
+        self.old_allow_protected_env = os.environ.get(actions.ALLOW_PROTECTED_INPUT_APPS_ENV)
         os.environ[actions.DESKTOP_AUTOMATION_ENV] = "1"
         os.environ[actions.KEYBOARD_QUARANTINE_SECONDS_ENV] = "0"
+        os.environ[actions.INPUT_WATCHDOG_ENV] = "0"
+        os.environ.pop(actions.PROTECTED_INPUT_APPS_ENV, None)
+        os.environ.pop(actions.ALLOW_PROTECTED_INPUT_APPS_ENV, None)
         self.fake = FakePyAutoGUI()
         self.old_pyautogui = actions.pyautogui
+        self.old_platform = actions.sys.platform
+        actions.sys.platform = "test"
         actions.pyautogui = self.fake
         actions.set_abort_checker(None)
         actions.arm_actions()
@@ -56,6 +66,7 @@ class ActionSafetyTests(unittest.TestCase):
         actions.panic_stop()
         actions.set_abort_checker(None)
         actions.pyautogui = self.old_pyautogui
+        actions.sys.platform = self.old_platform
         if self.old_env is None:
             os.environ.pop(actions.DESKTOP_AUTOMATION_ENV, None)
         else:
@@ -64,6 +75,18 @@ class ActionSafetyTests(unittest.TestCase):
             os.environ.pop(actions.KEYBOARD_QUARANTINE_SECONDS_ENV, None)
         else:
             os.environ[actions.KEYBOARD_QUARANTINE_SECONDS_ENV] = self.old_quarantine_env
+        if self.old_watchdog_env is None:
+            os.environ.pop(actions.INPUT_WATCHDOG_ENV, None)
+        else:
+            os.environ[actions.INPUT_WATCHDOG_ENV] = self.old_watchdog_env
+        if self.old_protected_apps_env is None:
+            os.environ.pop(actions.PROTECTED_INPUT_APPS_ENV, None)
+        else:
+            os.environ[actions.PROTECTED_INPUT_APPS_ENV] = self.old_protected_apps_env
+        if self.old_allow_protected_env is None:
+            os.environ.pop(actions.ALLOW_PROTECTED_INPUT_APPS_ENV, None)
+        else:
+            os.environ[actions.ALLOW_PROTECTED_INPUT_APPS_ENV] = self.old_allow_protected_env
 
     def test_hotkey_releases_pressed_keys_when_later_key_fails(self):
         self.fake.fail_on_key_down.add("c")
@@ -73,6 +96,13 @@ class ActionSafetyTests(unittest.TestCase):
 
         self.assertIn(("keyDown", "command"), self.fake.calls)
         self.assertIn(("keyUp", "command"), self.fake.calls)
+
+    def test_desktop_gate_accepts_explicit_boolean_and_fails_closed(self):
+        os.environ[actions.DESKTOP_AUTOMATION_ENV] = "true"
+        self.assertTrue(actions.desktop_automation_enabled())
+
+        os.environ[actions.DESKTOP_AUTOMATION_ENV] = "invalid"
+        self.assertFalse(actions.desktop_automation_enabled())
 
     def test_type_text_on_macos_uses_clipboard_paste_not_key_events(self):
         calls = []
@@ -94,7 +124,7 @@ class ActionSafetyTests(unittest.TestCase):
         old_platform = actions.sys.platform
         old_menu = actions._menu_command
         actions.sys.platform = "darwin"
-        actions._menu_command = lambda command: calls.append(command)
+        actions._menu_command = lambda command, **kwargs: calls.append(command)
         try:
             actions.press_hotkey("cmd+v")
         finally:
@@ -103,6 +133,18 @@ class ActionSafetyTests(unittest.TestCase):
 
         self.assertEqual(calls, ["paste"])
         self.assertNotIn(("keyDown", "command"), self.fake.calls)
+
+    def test_frontmost_chatgpt_is_protected_from_keyboard_input(self):
+        completed = SimpleNamespace(stdout="4312\tChatGPT\n")
+        with patch.object(actions.subprocess, "run", return_value=completed):
+            with self.assertRaisesRegex(actions.ActionAborted, "protected app ChatGPT"):
+                actions._frontmost_process_identity()
+
+    def test_protected_input_requires_explicit_opt_in(self):
+        os.environ[actions.ALLOW_PROTECTED_INPUT_APPS_ENV] = "1"
+        completed = SimpleNamespace(stdout="4312\tChatGPT\n")
+        with patch.object(actions.subprocess, "run", return_value=completed):
+            self.assertEqual(actions._frontmost_process_identity(), (4312, "ChatGPT"))
 
     def test_panic_stop_releases_tracked_key_and_mouse_button(self):
         actions._key_down("command")
@@ -474,6 +516,30 @@ class ActionSafetyTests(unittest.TestCase):
             actions.time = old_time
 
         self.assertEqual(fake_time.sleeps, [])
+
+    def test_shutdown_reaps_keyboard_quarantine_helper(self):
+        calls = []
+
+        class FakeProcess:
+            def poll(self):
+                return None
+
+            def wait(self, timeout=None):
+                calls.append(("wait", timeout))
+                return 0
+
+        old_process = actions._quarantine_process
+        old_panic = actions.panic_stop
+        actions._quarantine_process = FakeProcess()
+        actions.panic_stop = lambda: calls.append(("panic", None))
+        try:
+            actions._shutdown_actions()
+        finally:
+            actions.panic_stop = old_panic
+            actions._quarantine_process = old_process
+
+        self.assertEqual(calls[0], ("panic", None))
+        self.assertEqual(calls[1], ("wait", actions._keyboard_quarantine_seconds() + 0.5))
 
 
 if __name__ == "__main__":

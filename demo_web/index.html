@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GPA Console</title>
+<title>GPA · 工作台</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -170,6 +170,19 @@
   input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 95, 117, .12); }
   label { display: block; margin: 0 0 6px; color: #344054; font-size: 12px; font-weight: 750; }
   .field { margin-bottom: 10px; }
+  .capture-option {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 11px;
+    margin: 2px 0 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: #f8fafb; color: var(--text); font-size: 12px; line-height: 1.45;
+  }
+  .capture-option input { width: 16px; height: 16px; margin: 1px 0 0; flex: 0 0 auto; }
+  .capture-option strong { display: block; font-size: 12px; }
+  .capture-option span { display: block; color: var(--muted); }
+  .evidence-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .evidence-card { border: 1px solid var(--line); border-radius: 8px; padding: 11px; background: #f9fafb; }
+  .evidence-card span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+  .evidence-card strong { font-size: 13px; line-height: 1.4; }
+  .recording-player { width: 100%; max-height: 360px; margin-top: 12px; border-radius: 9px; background: #101418; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   button {
     min-height: 34px;
@@ -414,6 +427,9 @@
     .edit-step, .edit-var { grid-template-columns: 1fr; }
   }
 </style>
+<link rel="stylesheet" href="/assets/product.css">
+<script src="/assets/environment.js"></script>
+<script src="/assets/product.js" defer></script>
 </head>
 <body>
 <header>
@@ -421,148 +437,203 @@
     <a class="brand" href="/" aria-label="GPA 我的回放首页">
       <div class="mark" aria-hidden="true"></div>
       <div>
-        <h1>Replay Studio</h1>
-        <div class="sub">录制、理解并安全重放</div>
+        <h1>GPA</h1>
+        <div class="sub">Replay Studio</div>
       </div>
     </a>
     <nav class="product-nav" aria-label="产品导航">
-      <a href="/store">Replay Store</a>
-      <a class="active" href="/">Replay Studio</a>
+      <a href="/store" data-icon="store">商店</a>
+      <a href="/community" data-icon="community">社区</a>
+      <a href="/setup" data-icon="setup">运行准备</a>
+      <a href="/control" data-icon="control">运行状态</a>
+      <a class="active" href="/" data-icon="studio" aria-current="page">工作台</a>
     </nav>
   </div>
   <div class="topbar">
-    <span class="chip"><span class="dot" id="recordDot"></span><span id="recordChip">Ready</span></span>
-    <span class="chip"><span class="dot" id="runDot"></span><span id="runChip">Idle</span></span>
-    <span class="chip" id="serverTime">--</span>
+    <span class="workspace-status" id="workspaceStatus" data-state="ready" role="status" aria-live="polite">
+      <span class="workspace-status-mark" aria-hidden="true"><i></i></span>
+      <span class="workspace-status-copy"><strong id="workspaceStatusTitle">工作台就绪</strong><small id="workspaceStatusMeta">可录制或运行</small></span>
+    </span>
   </div>
 </header>
 
-<main>
+<main class="studio-layout">
   <aside class="stack">
-    <section class="panel">
+    <section class="panel replay-library-panel">
       <div class="panel-head">
-        <div class="panel-title">录制</div>
-        <div class="hint" id="recordHint">idle</div>
+        <div class="replay-library-heading"><small>工作区</small><div class="panel-title">我的 Replay</div></div>
+        <div class="replay-library-head-actions">
+          <span class="replay-library-count"><strong id="workflowCount">0</strong><small>个</small></span>
+          <button type="button" class="secondary library-new-action" id="openRecorder" aria-label="录制新 Replay" title="录制新 Replay">＋</button>
+        </div>
       </div>
       <div class="body">
-        <div class="field">
-          <label for="recordWorkflowId">Workflow ID</label>
-          <input id="recordWorkflowId" placeholder="web_20260708_170000">
+        <div class="library-command-bar">
+          <label class="library-search" for="search"><span aria-hidden="true"></span><input id="search" type="search" placeholder="搜索标题或任务" autocomplete="off"><button type="button" class="secondary" id="clearWorkflowSearch" aria-label="清除搜索" title="清除搜索" hidden>×</button></label>
+          <button type="button" class="secondary library-refresh" id="refresh" aria-label="刷新 Replay 列表" title="刷新 Replay 列表"><span aria-hidden="true">↻</span></button>
         </div>
-        <div class="field">
-          <label for="recordTaskDescription">任务描述</label>
-          <textarea id="recordTaskDescription" placeholder="例如：打开本地表格，筛选本月订单并导出 CSV"></textarea>
-        </div>
-        <div id="dependencyStatus" class="dependency-box"></div>
-        <div id="permissionStatus" class="permission-box"></div>
-        <div class="button-row action-row">
-          <button id="startRecord">开始录制</button>
-          <button id="stopRecord" class="secondary" disabled>停止并构建</button>
-        </div>
-        <div style="height:10px"></div>
-        <div class="status-box" id="recordStatus">
-          <strong>未录制</strong>
-          <span>点击开始后，GPA 会捕捉鼠标、键盘和截图，停止后构建 workflow。</span>
+        <div class="library-result-status" id="workflowSearchStatus" aria-live="polite">全部 Replay</div>
+        <div id="workflowList" class="workflow-list is-loading" aria-busy="true" aria-label="Replay 列表">
+          <div class="skeleton-row" aria-hidden="true"><b></b><span></span><span></span></div>
+          <div class="skeleton-row" aria-hidden="true"><b></b><span></span><span></span></div>
+          <div class="skeleton-row" aria-hidden="true"><b></b><span></span><span></span></div>
         </div>
       </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <div class="panel-title">我的 Replay</div>
-        <div class="hint" id="workflowCount">0</div>
-      </div>
-      <div class="body">
-        <div class="toolbar">
-          <input id="search" placeholder="搜索 Replay">
-          <button class="secondary" id="refresh">刷新</button>
+    <details class="panel recorder-panel" id="recorderPanel">
+      <summary class="panel-head">
+        <span>
+          <span class="panel-title">录制新 Replay</span>
+          <span class="recorder-summary-copy">从一次真实操作创建任务</span>
+        </span>
+        <span class="hint" id="recordHint">空闲</span>
+      </summary>
+      <div class="body recorder-body">
+        <div class="record-flow" aria-label="录制流程">
+          <span data-record-stage="prepare"><i>1</i><b>描述任务</b></span>
+          <span data-record-stage="record"><i>2</i><b>完成操作</b></span>
+          <span data-record-stage="build"><i>3</i><b>生成 Replay</b></span>
         </div>
-        <div id="workflowList" class="workflow-list"></div>
+        <label class="record-task-card" for="recordTaskDescription">
+          <span class="record-stage-mark" aria-hidden="true">1</span>
+          <span class="record-task-copy"><small>先告诉 GPA 最终要完成什么</small><strong>描述任务</strong></span>
+          <textarea id="recordTaskDescription" placeholder="例如：打开订单表，筛选本月数据并导出 CSV" aria-describedby="recordTaskHelp recordTaskError"></textarea>
+          <small id="recordTaskHelp" class="record-task-help">一句话即可。录制过程中只需正常完成一次任务。</small>
+          <span id="recordTaskError" class="record-field-error" hidden></span>
+        </label>
+        <label class="record-intent-card" for="recordNarration">
+          <span><small>可选</small><strong>补充判断与例外</strong><button type="button" class="secondary record-dictate" id="recordDictate">语音输入</button></span>
+          <textarea id="recordNarration" placeholder="例如：只处理已付款订单；没有数据时直接结束"></textarea>
+          <small>Agent 会用它识别条件、合并动作；只保存整理后的文字，不保存原始语音。</small>
+        </label>
+        <label class="record-success-card" for="recordSuccessCriterion">
+          <span><strong>完成标志</strong><small>推荐</small></span>
+          <input id="recordSuccessCriterion" placeholder="例如：页面出现“导出完成”或网址包含 /success">
+        </label>
+        <section class="record-capture-card" aria-labelledby="recordCaptureTitle">
+          <span class="record-stage-mark" aria-hidden="true">2</span>
+          <span class="record-capture-copy"><small>开始后选择一个应用窗口或浏览器标签页</small><strong id="recordCaptureTitle">完成一次真实操作</strong></span>
+          <label class="capture-option" for="captureScreenVideo">
+            <input id="captureScreenVideo" type="checkbox" checked>
+            <span><strong>保留录屏证据</strong><span>便于检查步骤和交接复现。</span></span>
+          </label>
+        </section>
+        <details class="recording-readiness" id="recordingReadiness">
+          <summary><span>录制条件</span><span id="recordingReadinessLabel">正在检查</span></summary>
+          <div class="recording-readiness-body">
+            <div id="dependencyStatus" class="dependency-box"></div>
+            <div id="permissionStatus" class="permission-box"></div>
+          </div>
+        </details>
+        <details class="record-advanced-options">
+          <summary><span>高级设置</span><span>通常无需填写</span></summary>
+          <div>
+            <label for="recordWorkflowId"><span>内部名称 <small>选填</small></span><input id="recordWorkflowId" placeholder="留空时自动生成" autocomplete="off"></label>
+          </div>
+        </details>
+        <div class="record-live-status" id="recordStatus" data-state="idle" aria-live="polite">
+          <span class="record-live-mark" aria-hidden="true">●</span>
+          <span><strong>准备录制</strong><small>开始后正常完成任务，结束时自动生成 Replay。</small></span>
+        </div>
+        <div class="record-action-bar">
+          <button id="startRecord"><span aria-hidden="true">●</span>开始录制</button>
+          <button id="stopRecord" class="secondary" disabled hidden><span aria-hidden="true">■</span>完成录制并生成</button>
+        </div>
       </div>
-    </section>
+    </details>
 
   </aside>
 
   <section class="panel detail-panel">
-    <div class="panel-head">
-      <div class="panel-title" id="detailTitle">Replay 详情</div>
-      <div class="hint" id="selectedId">未选择</div>
+    <div class="panel-head detail-product-head">
+      <div class="detail-heading-group">
+        <button class="mobile-library-back" id="mobileLibraryBack" type="button" aria-label="返回 Replay 列表" hidden>←</button>
+        <div class="detail-title-stack">
+          <div class="panel-title" id="detailTitle">Replay 详情</div>
+          <span class="detail-mode-label" id="selectedId" data-mode="neutral">未选择</span>
+        </div>
+      </div>
+      <div class="detail-header-stats" aria-label="Replay 结构">
+        <span><strong id="metricSteps">0</strong><small>步</small></span>
+        <span><strong id="metricVars">0</strong><small>变量</small></span>
+      </div>
     </div>
     <div class="body">
-      <div class="metrics" id="detailMetrics">
-        <div class="metric"><span>Workflows</span><strong id="metricWorkflows">0</strong><small>local storage</small></div>
-        <div class="metric"><span>Steps</span><strong id="metricSteps">0</strong><small>selected</small></div>
-        <div class="metric"><span>Variables</span><strong id="metricVars">0</strong><small>runtime inputs</small></div>
-        <div class="metric"><span>Subgraphs</span><strong id="metricSubgraphs">0</strong><small>visual context</small></div>
+      <div id="detail" class="detail-loading" aria-busy="true">
+        <div class="skeleton-block" aria-hidden="true"><b></b><span></span><span></span><span></span></div>
       </div>
-      <div id="detail"></div>
     </div>
   </section>
 
-  <aside class="stack">
-    <section class="panel">
-      <div class="panel-head">
-        <div class="panel-title">回放</div>
-        <div class="hint" id="runHint">idle</div>
-      </div>
-      <div class="body">
-        <div id="variables" class="var-list"></div>
-        <div class="grid2">
-          <div class="field">
-            <label for="threshold">Readiness threshold</label>
-            <input id="threshold" value="0.5">
-          </div>
-          <div class="field">
-            <label for="retries">Retries</label>
-            <input id="retries" value="5">
-          </div>
-        </div>
-        <div class="grid2">
-          <div class="field">
-            <label for="countdown">Countdown</label>
-            <input id="countdown" value="3">
-          </div>
-          <div class="field">
-            <label for="maxRuntime">Max runtime</label>
-            <input id="maxRuntime" value="300">
-          </div>
-        </div>
-        <div class="button-row action-row">
-          <button id="runWorkflow" disabled>运行 Replay</button>
-          <button id="stopReplay" class="secondary" disabled>停止回放</button>
-          <button id="deleteWorkflow" class="danger" disabled>删除</button>
-        </div>
-        <div style="height:10px"></div>
-        <div class="status-box" id="runStatus">
-          <strong>未运行</strong>
-          <span>回放会真实控制桌面，请先确认目标应用处在正确状态。</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <div class="panel-title">日志</div>
-        <div class="hint">latest first</div>
-      </div>
-      <div class="body">
-        <div id="logs" class="log-list"></div>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <div class="panel-title">Run History</div>
-        <div class="hint" id="runHistoryCount">0</div>
-      </div>
-      <div class="body">
-        <div id="runHistory" class="run-list"></div>
-      </div>
-    </section>
-  </aside>
 </main>
 
+<dialog class="run-launch-dialog" id="runtimeConsole" aria-labelledby="runLaunchTitle">
+  <div class="run-launch-shell">
+    <div class="run-launch-head">
+      <div>
+        <span class="run-launch-kicker">准备运行</span>
+        <h2 id="runLaunchTitle">运行 Replay</h2>
+        <p id="runLaunchReplayTitle">选择一个 Replay 后检查本次输入。</p>
+      </div>
+      <button class="run-launch-close" id="closeRuntimeConsole" type="button" aria-label="关闭运行面板">×</button>
+    </div>
+    <div class="run-launch-body">
+      <section class="run-launch-overview" aria-label="本次执行方式">
+        <span class="run-launch-mode-mark" id="runLaunchModeMark" aria-hidden="true">◎</span>
+        <div><small>执行方式</small><strong id="runLaunchMode">等待选择</strong><span id="runLaunchModeNote">选择 Replay 后显示运行范围和安全边界。</span></div>
+        <span class="run-launch-readiness" id="runLaunchReadiness">等待检查</span>
+      </section>
+      <div class="status-box run-launch-status" id="runStatus">
+        <strong>未运行</strong>
+        <span>选择 Replay 后即可检查本次运行设置。</span>
+      </div>
+      <section class="run-recovery-card" id="runRecovery" aria-live="polite" hidden></section>
+      <section class="run-launch-section">
+        <div class="run-launch-section-head">
+          <div><small>本次输入</small><strong>运行变量</strong></div>
+          <span id="runVariableCount">0 个</span>
+        </div>
+        <div id="variables" class="var-list run-variable-list"></div>
+      </section>
+      <details class="advanced-options run-launch-options">
+        <summary><span>高级运行设置</span><span>通常无需修改</span></summary>
+        <div class="run-launch-options-body">
+          <div class="grid2">
+            <div class="field"><label for="threshold">就绪阈值</label><input id="threshold" value="0.5" inputmode="decimal"></div>
+            <div class="field"><label for="retries">重试次数</label><input id="retries" value="5" inputmode="numeric"></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label for="countdown">开始倒计时</label><input id="countdown" value="3" inputmode="numeric"></div>
+            <div class="field"><label for="maxRuntime">最长运行时间</label><input id="maxRuntime" value="300" inputmode="numeric"></div>
+          </div>
+        </div>
+      </details>
+      <div class="run-launch-diagnostics">
+        <details class="runtime-section run-history-section">
+          <summary><span>最近运行</span><span class="run-history-summary"><span id="runHistorySummary">暂无记录</span><b id="runHistoryCount">0</b></span></summary>
+          <div class="runtime-section-body run-history-body"><div id="runHistory" class="run-timeline"></div></div>
+        </details>
+        <details class="runtime-section run-log-section">
+          <summary><span>技术日志</span><span>排查时查看</span></summary>
+          <div class="runtime-section-body"><div id="logs" class="log-list"></div></div>
+        </details>
+      </div>
+    </div>
+    <div class="run-launch-footer">
+      <span class="run-launch-footer-note" id="runHint">空闲</span>
+      <button class="secondary" id="cancelRuntimeConsole" type="button">取消</button>
+      <button id="stopReplay" class="secondary" disabled hidden>停止回放</button>
+      <button id="runWorkflow" disabled>确认并运行</button>
+      <button id="deleteWorkflow" hidden disabled>删除</button>
+    </div>
+  </div>
+</dialog>
+<div class="product-toast" id="productToast" role="status" aria-live="polite" inert></div>
+
 <script>
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.addEventListener('pageshow', () => window.scrollTo(0, 0), { once: true });
 let status = null;
 let workflows = [];
 let runHistories = [];
@@ -571,11 +642,17 @@ let selectedMode = 'workflow';
 let selectedDetail = null;
 let selectedReplay = null;
 let selectedReplayError = '';
+let selectedPreviewMedia = null;
 let recordFeedback = null;
 let runFeedback = null;
 let selectionVersion = 0;
+let workflowListRequestVersion = 0;
+let statusRequestVersion = 0;
+let runHistoryRequestVersion = 0;
 const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8765' : '';
 const REQUESTED_WORKFLOW_ID = new URLSearchParams(window.location.search).get('workflow_id') || '';
+const REQUESTED_STEP_NUMBER = Math.max(0, Number.parseInt(new URLSearchParams(window.location.search).get('step') || '0', 10) || 0);
+const REQUESTED_RUN_ID = new URLSearchParams(window.location.search).get('run') || '';
 let deepLinkApplied = false;
 const HEARTBEAT_INTERVAL_MS = 1000;
 const ACTIVE_STATUS_POLL_MS = 1000;
@@ -595,45 +672,132 @@ const CLIENT_ID = (() => {
 let heartbeatTimer = null;
 let heartbeatInFlight = false;
 let statusPollTimer = null;
+let statusPollGeneration = 0;
 let workflowRenderToken = '';
 let runHistoryRenderToken = '';
 let lastRunPollToken = '';
 let disconnectSent = false;
+let screenRecorder = null;
+let screenStream = null;
+let screenChunks = [];
+let screenRecordingDone = null;
+let screenCaptureMetadata = {};
+const mobileStudioMedia = window.matchMedia('(max-width: 960px)');
+let mobileStudioDetailOpen = false;
+let mobileStudioReturnScrollY = 0;
+let mobileStudioReturnId = '';
+const STEP_PAGE_SIZE = 12;
+const EDITOR_DRAFTS_KEY = 'gpa.editor-drafts.v1';
+const WORKSPACE_CONTEXT_KEY = 'gpa.workspace-context.v1';
+const EDITOR_DRAFT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+let stepBrowserPage = 0;
+let stepBrowserQuery = '';
+let stepBrowserType = '';
+let editorDirty = false;
+let editorDraftTimer = null;
+let editorBaseSignature = '';
+let pendingEditorDraft = null;
+let editorValidationId = 0;
+let requestedRunContextDismissed = false;
+let runLauncherAutoOpened = false;
+const actionPromises = new Map();
+
+function runExclusiveAction(scope, label, action) {
+  const current = actionPromises.get(scope);
+  if (current) {
+    if (current.label === label) return current.promise;
+    return Promise.reject(new Error(`${current.label}尚未完成，请稍候。`));
+  }
+  const promise = Promise.resolve().then(action).finally(() => {
+    if (actionPromises.get(scope)?.promise === promise) actionPromises.delete(scope);
+  });
+  actionPromises.set(scope, { label, promise });
+  return promise;
+}
+
+function readWorkspaceContext() {
+  try {
+    const value = JSON.parse(localStorage.getItem(WORKSPACE_CONTEXT_KEY) || '{}');
+    return value && typeof value.workflowId === 'string'
+      ? { workflowId: value.workflowId, stepPage: Math.max(0, Number(value.stepPage) || 0) }
+      : { workflowId: '', stepPage: 0 };
+  } catch {
+    return { workflowId: '', stepPage: 0 };
+  }
+}
+
+function rememberWorkspaceContext(workflowId = selected, stepPage = stepBrowserPage) {
+  if (!workflowId || workflowId === '__preview__') return;
+  try {
+    localStorage.setItem(WORKSPACE_CONTEXT_KEY, JSON.stringify({
+      workflowId,
+      stepPage: Math.max(0, Number(stepPage) || 0),
+    }));
+  } catch {
+    // Restoring the last view is a convenience and must never block the editor.
+  }
+}
+
+function forgetWorkspaceContext(workflowId = '') {
+  try {
+    const current = readWorkspaceContext();
+    if (!workflowId || current.workflowId === workflowId) localStorage.removeItem(WORKSPACE_CONTEXT_KEY);
+  } catch {
+    // Ignore unavailable browser storage.
+  }
+}
 
 const els = {
   list: document.getElementById('workflowList'),
   count: document.getElementById('workflowCount'),
   search: document.getElementById('search'),
+  clearWorkflowSearch: document.getElementById('clearWorkflowSearch'),
+  workflowSearchStatus: document.getElementById('workflowSearchStatus'),
   refresh: document.getElementById('refresh'),
+  openRecorder: document.getElementById('openRecorder'),
   detail: document.getElementById('detail'),
   detailTitle: document.getElementById('detailTitle'),
-  detailMetrics: document.getElementById('detailMetrics'),
   vars: document.getElementById('variables'),
   startRecord: document.getElementById('startRecord'),
   stopRecord: document.getElementById('stopRecord'),
   recordWorkflowId: document.getElementById('recordWorkflowId'),
   recordTaskDescription: document.getElementById('recordTaskDescription'),
+  recordNarration: document.getElementById('recordNarration'),
+  recordSuccessCriterion: document.getElementById('recordSuccessCriterion'),
+  recordDictate: document.getElementById('recordDictate'),
+  captureScreenVideo: document.getElementById('captureScreenVideo'),
+  recorderPanel: document.getElementById('recorderPanel'),
+  recordingReadiness: document.getElementById('recordingReadiness'),
+  recordingReadinessLabel: document.getElementById('recordingReadinessLabel'),
   recordStatus: document.getElementById('recordStatus'),
   recordHint: document.getElementById('recordHint'),
-  recordDot: document.getElementById('recordDot'),
-  recordChip: document.getElementById('recordChip'),
   runWorkflow: document.getElementById('runWorkflow'),
   deleteWorkflow: document.getElementById('deleteWorkflow'),
   threshold: document.getElementById('threshold'),
   retries: document.getElementById('retries'),
   runStatus: document.getElementById('runStatus'),
+  runRecovery: document.getElementById('runRecovery'),
   runHint: document.getElementById('runHint'),
-  runDot: document.getElementById('runDot'),
-  runChip: document.getElementById('runChip'),
+  workspaceStatus: document.getElementById('workspaceStatus'),
+  workspaceStatusTitle: document.getElementById('workspaceStatusTitle'),
+  workspaceStatusMeta: document.getElementById('workspaceStatusMeta'),
   logs: document.getElementById('logs'),
   runHistory: document.getElementById('runHistory'),
   runHistoryCount: document.getElementById('runHistoryCount'),
-  serverTime: document.getElementById('serverTime'),
+  runHistorySummary: document.getElementById('runHistorySummary'),
+  runtimeConsole: document.getElementById('runtimeConsole'),
+  closeRuntimeConsole: document.getElementById('closeRuntimeConsole'),
+  cancelRuntimeConsole: document.getElementById('cancelRuntimeConsole'),
+  runLaunchReplayTitle: document.getElementById('runLaunchReplayTitle'),
+  runLaunchMode: document.getElementById('runLaunchMode'),
+  runLaunchModeMark: document.getElementById('runLaunchModeMark'),
+  runLaunchModeNote: document.getElementById('runLaunchModeNote'),
+  runLaunchReadiness: document.getElementById('runLaunchReadiness'),
+  runVariableCount: document.getElementById('runVariableCount'),
   selectedId: document.getElementById('selectedId'),
-  metricWorkflows: document.getElementById('metricWorkflows'),
+  mobileLibraryBack: document.getElementById('mobileLibraryBack'),
   metricSteps: document.getElementById('metricSteps'),
   metricVars: document.getElementById('metricVars'),
-  metricSubgraphs: document.getElementById('metricSubgraphs'),
   dependencyStatus: document.getElementById('dependencyStatus'),
   permissionStatus: document.getElementById('permissionStatus'),
   countdown: document.getElementById('countdown'),
@@ -641,25 +805,532 @@ const els = {
   stopReplay: document.getElementById('stopReplay'),
 };
 
+function setDetailHeaderMode(label, mode = 'neutral') {
+  els.selectedId.textContent = label;
+  els.selectedId.dataset.mode = mode;
+}
+
+function setDetailHeaderCounts(steps = '—', variables = '—') {
+  els.metricSteps.textContent = steps;
+  els.metricVars.textContent = variables;
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[ch]));
 }
 
-async function getJson(url, options) {
-  const response = await fetch(`${API_BASE}${url}`, options);
-  const data = await response.json();
-  if (!response.ok || data.ok === false) throw new Error(data.error || response.statusText);
-  return data;
+const ACTION_LABELS = {
+  open_url: '打开网页', assert_url: '核验网址', wait_for_text: '等待文本', assert_text: '核验文本',
+  assert_not_text: '确认文本未出现', set_clipboard: '保存结果', assert_clipboard: '核验结果',
+  click: '点击', double_click: '双击', type: '输入文字', hotkey: '快捷键', press: '按键',
+  drag: '拖动', scroll: '滚动', select: '选择', wait: '等待', screenshot: '截图',
+  skip: '跳过', stop: '停止运行',
+};
+
+const STEP_VALUE_REQUIRED_ACTIONS = new Set([
+  'open_url', 'assert_url', 'wait_for_text', 'assert_text', 'assert_not_text',
+  'assert_clipboard', 'type', 'hotkey', 'press', 'select',
+]);
+
+function actionLabel(value) {
+  return ACTION_LABELS[String(value || '').toLowerCase()] || String(value || '操作').replaceAll('_', ' ');
 }
 
-async function postJson(url, payload = {}) {
-  return getJson(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+function stepActionUsesCoordinates(value) {
+  return /(^|_)(click|drag|move|cursor|tap)(_|$)/.test(String(value || '').toLowerCase());
+}
+
+function stepActionUsesValue(value) {
+  return !stepActionUsesCoordinates(value) && String(value || '').toLowerCase() !== 'screenshot';
+}
+
+function stepValueLabel(value) {
+  const type = String(value || '').toLowerCase();
+  if (type === 'open_url') return '网址';
+  if (type === 'assert_url') return '网址应包含';
+  if (type === 'hotkey' || type === 'press') return '快捷键 / 按键';
+  if (type === 'type') return '输入内容';
+  if (type.includes('clipboard')) return '剪贴板内容';
+  if (type.includes('text')) return '目标文本';
+  if (type === 'wait') return '等待秒数';
+  return '输入值';
+}
+
+function syncStepConditionalFields(row, actionType, { clearHidden = false } = {}) {
+  if (!row) return;
+  const coordinateFields = row.querySelector('.step-coordinate-fields');
+  const usesCoordinates = stepActionUsesCoordinates(actionType);
+  if (coordinateFields) {
+    if (clearHidden && !usesCoordinates && !coordinateFields.classList.contains('is-hidden')) {
+      coordinateFields.querySelector('[data-step-field="x"]').value = '';
+      coordinateFields.querySelector('[data-step-field="y"]').value = '';
+    }
+    coordinateFields.classList.toggle('is-hidden', !usesCoordinates);
+  }
+  const valueField = row.querySelector('.step-value-field');
+  const secondaryFields = row.querySelector('.step-secondary-fields');
+  const usesValue = stepActionUsesValue(actionType);
+  if (valueField && secondaryFields) {
+    if (clearHidden && !usesValue && !valueField.classList.contains('is-hidden')) {
+      valueField.querySelector('[data-step-field="value"]').value = '';
+    }
+    valueField.classList.toggle('is-hidden', !usesValue);
+    secondaryFields.classList.toggle('value-hidden', !usesValue);
+  }
+  const valueLabel = row.querySelector('.step-value-label');
+  if (valueLabel) valueLabel.textContent = stepValueLabel(actionType);
+}
+
+function setEditorDirty(dirty) {
+  editorDirty = Boolean(dirty);
+  document.body.classList.toggle('editor-has-unsaved', editorDirty);
+  const stateBadge = document.getElementById('editorSaveState');
+  if (stateBadge) {
+    stateBadge.textContent = editorDirty ? '未保存' : selectedMode === 'preview' ? '待保存' : '已保存';
+    stateBadge.classList.toggle('warn', editorDirty || selectedMode === 'preview');
+    stateBadge.classList.toggle('ready', !editorDirty && selectedMode !== 'preview');
+  }
+  syncReadinessDraftState();
+  syncEditorCommandDock();
+  syncWorkflowDraftIndicator();
+  if (editorDirty) scheduleEditorDraftPersist();
+  else if (editorDraftTimer) {
+    window.clearTimeout(editorDraftTimer);
+    editorDraftTimer = null;
+  }
+  if (status?.run) renderRuntimeStatus();
+}
+
+function syncEditorCommandDock() {
+  const dock = els.detail?.querySelector('.editor-command-dock');
+  if (!dock) return;
+  const state = dock.querySelector('#editorActionStateText');
+  const saveButton = dock.querySelector('#saveWorkflow');
+  dock.classList.toggle('unsaved', editorDirty);
+  if (state) state.textContent = editorDirty ? '未保存' : selectedMode === 'preview' ? '待保存' : '已保存';
+  if (saveButton) saveButton.hidden = selectedMode === 'workflow' && !editorDirty;
+}
+
+function syncReadinessDraftState() {
+  const panel = els.detail?.querySelector('.readiness-summary');
+  if (!panel) return;
+  const title = panel.querySelector('.readiness-primary-title');
+  const meta = panel.querySelector('.readiness-primary-meta');
+  const saveAction = panel.querySelector('[data-readiness-action="save"]');
+  panel.classList.toggle('unsaved', editorDirty);
+  if (title) title.textContent = editorDirty ? '先保存当前修改' : panel.dataset.readinessTitle || title.textContent;
+  if (meta) meta.textContent = editorDirty ? '未保存的步骤和设置不会用于本次运行' : panel.dataset.readinessMeta || meta.textContent;
+  if (saveAction) {
+    saveAction.hidden = !editorDirty && selectedMode !== 'preview';
+    saveAction.textContent = selectedMode === 'preview' ? '保存 Replay' : '保存修改';
+  }
+}
+
+function syncWorkflowDraftIndicator() {
+  els.list?.querySelectorAll('.workflow-draft-indicator').forEach(node => node.remove());
+  if (!editorDirty) return;
+  const activeMeta = els.list?.querySelector('.workflow-card.active .workflow-card-meta');
+  if (!activeMeta) return;
+  const indicator = document.createElement('span');
+  indicator.className = 'workflow-draft-indicator';
+  indicator.textContent = '未保存';
+  activeMeta.appendChild(indicator);
+}
+
+function editableWorkflowSignature(workflow) {
+  if (!workflow) return '';
+  return JSON.stringify({
+    id: workflow.id || '',
+    name: workflow.name || '',
+    title: workflow.title || '',
+    description: workflow.description || '',
+    task_description: workflow.task_description || '',
+    variables: workflow.variables || [],
+    steps: workflow.steps || [],
   });
+}
+
+function editorDraftKey(mode = selectedMode, workflow = selectedDetail) {
+  if (!workflow?.id) return '';
+  if (mode === 'preview') {
+    const previewId = status?.preview?.preview_id || workflow.id;
+    return `preview:${previewId}`;
+  }
+  return `workflow:${workflow.id}`;
+}
+
+function readEditorDrafts() {
+  try {
+    const value = JSON.parse(localStorage.getItem(EDITOR_DRAFTS_KEY) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeEditorDrafts(drafts) {
+  try {
+    const entries = Object.entries(drafts)
+      .filter(([, draft]) => Date.now() - Number(draft?.updatedAt || 0) <= EDITOR_DRAFT_MAX_AGE_MS)
+      .sort((a, b) => Number(b[1]?.updatedAt || 0) - Number(a[1]?.updatedAt || 0))
+      .slice(0, 8);
+    if (entries.length) localStorage.setItem(EDITOR_DRAFTS_KEY, JSON.stringify(Object.fromEntries(entries)));
+    else localStorage.removeItem(EDITOR_DRAFTS_KEY);
+  } catch {
+    // Draft persistence is best-effort and must never block editing.
+  }
+}
+
+function getStoredEditorDraft(key = editorDraftKey()) {
+  if (!key) return null;
+  const drafts = readEditorDrafts();
+  const draft = drafts[key];
+  const valid = draft
+    && Date.now() - Number(draft.updatedAt || 0) <= EDITOR_DRAFT_MAX_AGE_MS
+    && draft.workflow?.id === selectedDetail?.id
+    && Array.isArray(draft.workflow?.variables)
+    && Array.isArray(draft.workflow?.steps);
+  if (valid) return draft;
+  if (draft) {
+    delete drafts[key];
+    writeEditorDrafts(drafts);
+  }
+  return null;
+}
+
+function clearStoredEditorDraft(key = editorDraftKey()) {
+  if (!key) return;
+  const drafts = readEditorDrafts();
+  if (!(key in drafts)) return;
+  delete drafts[key];
+  writeEditorDrafts(drafts);
+}
+
+function persistEditorDraft() {
+  if (editorDraftTimer) window.clearTimeout(editorDraftTimer);
+  editorDraftTimer = null;
+  if (!editorDirty || !selectedDetail?.id || !document.getElementById('wfName')) return;
+  let workflow;
+  try {
+    workflow = collectEditorPayload();
+  } catch {
+    return;
+  }
+  const key = editorDraftKey();
+  if (!key) return;
+  const drafts = readEditorDrafts();
+  drafts[key] = {
+    mode: selectedMode,
+    updatedAt: Date.now(),
+    baseSignature: editorBaseSignature,
+    workflow,
+  };
+  writeEditorDrafts(drafts);
+}
+
+function scheduleEditorDraftPersist() {
+  if (editorDraftTimer) window.clearTimeout(editorDraftTimer);
+  editorDraftTimer = window.setTimeout(persistEditorDraft, 320);
+}
+
+function renderDraftRecoveryNotice() {
+  if (!pendingEditorDraft) return '';
+  const sourceChanged = Boolean(
+    pendingEditorDraft.baseSignature
+    && editorBaseSignature
+    && pendingEditorDraft.baseSignature !== editorBaseSignature
+  );
+  return `
+    <aside class="draft-recovery${sourceChanged ? ' source-changed' : ''}" id="draftRecovery" role="status" aria-live="polite">
+      <span class="draft-recovery-mark" aria-hidden="true">↺</span>
+      <span class="draft-recovery-copy">
+        <strong>发现未完成的修改</strong>
+        <small>${escapeHtml(formatDisplayTime(pendingEditorDraft.updatedAt))}${sourceChanged ? ' · 原 Replay 已变化，恢复后请检查' : ' · 已保存在当前设备'}</small>
+      </span>
+      <span class="draft-recovery-actions">
+        <button type="button" class="secondary" id="dismissEditorDraft">忽略</button>
+        <button type="button" id="restoreEditorDraft">恢复草稿</button>
+      </span>
+    </aside>`;
+}
+
+function restorePendingEditorDraft() {
+  if (!pendingEditorDraft?.workflow || !selectedDetail) return;
+  const workflow = pendingEditorDraft.workflow;
+  pendingEditorDraft = null;
+  selectedDetail = {
+    ...selectedDetail,
+    ...workflow,
+    variables: workflow.variables.map(item => ({ ...item })),
+    steps: workflow.steps.map(step => ({ ...step })),
+  };
+  setEditorDirty(true);
+  renderDetail();
+  renderVariables();
+  const basicInfo = document.getElementById('wfTitle')?.closest('details');
+  if (basicInfo) basicInfo.open = true;
+  document.getElementById('wfTitle')?.focus({ preventScroll: true });
+  showToast('本地草稿已恢复，请检查后保存');
+}
+
+function dismissPendingEditorDraft() {
+  clearStoredEditorDraft();
+  pendingEditorDraft = null;
+  document.getElementById('draftRecovery')?.remove();
+  showToast('已忽略本地草稿');
+}
+
+async function confirmDiscardEditorChanges(actionLabelText = '切换 Replay') {
+  if (!editorDirty) return true;
+  persistEditorDraft();
+  const message = `当前 Replay 有未保存的修改。你可以先保存，再继续“${actionLabelText}”。`;
+  if (typeof globalThis.productChoice === 'function') {
+    const choice = await globalThis.productChoice(message, {
+      title: '如何处理当前修改？',
+      saveLabel: '保存并继续',
+      discardLabel: '放弃修改',
+      cancelLabel: '继续编辑',
+    });
+    if (choice === 'cancel') return false;
+    if (choice === 'discard') return true;
+    try {
+      await saveCurrentWorkflow();
+      return true;
+    } catch (error) {
+      showActionError(error);
+      return false;
+    }
+  }
+  if (typeof globalThis.productConfirm === 'function') {
+    return globalThis.productConfirm(`${message} 当前环境仅支持放弃或继续编辑。`, { confirmLabel: '放弃修改' });
+  }
+  return window.confirm(message);
+}
+
+function stepStateLabel(value) {
+  return { succeeded: '成功', completed: '完成', failed: '失败', running: '运行中', skipped: '已跳过', cancelled: '已停止' }[value] || String(value || '完成').replaceAll('_', ' ');
+}
+
+function workflowDisplayTitle(id) {
+  return workflows.find(item => item.id === id)?.title || workflows.find(item => item.id === id)?.name || id || 'Replay';
+}
+
+function formatDisplayTime(value) {
+  if (!value) return '时间未记录';
+  const serialized = String(value);
+  const date = /^\d{12,}$/.test(serialized)
+    ? new Date(Number(serialized))
+    : new Date(serialized.replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return String(value);
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const valueStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const days = Math.round((dayStart - valueStart) / 86400000);
+  const time = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  if (days === 0) return `今天 ${time}`;
+  if (days === 1) return `昨天 ${time}`;
+  if (days === 2) return `前天 ${time}`;
+  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+}
+
+function runFailureContext(run, step) {
+  const raw = String(step?.error || run?.error || '运行未返回具体错误。');
+  const urlMismatch = raw.match(/Expected URL fragment '([^']+)'; current source is '([^']+)'/i);
+  if (urlMismatch) {
+    let currentSource = urlMismatch[2];
+    try { currentSource = new URL(currentSource).hostname; } catch (_error) { /* Keep the reported source. */ }
+    return {
+      kind: 'url_mismatch',
+      label: '来源地址不匹配',
+      summary: `这一步打开了 ${currentSource}，但要求来源包含 ${urlMismatch[1]}。`,
+      suggestion: '检查打开地址，或把来源校验改为当前可信地址。',
+      expectedSource: urlMismatch[1],
+      observedSource: currentSource,
+    };
+  }
+  const httpFailure = raw.match(/Public source returned HTTP (\d+):\s*(.+)/i);
+  if (httpFailure) return {
+    kind: 'external',
+    label: '外部来源暂不可用',
+    summary: `来源 ${httpFailure[2]} 返回 HTTP ${httpFailure[1]}，并非编辑动作本身出错。`,
+    suggestion: '稍后重试，或更换稳定且允许访问的来源。',
+  };
+  const category = String(run?.failure_category || '');
+  const known = {
+    external_blocker: ['external', '外部来源阻断', '目标来源拒绝或中断了访问。', '稍后重试，或改用稳定来源。'],
+    timeout: ['timeout', '运行超时', '这一步没有在预期时间内完成。', '检查等待条件，并缩小一次操作的范围。'],
+    cancelled: ['cancelled', '运行已停止', '这一步在完成前被停止。', '确认输入与权限后重新运行。'],
+    url_assertion: ['url_mismatch', '来源校验失败', '当前页面与这一步要求的来源不一致。', '检查打开地址与来源校验。'],
+    client_disconnect: ['cancelled', '控制台连接中断', '页面连接中断后，Replay 已安全停止。', '保持工作台打开，再重新运行全部步骤。'],
+    clipboard: ['step', '剪贴板状态不匹配', '这一步没有读到预期的剪贴板内容。', '检查前一步复制动作和当前输入。'],
+    browser_state: ['step', '浏览器状态不匹配', '当前标签页或页面状态与录制时不同。', '检查目标页面，并让前置导航步骤恢复所需状态。'],
+    model: ['step', '智能判断未完成', '这一步的视觉或语义判断没有得到可靠结果。', '检查目标是否清晰可见，或改成更确定的动作。'],
+    safety_gate: ['step', '安全条件未通过', '运行条件或权限不允许继续执行这一步。', '检查权限、运行边界和目标操作。'],
+    targeting: ['step', '没有找到操作目标', '当前界面中没有可靠定位到录制目标。', '检查目标应用、页面布局和点击位置。'],
+  }[category];
+  if (known) return { kind: known[0], label: known[1], summary: known[2], suggestion: known[3] };
+  return {
+    kind: 'step',
+    label: '步骤未完成',
+    summary: raw.length > 140 ? `${raw.slice(0, 137)}…` : raw,
+    suggestion: '检查这一步的动作、输入和目标应用后重新运行。',
+  };
+}
+
+function failedRunStep(run) {
+  const steps = Array.isArray(run?.steps) ? run.steps : [];
+  const failedStepNumber = Number(run?.failed_step || 0);
+  const matched = steps.find(step => Number(step.step_number) === failedStepNumber)
+    || steps.find(step => step.state === 'failed' || step.error);
+  if (matched) return matched;
+  return failedStepNumber > 0
+    ? { step_number: failedStepNumber, state: 'failed', error: run?.error || '' }
+    : null;
+}
+
+function revealRunFailureStep(stepNumber) {
+  const number = Number(stepNumber || 0);
+  if (!Number.isInteger(number) || number < 1 || !selectedDetail) return false;
+  closeRunLauncher();
+  stepBrowserQuery = '';
+  stepBrowserType = '';
+  stepBrowserPage = Math.floor((number - 1) / STEP_PAGE_SIZE);
+  renderDetail();
+  requestAnimationFrame(() => revealEditorStep(number));
+  return true;
+}
+
+function renderRunRecovery(run) {
+  if (!els.runRecovery) return;
+  if (!run || run.success !== false || run.active) {
+    els.runRecovery.hidden = true;
+    els.runRecovery.replaceChildren();
+    return;
+  }
+  const failedStep = failedRunStep(run);
+  const stepNumber = Number(failedStep?.step_number || 0);
+  const workflowStep = stepNumber > 0 ? selectedDetail?.steps?.[stepNumber - 1] : null;
+  const diagnosis = runFailureContext(run, failedStep);
+  const resolution = stepNumber > 0 ? currentFailureResolution(diagnosis, stepNumber) : null;
+  const display = resolution || diagnosis;
+  const passedSteps = stepNumber > 0
+    ? Math.max(0, stepNumber - 1)
+    : Math.max(0, Number(run.steps_run || 0) - Number(run.steps_failed || 0));
+  const canRerun = !editorDirty && !els.runWorkflow.disabled;
+  const actionName = workflowStep ? actionLabel(workflowStep.action_type) : '未记录';
+  const kind = resolution ? 'resolved' : diagnosis.kind === 'external' ? 'external' : diagnosis.kind === 'cancelled' ? 'stopped' : 'failed';
+  els.runRecovery.className = `run-recovery-card is-${kind}`;
+  els.runRecovery.innerHTML = `
+    <div class="run-recovery-head">
+      <span class="run-recovery-mark" aria-hidden="true">${resolution ? '✓' : diagnosis.kind === 'external' ? '↗' : '!'}</span>
+      <div>
+        <small>${escapeHtml(resolution ? '配置已处理' : '上次运行需要处理')}</small>
+        <strong>${escapeHtml(stepNumber ? `第 ${stepNumber} 步 · ${display.label}` : display.label)}</strong>
+        <p>${escapeHtml(display.summary)}</p>
+      </div>
+      <span class="run-recovery-state">${escapeHtml(resolution ? '可重新验证' : diagnosis.kind === 'external' ? '外部条件' : '未完成')}</span>
+    </div>
+    <div class="run-recovery-facts">
+      <span><small>失败位置</small><strong>${escapeHtml(stepNumber ? `${stepNumber} / ${selectedDetail?.steps?.length || run.steps_run || '?'}` : '未定位')}</strong></span>
+      <span><small>此前通过</small><strong>${escapeHtml(passedSteps)} 步</strong></span>
+      <span><small>动作</small><strong>${escapeHtml(actionName)}</strong></span>
+    </div>
+    <div class="run-recovery-next">
+      <p><strong>建议</strong>${escapeHtml(display.suggestion)}</p>
+      <div class="run-recovery-actions">
+        ${stepNumber ? `<button type="button" class="secondary" data-run-recovery="locate">定位并修复</button>` : ''}
+        <button type="button" data-run-recovery="rerun"${canRerun ? '' : ' disabled'}>${resolution ? '重新验证全部' : '重新运行全部'}</button>
+      </div>
+    </div>
+    <details class="run-recovery-raw"><summary>查看原始错误</summary><code>${escapeHtml(failedStep?.error || run.error || '没有原始错误信息。')}</code></details>
+  `;
+  els.runRecovery.hidden = false;
+  els.runRecovery.querySelector('[data-run-recovery="locate"]')?.addEventListener('click', () => revealRunFailureStep(stepNumber));
+  els.runRecovery.querySelector('[data-run-recovery="rerun"]')?.addEventListener('click', () => {
+    if (editorDirty) {
+      showToast('请先保存当前修改，再重新运行。', 'error');
+      document.getElementById('saveWorkflow')?.focus({ preventScroll: true });
+      return;
+    }
+    if (els.runWorkflow.disabled) {
+      showToast('当前运行条件尚未就绪。', 'error');
+      return;
+    }
+    els.runWorkflow.click();
+  });
+}
+
+function normalizedSourceHost(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  try { return new URL(/^https?:\/\//.test(raw) ? raw : `https://${raw}`).hostname; }
+  catch (_error) { return raw.replace(/^https?:\/\//, '').split('/')[0]; }
+}
+
+function currentFailureResolution(diagnosis, stepNumber) {
+  if (diagnosis.kind !== 'url_mismatch' || !diagnosis.expectedSource || !diagnosis.observedSource) return null;
+  const currentStep = selectedDetail?.steps?.[Number(stepNumber) - 1];
+  const configuredSource = normalizedSourceHost(currentStep?.value);
+  const expectedSource = normalizedSourceHost(diagnosis.expectedSource);
+  const observedSource = normalizedSourceHost(diagnosis.observedSource);
+  const matchesObserved = configuredSource && (configuredSource.includes(observedSource) || observedSource.includes(configuredSource));
+  if (!matchesObserved || configuredSource === expectedSource) return null;
+  return {
+    label: '配置已更新',
+    summary: `当前来源校验已改为 ${configuredSource}。`,
+    suggestion: '这条失败来自旧配置；无需重复修改，重新验证即可确认结果。',
+  };
+}
+
+let productToastTimer = null;
+function showToast(message, kind = '', options = {}) {
+  const toast = document.getElementById('productToast');
+  if (!toast) return null;
+  if (productToastTimer) clearTimeout(productToastTimer);
+  toast.inert = false;
+  const copy = document.createElement('span');
+  copy.className = 'product-toast-copy';
+  copy.textContent = String(message || '操作已完成');
+  toast.replaceChildren(copy);
+  const action = options?.action;
+  let actionButton = null;
+  if (action?.label && typeof action.onClick === 'function') {
+    const button = document.createElement('button');
+    actionButton = button;
+    button.type = 'button';
+    button.className = 'product-toast-action';
+    button.textContent = action.label;
+    button.addEventListener('click', () => {
+      if (productToastTimer) clearTimeout(productToastTimer);
+      productToastTimer = null;
+      toast.classList.remove('show');
+      toast.inert = true;
+      action.onClick();
+    }, { once: true });
+    toast.appendChild(button);
+  }
+  toast.className = `product-toast${kind ? ` ${kind}` : ''}${action ? ' has-action' : ''}`;
+  requestAnimationFrame(() => toast.classList.add('show'));
+  productToastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+    toast.inert = true;
+    productToastTimer = null;
+  }, Number(options.duration || (action ? 6500 : 3200)));
+  return actionButton;
+}
+
+function showActionError(error) {
+  showToast(error?.message || error || '操作失败，请稍后重试。', 'error');
+}
+
+async function getJson(url, options = {}) {
+  return GPAClient.requestJson(url, { ...options, baseUrl: API_BASE });
+}
+
+async function postJson(url, payload = {}, options = {}) {
+  return GPAClient.postJson(url, payload, { ...options, baseUrl: API_BASE });
 }
 
 async function sendHeartbeat() {
@@ -667,7 +1338,10 @@ async function sendHeartbeat() {
   heartbeatInFlight = true;
   try {
     disconnectSent = false;
-    await postJson('/api/client/heartbeat', { client_id: CLIENT_ID });
+    await postJson('/api/client/heartbeat', {
+      client_id: CLIENT_ID,
+      environment: clientEnvironmentSnapshot(),
+    }, { timeoutMs: 8000 });
   } catch {
     // Status polling renders server/API failures; heartbeat is a safety lease.
   } finally {
@@ -676,76 +1350,251 @@ async function sendHeartbeat() {
 }
 
 function postBeacon(path, payload = {}) {
-  const body = JSON.stringify({ client_id: CLIENT_ID, ...payload });
-  const url = `${API_BASE}${path}`;
-  if (navigator.sendBeacon) {
-    const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
-    if (navigator.sendBeacon(url, blob)) return;
-  }
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body,
-    keepalive: true,
-  }).catch(() => {});
+  GPAClient.sendJsonBeacon(path, { client_id: CLIENT_ID, ...payload }, { baseUrl: API_BASE });
 }
 
 function startClientHeartbeat() {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  sendHeartbeat();
-  heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+  if (heartbeatTimer) heartbeatTimer();
+  heartbeatTimer = GPAClient.createVisibilityPoller(sendHeartbeat, {
+    activeMs: HEARTBEAT_INTERVAL_MS,
+    hiddenMs: 10000,
+  });
 }
 
 function sendClientDisconnect() {
   if (disconnectSent) return;
   disconnectSent = true;
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (heartbeatTimer) heartbeatTimer();
+  heartbeatTimer = null;
   postBeacon('/api/client/disconnect');
 }
 
 async function loadStatus() {
-  status = await getJson('/api/status');
-  els.serverTime.textContent = status.server_time;
-  els.metricWorkflows.textContent = status.workflow_count;
+  const requestVersion = ++statusRequestVersion;
+  let nextStatus;
+  try {
+    nextStatus = await getJson('/api/status', { timeoutMs: 8000 });
+  } catch (error) {
+    if (requestVersion !== statusRequestVersion) return false;
+    throw error;
+  }
+  if (requestVersion !== statusRequestVersion) return false;
+  status = nextStatus;
   renderRuntimeStatus();
   renderDependencyStatus();
   renderPermissionStatus();
   renderLogs();
+  return true;
+}
+
+function renderWorkspaceStatus(rec, run, health, clientConnected, desktopAutomationEnabled) {
+  const unavailableGroups = Object.values(health?.groups || {}).filter(item => item?.ready === false).length;
+  let state = 'ready';
+  let title = '工作台就绪';
+  let meta = '可录制或运行';
+  if (run?.active) {
+    state = 'running';
+    title = run.status === 'countdown' ? '准备运行' : '正在运行';
+    meta = run.current_step?.number
+      ? `第 ${run.current_step.number} / ${run.total_steps || '?'} 步`
+      : workflowDisplayTitle(run.workflow_id);
+  } else if (rec?.active) {
+    state = 'recording';
+    title = rec.status === 'building' ? '正在构建 Replay' : '正在录制';
+    meta = `${Number(rec.event_count || 0)} 个操作事件`;
+  } else if (!clientConnected) {
+    state = 'issue';
+    title = '工作台已断开';
+    meta = '重新打开后恢复运行';
+  } else if (rec?.status === 'failed') {
+    state = 'issue';
+    title = '录制未完成';
+    meta = '在录制面板查看原因';
+  } else if (run?.success === false && !['cancelled', 'panic_stopped'].includes(run.status)) {
+    state = 'issue';
+    title = '上次运行未完成';
+    meta = run.failed_step ? `停在第 ${run.failed_step} 步` : statusLabel(run.status, run.failure_category);
+  } else if (unavailableGroups > 0 || !desktopAutomationEnabled) {
+    state = 'limited';
+    title = '部分功能受限';
+    meta = unavailableGroups ? `${unavailableGroups} 项运行条件待处理` : '桌面自动化未启用';
+  }
+  els.workspaceStatus.dataset.state = state;
+  els.workspaceStatusTitle.textContent = title;
+  els.workspaceStatusMeta.textContent = meta;
+  els.workspaceStatus.setAttribute('aria-label', `${title}，${meta}`);
+  els.workspaceStatus.title = `${title} · ${meta}`;
+}
+
+function paintRecordStatus(title, detail = '', state = 'idle') {
+  const marks = { idle: '○', active: '●', recording: '●', building: '↻', success: '✓', warn: '…', error: '!' };
+  els.recordStatus.dataset.state = state;
+  els.recordStatus.innerHTML = `
+    <span class="record-live-mark" aria-hidden="true">${marks[state] || '○'}</span>
+    <span><strong>${escapeHtml(title)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</span>
+  `;
 }
 
 function showRecordFeedback(message, kind = '') {
   recordFeedback = { message, kind };
-  const klass = kind ? ` ${kind}` : '';
-  els.recordStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(message)}</div>`;
+  paintRecordStatus(message, '', kind === 'error' ? 'error' : kind === 'warn' ? 'warn' : 'success');
+}
+
+function setRecordTaskError(message = '') {
+  const error = document.getElementById('recordTaskError');
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+  if (message) els.recordTaskDescription.setAttribute('aria-invalid', 'true');
+  else els.recordTaskDescription.removeAttribute('aria-invalid');
 }
 
 function showRunFeedback(message, kind = '') {
   runFeedback = { message, kind };
   const klass = kind ? ` ${kind}` : '';
-  els.runStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(message)}</div>`;
+  const stateClass = kind === 'error' ? ' is-error' : kind === 'warn' ? ' is-warning' : ' is-success';
+  els.runStatus.innerHTML = `<div class="feedback state-message${klass}${stateClass}">${escapeHtml(message)}</div>`;
+  syncInlineRunStatus(true);
+}
+
+function syncInlineRunStatus(visible) {
+  const target = document.getElementById('inlineRunStatus');
+  if (!target) return;
+  target.hidden = !visible;
+  if (visible) target.innerHTML = els.runStatus.innerHTML;
+}
+
+let runLauncherReturnFocus = null;
+
+function openRunLauncher({ focus = true } = {}) {
+  if (!els.runtimeConsole.open) {
+    runLauncherReturnFocus = document.activeElement;
+    els.runtimeConsole.showModal();
+  }
+  els.runtimeConsole.scrollTop = 0;
+  if (!focus) return;
+  requestAnimationFrame(() => {
+    const firstInput = els.vars.querySelector('[data-var]');
+    (firstInput || els.runWorkflow || els.closeRuntimeConsole)?.focus({ preventScroll: true });
+  });
+}
+
+function closeRunLauncher() {
+  if (els.runtimeConsole.open) els.runtimeConsole.close();
+}
+
+function runtimeConsoleClickIsBackdrop(event) {
+  const shell = els.runtimeConsole.querySelector('.run-launch-shell');
+  if (!shell || event.target !== els.runtimeConsole) return false;
+  const rect = shell.getBoundingClientRect();
+  return event.clientX < rect.left
+    || event.clientX > rect.right
+    || event.clientY < rect.top
+    || event.clientY > rect.bottom;
+}
+
+function showWorkflowLoadError(error) {
+  const message = error?.message || error || '暂时无法连接工作台';
+  if (workflows.length || selectedDetail) {
+    showToast('刷新失败，已保留当前内容。', 'error', {
+      action: { label: '重试', onClick: () => loadWorkflows().catch(showWorkflowLoadError) },
+    });
+    return;
+  }
+  els.list.classList.remove('is-loading');
+  els.list.setAttribute('aria-busy', 'false');
+  els.workflowSearchStatus.textContent = '连接中断';
+  els.list.innerHTML = `
+    <div class="empty product-empty library-empty library-load-error state-surface is-error" role="alert">
+      <span class="library-empty-mark" aria-hidden="true">↻</span>
+      <strong>暂时无法载入 Replay</strong>
+      <span>当前内容尚未载入。重新连接不会影响已保存的 Replay。</span>
+      <button type="button" data-retry-workflows>重新连接</button>
+      <small title="${escapeHtml(message)}">${escapeHtml(message)}</small>
+    </div>
+  `;
+  els.workspaceStatus.dataset.state = 'issue';
+  els.workspaceStatusTitle.textContent = '工作台暂时不可用';
+  els.workspaceStatusMeta.textContent = '等待重新连接';
+  if (!selectedDetail) {
+    els.detail.className = '';
+    els.detail.setAttribute('aria-busy', 'false');
+    els.detail.innerHTML = '<div class="empty product-empty workspace-load-error state-surface is-muted"><strong>连接恢复后显示 Replay 详情</strong><span>你可以直接重新连接，无需刷新整个页面。</span></div>';
+  }
+  els.list.querySelector('[data-retry-workflows]')?.addEventListener('click', event => {
+    event.currentTarget.disabled = true;
+    event.currentTarget.textContent = '正在连接…';
+    loadWorkflows().catch(showWorkflowLoadError);
+  });
 }
 
 async function loadWorkflows() {
-  await loadStatus();
-  const data = await getJson('/api/workflows');
-  workflows = data.workflows;
-  renderWorkflowList();
-  const requested = !deepLinkApplied && REQUESTED_WORKFLOW_ID
-    ? workflows.find(item => item.id === REQUESTED_WORKFLOW_ID)
-    : null;
-  if (!deepLinkApplied) deepLinkApplied = true;
-  if (requested) {
-    await selectWorkflow(requested.id);
-  } else if (!selected && status.preview) {
-    await selectPreview();
-  } else if (!selected && workflows.length) {
-    await selectWorkflow(workflows[0].id);
-  } else if (selectedMode === 'workflow' && selected && !workflows.some(item => item.id === selected)) {
-    selected = null;
-    selectedDetail = null;
-    renderEmptyDetail();
+  const requestVersion = ++workflowListRequestVersion;
+  const isLatestRequest = () => requestVersion === workflowListRequestVersion;
+  els.list.classList.add('is-loading');
+  els.list.setAttribute('aria-busy', 'true');
+  els.refresh.disabled = true;
+  els.refresh.dataset.loading = 'true';
+  els.refresh.setAttribute('aria-label', '正在刷新 Replay 列表');
+  try {
+    let statusApplied = await loadStatus();
+    if (!isLatestRequest()) return false;
+    if (!statusApplied && !status) {
+      statusApplied = await loadStatus();
+      if (!isLatestRequest()) return false;
+    }
+    if (!status) throw new Error('暂时无法读取工作台状态。');
+    const data = await getJson('/api/workflows', { timeoutMs: 20000 });
+    if (!isLatestRequest()) return false;
+    workflows = data.workflows;
+    renderWorkflowList();
+    const requested = !deepLinkApplied && REQUESTED_WORKFLOW_ID
+      ? workflows.find(item => item.id === REQUESTED_WORKFLOW_ID)
+      : null;
+    const rememberedContext = readWorkspaceContext();
+    const remembered = workflows.find(item => item.id === rememberedContext.workflowId);
+    if (!deepLinkApplied) deepLinkApplied = true;
+    if (rememberedContext.workflowId && !remembered) forgetWorkspaceContext(rememberedContext.workflowId);
+    if (selectedMode === 'workflow' && selected && !workflows.some(item => item.id === selected)) {
+      forgetWorkspaceContext(selected);
+      selected = null;
+      selectedDetail = null;
+      pendingEditorDraft = null;
+      setEditorDirty(false);
+    }
+    if (selectedMode === 'preview' && selected && !status.preview) {
+      selected = null;
+      selectedDetail = null;
+      selectedMode = 'workflow';
+      pendingEditorDraft = null;
+      setEditorDirty(false);
+    }
+    if (requested) {
+      await selectWorkflow(requested.id, { openOnMobile: true, revealStep: REQUESTED_STEP_NUMBER });
+    } else if (!selected && status.preview) {
+      await selectPreview();
+    } else if (!selected && remembered) {
+      await selectWorkflow(remembered.id, { restoreContext: true });
+    } else if (!selected && workflows.length) {
+      await selectWorkflow(workflows[0].id);
+    } else if (!selected) {
+      renderEmptyDetail();
+    }
+    if (!isLatestRequest()) return false;
+    await loadRunHistory();
+    return true;
+  } catch (error) {
+    if (!isLatestRequest()) return false;
+    throw error;
+  } finally {
+    if (isLatestRequest()) {
+      els.list.classList.remove('is-loading');
+      els.list.setAttribute('aria-busy', 'false');
+      els.refresh.disabled = false;
+      delete els.refresh.dataset.loading;
+      els.refresh.setAttribute('aria-label', '刷新 Replay 列表');
+    }
   }
-  await loadRunHistory();
 }
 
 function renderRuntimeStatus() {
@@ -757,61 +1606,157 @@ function renderRuntimeStatus() {
   const desktopAutomationEnabled = health.desktop_automation?.enabled === true;
   const clientConnected = status.client?.connected !== false;
   const workflowRunnable = selectedDetail?.quality?.runnable !== false;
+  const reproductionGate = selectedDetail?.reproduction_gate || {};
+  const gateRunnable = reproductionGate.can_execute !== false;
+  const environmentRunnable = selectedDetail?.environment_diff?.safe_to_attempt !== false;
+  const safeWebRunnable = selectedDetail?.safe_web?.runnable === true;
   const localWorkflowSelected = selectedMode === 'workflow' && Boolean(selectedDetail?.id);
+  const selectedWorkflowId = localWorkflowSelected ? selectedDetail.id : '';
+  const runMatchesSelection = Boolean(selectedWorkflowId && run.workflow_id === selectedWorkflowId);
+  const selectedHistoryRun = runHistories.find(item => item.workflow_id === selectedWorkflowId);
+  const recoveryRun = !run.active
+    ? (runMatchesSelection && run.success === false ? run : selectedHistoryRun?.success === false ? selectedHistoryRun : null)
+    : null;
   const permissions = health.permissions?.items || {};
   const recordPermissionReady = !['screen_recording', 'input_monitoring'].some(key => permissions[key]?.ready === false);
   const replayPermissionReady = !['accessibility', 'screen_recording'].some(key => permissions[key]?.ready === false);
+  renderWorkspaceStatus(rec, run, health, clientConnected, desktopAutomationEnabled);
   els.startRecord.disabled = rec.active || !recordReady || !recordPermissionReady || !desktopAutomationEnabled;
-  els.stopRecord.disabled = !rec.active;
-  els.recordDot.classList.toggle('recording', rec.active);
-  els.recordChip.textContent = rec.active ? 'Recording' : 'Ready';
-  els.recordHint.textContent = rec.active ? `${rec.status} · ${rec.event_count} events` : rec.status;
-  const recordBusyMessages = {
-    starting: '正在启动录制...',
-    stopping: '正在停止录制...',
-    building: '正在调用大模型过滤、合并并保存预览...',
-  };
-  els.stopRecord.textContent = rec.status === 'stopping' || rec.status === 'building' ? '处理中...' : '停止并预览';
+  els.stopRecord.disabled = rec.status !== 'recording';
+  els.startRecord.hidden = rec.active;
+  els.stopRecord.hidden = !rec.active;
+  els.recordWorkflowId.disabled = rec.active;
+  els.recordTaskDescription.disabled = rec.active;
+  els.recordNarration.disabled = rec.active;
+  els.recordSuccessCriterion.disabled = rec.active;
+  els.captureScreenVideo.disabled = rec.active;
+  if (rec.active && els.recorderPanel) els.recorderPanel.open = true;
+  els.recorderPanel.dataset.stage = ['stopping', 'building'].includes(rec.status) ? 'build' : rec.active ? 'record' : 'prepare';
+  const recordStatusLabels = { idle: '空闲', recording: '录制中', starting: '启动中', stopping: '停止中', building: '构建中', failed: '失败' };
+  els.recordHint.textContent = rec.status === 'recording'
+    ? `${rec.event_count} 个操作`
+    : ['stopping', 'building'].includes(rec.status)
+      ? '正在生成'
+      : recordFeedback && !rec.active
+        ? '预览就绪'
+        : recordStatusLabels[rec.status] || rec.status;
+  els.stopRecord.innerHTML = rec.status === 'stopping' || rec.status === 'building'
+    ? '<span aria-hidden="true">↻</span>正在生成 Replay'
+    : '<span aria-hidden="true">■</span>完成录制并生成';
   if (rec.active) {
-    if (recordBusyMessages[rec.status]) {
-      els.recordStatus.innerHTML = `<div class="feedback warn">${escapeHtml(recordBusyMessages[rec.status])}<br>ID: ${escapeHtml(rec.workflow_id)} · Events: ${escapeHtml(rec.event_count)}</div>`;
+    if (['starting', 'stopping', 'building'].includes(rec.status)) {
+      paintRecordStatus(
+        rec.status === 'starting' ? '正在启动录制' : '正在生成 Replay',
+        rec.status === 'starting' ? '选择一个应用窗口或浏览器标签页。' : `正在整理 ${rec.event_count} 个操作，请稍候。`,
+        rec.status === 'starting' ? 'active' : 'building',
+      );
     } else {
       recordFeedback = null;
-      els.recordStatus.innerHTML = `<strong>正在录制</strong><span>ID: ${escapeHtml(rec.workflow_id)}<br>Goal: ${escapeHtml(rec.task_description || '未填写')}<br>Started: ${escapeHtml(rec.started_at)}<br>Events: ${escapeHtml(rec.event_count)}</span>`;
+      paintRecordStatus('正在录制', `${rec.event_count} 个操作 · 完成任务后点击“完成录制并生成”。`, 'recording');
     }
   } else if (recordFeedback) {
-    const klass = recordFeedback.kind ? ` ${recordFeedback.kind}` : '';
-    els.recordStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(recordFeedback.message)}</div>`;
+    paintRecordStatus(recordFeedback.message, '', recordFeedback.kind === 'error' ? 'error' : recordFeedback.kind === 'warn' ? 'warn' : 'success');
   } else {
-    els.recordStatus.innerHTML = `<strong>${rec.status === 'failed' ? '录制失败' : '未录制'}</strong><span>${escapeHtml(rec.error || '点击开始后，GPA 会捕捉鼠标、键盘和截图，停止后进入结果预览。')}</span>`;
+    paintRecordStatus(
+      rec.status === 'failed' ? '录制未完成' : '准备录制',
+      rec.error || '开始后正常完成任务，结束时自动生成可编辑 Replay。',
+      rec.status === 'failed' ? 'error' : 'idle',
+    );
   }
 
-  els.runDot.classList.toggle('running', run.active);
-  els.runChip.textContent = run.active ? run.status : 'Idle';
-  els.runHint.textContent = run.active ? run.workflow_id : run.status;
-  els.runWorkflow.disabled = !localWorkflowSelected || run.active || !replayReady || !replayPermissionReady || !clientConnected || !desktopAutomationEnabled || !workflowRunnable;
+  els.runHint.textContent = run.active ? workflowDisplayTitle(run.workflow_id) : (runMatchesSelection ? statusLabel(run.status, run.failure_category) : '空闲');
+  els.runtimeConsole.dataset.active = run.active ? 'true' : 'false';
+  const safeWebReady = safeWebRunnable && clientConnected;
+  const desktopReplayReady = desktopAutomationEnabled && replayReady && replayPermissionReady && clientConnected;
+  els.runWorkflow.disabled = !localWorkflowSelected || editorDirty || run.active || !workflowRunnable || !gateRunnable || (!safeWebRunnable && !environmentRunnable) || !(safeWebReady || desktopReplayReady);
+  els.runWorkflow.textContent = safeWebRunnable ? '确认并运行验证' : '确认并运行 Replay';
+  els.runLaunchReplayTitle.textContent = selectedDetail?.title || selectedDetail?.name || '选择一个 Replay 后检查本次输入。';
+  els.runLaunchMode.textContent = safeWebRunnable ? '安全网页验证' : localWorkflowSelected ? '桌面 Replay' : '等待选择';
+  els.runLaunchModeMark.textContent = safeWebRunnable ? '◎' : '⌁';
+  els.runLaunchModeMark.dataset.mode = safeWebRunnable ? 'safe-web' : 'desktop';
+  els.runLaunchModeNote.textContent = safeWebRunnable
+    ? `只读取 ${Number(selectedDetail?.safe_web?.public_url_count || 0)} 个公开来源，不控制桌面或写入剪贴板。`
+    : localWorkflowSelected
+      ? '将控制鼠标和键盘；通过预检后会先倒计时，再开始执行。'
+      : '选择 Replay 后显示运行范围和安全边界。';
+  els.runLaunchReadiness.textContent = run.active ? '运行中' : editorDirty ? '请先保存' : els.runWorkflow.disabled ? '需要处理' : '已就绪';
+  els.runLaunchReadiness.className = `run-launch-readiness ${run.active ? 'active' : els.runWorkflow.disabled ? 'blocked' : 'ready'}`;
+  els.runVariableCount.textContent = `${Number(selectedDetail?.variables?.length || 0)} 个`;
+  const inlineRunButton = document.getElementById('runWorkflowInline');
+  if (inlineRunButton) {
+    inlineRunButton.disabled = !localWorkflowSelected;
+    inlineRunButton.textContent = run.active && runMatchesSelection ? '查看运行' : safeWebRunnable ? '运行验证' : '运行 Replay';
+  }
+  const readinessRunButton = document.querySelector('[data-readiness-action="run"]');
+  if (readinessRunButton) {
+    readinessRunButton.disabled = !localWorkflowSelected || (editorDirty && !(run.active && runMatchesSelection));
+    readinessRunButton.textContent = run.active && runMatchesSelection ? '查看运行' : editorDirty ? '请先保存' : safeWebRunnable ? '运行验证' : '运行 Replay';
+  }
+  if (run.active && !runLauncherAutoOpened) {
+    runLauncherAutoOpened = true;
+    openRunLauncher({ focus: false });
+  } else if (!run.active) {
+    runLauncherAutoOpened = false;
+  }
   els.stopReplay.disabled = !run.active;
+  els.stopReplay.hidden = !run.active;
+  els.stopReplay.textContent = run.execution_mode === 'safe_web' ? '停止验证' : '停止回放';
   els.deleteWorkflow.disabled = !localWorkflowSelected || rec.active || run.active;
+  const inlineDeleteButton = document.getElementById('deleteWorkflowInline');
+  if (inlineDeleteButton) inlineDeleteButton.disabled = els.deleteWorkflow.disabled;
   const current = run.current_step
-    ? `<br>Step ${escapeHtml(run.current_step.number)}/${escapeHtml(run.total_steps)} · ${escapeHtml(run.current_step.action_type)}${run.current_step.agent_decision ? `<br>Agent: ${escapeHtml(run.current_step.agent_decision.action_type)} · ${escapeHtml(run.current_step.agent_decision.reason || '')}` : ''}`
+    ? `<br>步骤 ${escapeHtml(run.current_step.number)}/${escapeHtml(run.total_steps)} · ${escapeHtml(actionLabel(run.current_step.action_type))}${run.current_step.agent_decision ? `<br>Agent：${escapeHtml(actionLabel(run.current_step.agent_decision.action_type))} · ${escapeHtml(run.current_step.agent_decision.reason || '')}` : ''}`
     : '';
-  const countdown = run.status === 'countdown' ? `<br>Starting in ${escapeHtml(run.countdown_remaining)}s` : '';
+  const countdown = run.status === 'countdown' ? `<br>${escapeHtml(run.countdown_remaining)} 秒后开始` : '';
   if (run.active) {
     runFeedback = null;
-    els.runStatus.innerHTML = `<strong>${escapeHtml(run.status)}</strong><span>ID: ${escapeHtml(run.workflow_id)}<br>Elapsed: ${escapeHtml(run.elapsed_seconds)}s / ${escapeHtml(run.max_runtime_seconds)}s${countdown}${current}</span>`;
-  } else if (runFeedback && run.success == null) {
+    if (!runMatchesSelection) {
+      renderRunRecovery(null);
+      els.runStatus.innerHTML = `<strong>另一个 Replay 正在运行</strong><span>${escapeHtml(workflowDisplayTitle(run.workflow_id))} · ${escapeHtml(statusLabel(run.status))}<br>当前选择的 Replay 不会被覆盖。</span>`;
+      syncInlineRunStatus(true);
+      return;
+    }
+    const modeLabel = run.execution_mode === 'safe_web'
+      ? '安全网页验证 · 无桌面输入'
+      : `桌面 Replay · 会控制鼠标键盘${run.agent_adaptation_enabled ? ' · Agent 环境适配已启用' : ''}`;
+    els.runStatus.innerHTML = `<strong>${escapeHtml(statusLabel(run.status))}</strong><span>${escapeHtml(modeLabel)}<br>${escapeHtml(workflowDisplayTitle(run.workflow_id))}<br>已运行 ${escapeHtml(run.elapsed_seconds)} 秒 / 最长 ${escapeHtml(run.max_runtime_seconds)} 秒${countdown}${current}</span>`;
+  } else if (runFeedback) {
     const klass = runFeedback.kind ? ` ${runFeedback.kind}` : '';
     els.runStatus.innerHTML = `<div class="feedback${klass}">${escapeHtml(runFeedback.message)}</div>`;
   } else {
+    const selectedRun = runMatchesSelection ? run : selectedHistoryRun || {
+      status: 'idle', success: null, steps_run: 0, steps_failed: 0, error: '', failure_category: '',
+    };
     const clientNote = clientConnected ? '' : '<br>控制台连接未建立，回放已锁定。';
-    const automationNote = desktopAutomationEnabled ? '' : '<br>桌面自动化已禁用，录制和回放被锁定。';
-    const qualityNote = workflowRunnable ? '' : '<br>Workflow 有阻塞项，回放已锁定。';
-    els.runStatus.innerHTML = `<strong>${run.success === false ? statusLabel(run.status) : run.success === true ? '上次运行成功' : '未运行'}</strong><span>Steps: ${escapeHtml(run.steps_run)} · Failed: ${escapeHtml(run.steps_failed)}${run.error ? `<br>${escapeHtml(run.error)}` : ''}${clientNote}${automationNote}${qualityNote}</span>`;
+    const automationNote = desktopAutomationEnabled || safeWebRunnable ? '' : '<br>桌面自动化已禁用，此任务需要桌面回放。';
+    const qualityNote = workflowRunnable ? '' : '<br>Replay 有阻塞项，回放已锁定。';
+    const draftNote = editorDirty ? '<br>当前有未保存修改，请先保存再运行。' : '';
+    const gateNote = gateRunnable
+      ? `<br>Reproduction Gate：${escapeHtml(reproductionGate.status || '待评估')} · ${escapeHtml(reproductionGate.score ?? 0)}/100。`
+      : `<br>Reproduction Gate 已阻止运行：${escapeHtml((reproductionGate.blockers || []).map(item => item.message).join('；') || '请先修复阻塞项。')}`;
+    const environmentNote = safeWebRunnable || environmentRunnable
+      ? ''
+      : selectedDetail?.environment_diff?.status === 'unknown'
+        ? '<br>缺少录制或当前主机证据；补充环境快照前，桌面回放已锁定。'
+        : '<br>录制平台与当前平台不同，必须先重新规划，桌面回放已锁定。';
+    const selectedModeNote = safeWebRunnable
+      ? '<br>本任务可用只读公开网页验证：不触碰鼠标、键盘和系统剪贴板。'
+      : '<br>本任务包含应用操作，需要桌面 Replay。';
+    if (selectedRun.success === false) {
+      const failedStepNumber = Number(failedRunStep(selectedRun)?.step_number || 0);
+      els.runStatus.innerHTML = `<strong>${escapeHtml(statusLabel(selectedRun.status, selectedRun.failure_category))}</strong><span>${failedStepNumber ? `停在第 ${escapeHtml(failedStepNumber)} 步 · ` : ''}${escapeHtml(formatDisplayTime(selectedRun.finished_at || selectedRun.started_at))}<br>下方给出原因和安全恢复方式。</span>`;
+    } else {
+      els.runStatus.innerHTML = `<strong>${selectedRun.success === true ? '上次运行成功' : '当前选择尚未在本会话运行'}</strong><span>已运行 ${escapeHtml(selectedRun.steps_run)} 步 · 失败 ${escapeHtml(selectedRun.steps_failed)} 步${selectedModeNote}${clientNote}${automationNote}${qualityNote}${draftNote}${environmentNote}${gateNote}</span>`;
+    }
   }
+  renderRunRecovery(recoveryRun);
+  syncInlineRunStatus(run.active || (runMatchesSelection && run.success === false) || Boolean(runFeedback));
 }
 
-function statusLabel(value) {
+function statusLabel(value, failureCategory = '') {
+  if (failureCategory === 'external_blocker') return '外部网站阻止了当前复现';
   return {
+    running: '运行中', countdown: '准备运行', queued: '排队中', succeeded: '上次运行成功', idle: '未运行',
     failed: '上次运行失败',
     cancelled: '上次运行已停止',
     timed_out: '上次运行超时',
@@ -823,12 +1768,21 @@ function statusLabel(value) {
 function renderDependencyStatus() {
   const groups = Object.entries(status?.health?.groups || {}).filter(([, item]) => !item.ready);
   const automation = status?.health?.desktop_automation;
-  const rows = groups.map(([name, item]) => {
-    const missing = (item.missing || []).map(dep => dep.package).join(', ');
-    return `<div><strong>${escapeHtml(name)}</strong>${escapeHtml(missing)}</div>`;
+  const groupLabels = { record: '录制', build: '智能构建', replay: '智能回放' };
+  const groupedMissing = new Map();
+  groups.forEach(([name, item]) => {
+    const missing = [...new Set((item.missing || []).map(dep => (
+      dep.package === 'local .env' ? '本地 .env' : dep.package
+    )).filter(Boolean))].join('、') || '依赖未就绪';
+    const names = groupedMissing.get(missing) || [];
+    names.push(groupLabels[name] || name);
+    groupedMissing.set(missing, names);
   });
+  const rows = [...groupedMissing.entries()].map(([missing, names]) => (
+    `<div><strong>${escapeHtml(names.join('、'))}待配置</strong><span>${escapeHtml(missing)}。商店浏览、工作流编辑和证据检查不受影响。</span></div>`
+  ));
   if (automation && automation.enabled === false) {
-    rows.unshift(`<div><strong>Desktop Automation Locked</strong>${escapeHtml(automation.message || '')}</div>`);
+    rows.unshift(`<div><strong>安全模式：桌面自动化已锁定</strong><span>当前不会向其他应用发送全局键盘或鼠标事件。需要录制或回放时，请先进入“运行准备”并主动开启。</span></div>`);
   }
   els.dependencyStatus.style.display = rows.length ? 'block' : 'none';
   els.dependencyStatus.innerHTML = rows.join('');
@@ -836,15 +1790,30 @@ function renderDependencyStatus() {
 
 function renderPermissionStatus() {
   const items = status?.health?.permissions?.items || {};
+  const labels = {
+    accessibility: '辅助功能',
+    screen_recording: '屏幕录制',
+    input_monitoring: '输入监控',
+  };
+  const statuses = { ready: '已授权', blocked: '未授权', unknown: '待录制时检查' };
   els.permissionStatus.innerHTML = ['accessibility', 'screen_recording', 'input_monitoring'].map(key => {
     const item = items[key];
     if (!item) return '';
     const klass = item.status === 'blocked' ? 'blocked' : item.status === 'unknown' ? 'unknown' : '';
-    const text = item.status === 'ready' ? 'ready' : item.status;
+    const text = statuses[item.status] || item.status;
     return `<div class="permission-row ${klass}" title="${escapeHtml(item.message || '')}">
-      <strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(text)}</span>
+      <strong>${escapeHtml(labels[key] || item.label)}</strong><span>${escapeHtml(text)}</span>
     </div>`;
   }).join('');
+  const recordGroupReady = status?.health?.groups?.record?.ready !== false;
+  const automationReady = status?.health?.desktop_automation?.enabled === true;
+  const permissionReady = !['screen_recording', 'input_monitoring'].some(key => items[key]?.ready === false || items[key]?.status === 'blocked');
+  const recordingActive = status?.recording?.active === true;
+  const ready = recordGroupReady && automationReady && permissionReady;
+  if (els.recordingReadinessLabel) {
+    els.recordingReadinessLabel.textContent = recordingActive ? '录制中' : ready ? '已就绪' : '需要处理';
+    els.recordingReadinessLabel.className = recordingActive ? 'active' : ready ? 'ready' : 'blocked';
+  }
 }
 
 function renderLogs() {
@@ -856,11 +1825,64 @@ function renderLogs() {
   `).join('') || '<div class="empty">暂无日志。</div>';
 }
 
+function syncMobileStudioView({ focusBack = false } = {}) {
+  const active = Boolean(mobileStudioDetailOpen && mobileStudioMedia.matches && selectedDetail);
+  const libraryPane = document.querySelector('.studio-layout > .stack');
+  const detailPane = document.querySelector('.studio-layout > .detail-panel');
+  document.body.classList.toggle('studio-detail-open', active);
+  els.mobileLibraryBack.hidden = !active;
+  if (mobileStudioMedia.matches) {
+    if (libraryPane) {
+      libraryPane.inert = active;
+      libraryPane.setAttribute('aria-hidden', active ? 'true' : 'false');
+    }
+    [detailPane].forEach(pane => {
+      if (!pane) return;
+      pane.inert = !active;
+      pane.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+  } else {
+    [libraryPane, detailPane].forEach(pane => {
+      if (!pane) return;
+      pane.inert = false;
+      pane.removeAttribute('aria-hidden');
+    });
+  }
+  if (active && focusBack) els.mobileLibraryBack.focus({ preventScroll: true });
+}
+
+function openMobileStudioDetail(returnId = selected || '') {
+  if (!mobileStudioMedia.matches || !selectedDetail) return;
+  if (!mobileStudioDetailOpen) {
+    mobileStudioReturnScrollY = window.scrollY;
+    mobileStudioReturnId = returnId;
+  }
+  mobileStudioDetailOpen = true;
+  syncMobileStudioView({ focusBack: true });
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function closeMobileStudioDetail() {
+  if (!mobileStudioDetailOpen) return;
+  const returnId = mobileStudioReturnId;
+  const returnScrollY = mobileStudioReturnScrollY;
+  mobileStudioDetailOpen = false;
+  syncMobileStudioView();
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: returnScrollY, behavior: 'auto' });
+    const target = returnId === '__preview__'
+      ? els.list.querySelector('[data-preview]')
+      : [...els.list.querySelectorAll('[data-id]')].find(card => card.dataset.id === returnId);
+    target?.focus({ preventScroll: true });
+  });
+}
+
 function workflowListToken() {
   return JSON.stringify({
     query: els.search.value.trim().toLowerCase(),
     selected,
     selectedMode,
+    editorDirty,
     preview: status?.preview
       ? {
         id: status.preview.preview_id,
@@ -876,8 +1898,33 @@ function workflowListToken() {
       description: item.description,
       task_description: item.task_description,
       steps: item.steps,
+      variables: item.variables,
+      category: item.category,
     })),
   });
+}
+
+function workflowTypeLabel(item) {
+  const category = String(item?.category || '').toLowerCase();
+  if (category.includes('benchmark')) return '官方基准';
+  if (category.includes('release readiness')) return '网页验证';
+  if (category === 'case' || category === 'operations') return '业务流程';
+  return category ? '自定义流程' : '本地 Replay';
+}
+
+function workflowMeta(item) {
+  const parts = [workflowTypeLabel(item), `${Number(item?.steps || 0)} 步`];
+  if (Number(item?.variables || 0) > 0) parts.push(`${Number(item.variables)} 变量`);
+  return parts;
+}
+
+function openRecorderPanel() {
+  if (!els.recorderPanel) return;
+  els.recorderPanel.open = true;
+  const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  els.recorderPanel.scrollIntoView({ behavior, block: 'start' });
+  const target = status?.recording?.active ? els.stopRecord : els.recordTaskDescription;
+  window.setTimeout(() => target.focus({ preventScroll: true }), behavior === 'auto' ? 0 : 180);
 }
 
 function renderWorkflowList() {
@@ -885,47 +1932,188 @@ function renderWorkflowList() {
   if (token === workflowRenderToken) return;
   workflowRenderToken = token;
   const q = els.search.value.trim().toLowerCase();
-  const previewCard = status?.preview ? `
-    <button class="workflow-card ${selectedMode === 'preview' ? 'active' : ''}" data-preview="1">
-      <strong>Recording Preview</strong>
-      <p>${escapeHtml(status.preview.workflow.title || status.preview.workflow.name)} · ${escapeHtml(status.preview.workflow.steps.length)} steps</p>
-      <p>未保存，确认后才会进入 workflow 列表。</p>
+  const previewWorkflow = status?.preview?.workflow;
+  const previewSearchText = previewWorkflow
+    ? `${previewWorkflow.title || ''} ${previewWorkflow.name || ''} ${previewWorkflow.task_description || ''}`.toLowerCase()
+    : '';
+  const previewVisible = Boolean(status?.preview && (!q || previewSearchText.includes(q)));
+  const previewCard = previewVisible ? `
+    <button class="workflow-card workflow-card-preview ${selectedMode === 'preview' ? 'active' : ''}" data-preview="1" aria-pressed="${selectedMode === 'preview' ? 'true' : 'false'}" title="${escapeHtml(previewWorkflow.title || previewWorkflow.name)}">
+      <span class="workflow-card-copy">
+        <span class="workflow-card-kicker">录制预览 <em>未保存</em></span>
+        <strong>${escapeHtml(previewWorkflow.title || previewWorkflow.name)}</strong>
+        <span class="workflow-card-meta"><span>待确认</span><span>${escapeHtml(previewWorkflow.steps.length)} 步</span>${editorDirty && selectedMode === 'preview' ? '<span class="workflow-draft-indicator">未保存</span>' : ''}</span>
+      </span>
+      <span class="workflow-card-arrow" aria-hidden="true">›</span>
     </button>
   ` : '';
   const filtered = workflows.filter(item => (
     item.id + ' ' + item.name + ' ' + item.title + ' ' + item.description + ' ' + (item.task_description || '')
   ).toLowerCase().includes(q));
-  els.count.textContent = String(filtered.length + (status?.preview ? 1 : 0));
+  const visibleCount = filtered.length + (previewVisible ? 1 : 0);
+  const totalCount = workflows.length + (status?.preview ? 1 : 0);
+  els.count.textContent = String(totalCount);
+  els.workflowSearchStatus.textContent = q
+    ? `找到 ${visibleCount} 个结果`
+    : status?.preview
+      ? `全部 Replay · 1 个待保存预览`
+      : totalCount
+        ? '全部 Replay'
+        : '从一次真实操作开始';
+  els.clearWorkflowSearch.hidden = !q;
+  els.list.classList.remove('is-loading');
+  els.list.setAttribute('aria-busy', 'false');
   els.list.innerHTML = previewCard + (filtered.map(item => `
-    <button class="workflow-card ${selectedMode === 'workflow' && selected === item.id ? 'active' : ''}" data-id="${escapeHtml(item.id)}">
-      <strong>${escapeHtml(item.title || item.name)}</strong>
-      <p>${escapeHtml(item.id)} · ${escapeHtml(item.steps)} steps</p>
-      <p>${escapeHtml(item.description || 'No description')}</p>
+    <button class="workflow-card ${selectedMode === 'workflow' && selected === item.id ? 'active' : ''}" data-id="${escapeHtml(item.id)}" aria-pressed="${selectedMode === 'workflow' && selected === item.id ? 'true' : 'false'}" title="${escapeHtml(item.title || item.name)}">
+      <span class="workflow-card-copy">
+        <strong>${escapeHtml(item.title || item.name)}</strong>
+        <span class="workflow-card-meta">${workflowMeta(item).map(part => `<span>${escapeHtml(part)}</span>`).join('')}${editorDirty && selectedMode === 'workflow' && selected === item.id ? '<span class="workflow-draft-indicator">未保存</span>' : ''}</span>
+      </span>
+      <span class="workflow-card-arrow" aria-hidden="true">›</span>
     </button>
-  `).join('') || (!previewCard ? '<div class="empty">没有匹配的 workflow。</div>' : ''));
+  `).join('') || (!previewCard ? `<div class="empty product-empty library-empty state-surface is-empty"><span class="library-empty-mark" aria-hidden="true">${q ? '⌕' : '＋'}</span><strong>${q ? '没有匹配的 Replay' : '创建第一个 Replay'}</strong><span>${q ? '换个关键词，或清除搜索查看全部内容。' : '描述任务并完成一次真实操作，GPA 会自动生成可编辑步骤。'}</span>${q ? '<button class="secondary" data-clear-workflow-search>清除搜索</button>' : '<button data-open-recorder>开始录制</button>'}</div>` : ''));
   els.list.querySelectorAll('[data-id]').forEach(card => {
-    card.addEventListener('click', () => selectWorkflow(card.dataset.id));
+    card.addEventListener('click', () => {
+      const id = card.dataset.id;
+      if (selectedMode === 'workflow' && selected === id && selectedDetail) {
+        if (mobileStudioMedia.matches) openMobileStudioDetail(id);
+        return;
+      }
+      selectWorkflow(id, { openOnMobile: true }).catch(showActionError);
+    });
   });
   const preview = els.list.querySelector('[data-preview]');
-  if (preview) preview.addEventListener('click', () => selectPreview());
+  if (preview) preview.addEventListener('click', () => {
+    if (selectedMode === 'preview' && selectedDetail) {
+      if (mobileStudioMedia.matches) openMobileStudioDetail('__preview__');
+      return;
+    }
+    selectPreview({ openOnMobile: true }).catch(showActionError);
+  });
+  els.list.querySelector('[data-clear-workflow-search]')?.addEventListener('click', () => {
+    els.search.value = '';
+    renderWorkflowList();
+    els.search.focus();
+  });
+  els.list.querySelector('[data-open-recorder]')?.addEventListener('click', openRecorderPanel);
 }
 
-async function selectWorkflow(id) {
+function revealEditorStep(stepNumber) {
+  const number = Number(stepNumber || 0);
+  if (!Number.isInteger(number) || number < 1) return false;
+  const target = els.detail.querySelector(`.step-disclosure[data-step-index="${number - 1}"]`);
+  if (!target) return false;
+  const stepEditorSection = target.closest('.step-editor-section');
+  if (stepEditorSection?.matches('details')) stepEditorSection.open = true;
+  target.hidden = false;
+  target.open = true;
+  target.classList.add('deep-linked-step');
+  requestAnimationFrame(() => {
+    target.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'center',
+    });
+    target.querySelector('summary')?.focus({ preventScroll: true });
+    showToast(`已定位到第 ${number} 步`);
+  });
+  window.setTimeout(() => target.classList.remove('deep-linked-step'), 2600);
+  return true;
+}
+
+function renderRequestedRunContext(stepNumber) {
+  const number = Number(stepNumber || 0);
+  if (!REQUESTED_RUN_ID || !Number.isInteger(number) || number < 1 || requestedRunContextDismissed) return false;
+  const run = runHistories.find(item => item.run_id === REQUESTED_RUN_ID && item.workflow_id === selected);
+  if (!run) return false;
+  const failedStep = (run.steps || []).find(item => Number(item.step_number) === number && (item.state === 'failed' || item.error));
+  if (!failedStep) return false;
+  const target = els.detail.querySelector(`.step-disclosure[data-step-index="${number - 1}"]`);
+  const fields = target?.querySelector('.step-fields');
+  if (!fields) return false;
+  fields.querySelector('.step-run-context')?.remove();
+  const diagnosis = runFailureContext(run, failedStep);
+  const resolution = currentFailureResolution(diagnosis, number);
+  const display = resolution || diagnosis;
+  const canRetryDirectly = Boolean(resolution) || diagnosis.kind === 'external' || diagnosis.kind === 'cancelled';
+  fields.insertAdjacentHTML('afterbegin', `
+    <aside class="step-run-context${resolution ? ' is-resolved' : ''}" role="note" aria-label="${resolution ? '已处理的历史失败' : '失败运行上下文'}">
+      <span class="step-run-context-mark" aria-hidden="true">${resolution ? '✓' : '!'}</span>
+      <span class="step-run-context-copy">
+        <small>${escapeHtml(display.label)} · ${escapeHtml(formatDisplayTime(run.finished_at || run.started_at))}</small>
+        <strong>${escapeHtml(display.summary)}</strong>
+        <span>${escapeHtml(display.suggestion)}</span>
+        <span class="step-run-context-actions">
+          <button type="button" class="secondary step-run-context-action" data-step-context-action="${canRetryDirectly ? 'rerun' : 'inspect'}">${canRetryDirectly ? '重新验证' : '检查对应字段'}</button>
+        </span>
+      </span>
+      <button type="button" class="secondary step-run-context-dismiss" aria-label="关闭失败运行提示">×</button>
+    </aside>
+  `);
+  fields.querySelector('[data-step-context-action]')?.addEventListener('click', event => {
+    if (event.currentTarget.dataset.stepContextAction === 'rerun') {
+      if (editorDirty) {
+        showToast('请先保存当前修改，再重新验证。', 'error');
+        document.getElementById('saveWorkflow')?.focus({ preventScroll: true });
+        return;
+      }
+      if (els.runWorkflow.disabled) {
+        showToast('当前运行条件尚未就绪，请查看运行设置。', 'error');
+        return;
+      }
+      els.runWorkflow.click();
+      return;
+    }
+    const field = target.querySelector('[data-step-field="value"]') || target.querySelector('[data-step-field="action"]');
+    if (!field) return;
+    field.focus({ preventScroll: true });
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    field.closest('.step-field')?.classList.add('field-attention');
+    window.setTimeout(() => field.closest('.step-field')?.classList.remove('field-attention'), 1800);
+    showToast('已定位到需要检查的字段');
+  });
+  fields.querySelector('.step-run-context-dismiss')?.addEventListener('click', () => {
+    requestedRunContextDismissed = true;
+    fields.querySelector('.step-run-context')?.remove();
+  });
+  return true;
+}
+
+async function selectWorkflow(id, { openOnMobile = false, revealStep = 0, restoreContext = false } = {}) {
+  const changingSelection = selectedMode !== 'workflow' || selected !== id;
+  if (changingSelection && !(await confirmDiscardEditorChanges('切换 Replay'))) return false;
+  if (changingSelection) {
+    if (editorDirty) clearStoredEditorDraft();
+    pendingEditorDraft = null;
+    runFeedback = null;
+    setEditorDirty(false);
+  }
   const requestVersion = ++selectionVersion;
+  if (selectedMode !== 'workflow' || selected !== id || revealStep) {
+    const rememberedContext = restoreContext ? readWorkspaceContext() : null;
+    stepBrowserPage = revealStep
+      ? Math.floor((Number(revealStep) - 1) / STEP_PAGE_SIZE)
+      : rememberedContext?.workflowId === id
+        ? rememberedContext.stepPage
+        : 0;
+    stepBrowserQuery = '';
+    stepBrowserType = '';
+  }
   selectedMode = 'workflow';
   selected = id;
   els.detailTitle.textContent = 'Replay 详情';
-  els.detailMetrics.style.display = 'grid';
   renderWorkflowList();
-  els.selectedId.textContent = id;
-  els.detail.innerHTML = '<div class="empty">正在加载 workflow...</div>';
+  setDetailHeaderMode('正在读取', 'loading');
+  setDetailHeaderCounts();
+  els.detail.className = 'detail-loading';
+  els.detail.setAttribute('aria-busy', 'true');
+  els.detail.innerHTML = '<div class="skeleton-block" aria-hidden="true"><b></b><span></span><span></span><span></span></div>';
   let data;
   let replayData = null;
   let replayError = '';
   try {
-    data = await getJson(`/api/workflows/${encodeURIComponent(id)}`);
+    data = await getJson(`/api/workflows/${encodeURIComponent(id)}?${clientEnvironmentQuery()}`, { timeoutMs: 20000 });
     try {
-      replayData = await getJson(`/api/replays/${encodeURIComponent(id)}`);
+      replayData = await getJson(`/api/replays/${encodeURIComponent(id)}`, { timeoutMs: 20000 });
     } catch (error) {
       replayError = error.message;
     }
@@ -935,65 +2123,310 @@ async function selectWorkflow(id) {
   }
   if (requestVersion !== selectionVersion || selectedMode !== 'workflow' || selected !== id) return;
   selectedDetail = data.workflow;
+  selectedPreviewMedia = null;
   selectedReplay = replayData?.replay || null;
   selectedReplayError = replayError;
+  editorBaseSignature = editableWorkflowSignature(selectedDetail);
+  pendingEditorDraft = getStoredEditorDraft();
+  setEditorDirty(false);
+  els.detailTitle.textContent = selectedDetail.title || selectedDetail.name || 'Replay 详情';
+  els.detailTitle.title = els.detailTitle.textContent;
+  setDetailHeaderMode(selectedDetail.safe_web?.runnable ? '安全网页验证' : '桌面 Replay', selectedDetail.safe_web?.runnable ? 'safe-web' : 'desktop');
   renderDetail();
+  rememberWorkspaceContext(selectedDetail.id, stepBrowserPage);
   renderVariables();
   renderRuntimeStatus();
+  if (openOnMobile) openMobileStudioDetail(id);
+  if (restoreContext) requestAnimationFrame(() => {
+    els.list.querySelector('.workflow-card.active')?.scrollIntoView({ block: 'nearest' });
+  });
   await loadRunHistory();
+  if (revealStep) {
+    renderRequestedRunContext(revealStep);
+    revealEditorStep(revealStep);
+  }
 }
 
-async function selectPreview() {
+async function selectPreview({ openOnMobile = false } = {}) {
+  const changingSelection = selectedMode !== 'preview' || selected !== '__preview__';
+  if (changingSelection && !(await confirmDiscardEditorChanges('打开录制预览'))) return false;
+  if (changingSelection) {
+    if (editorDirty) clearStoredEditorDraft();
+    pendingEditorDraft = null;
+    runFeedback = null;
+    setEditorDirty(false);
+  }
   const requestVersion = ++selectionVersion;
-  const data = await getJson('/api/preview');
+  els.detailTitle.textContent = '录制预览';
+  els.detailTitle.removeAttribute('title');
+  setDetailHeaderMode('正在读取', 'loading');
+  setDetailHeaderCounts();
+  els.detail.className = 'detail-loading';
+  els.detail.setAttribute('aria-busy', 'true');
+  els.detail.innerHTML = '<div class="skeleton-block" aria-hidden="true"><b></b><span></span><span></span><span></span></div>';
+  const data = await getJson('/api/preview', { timeoutMs: 20000 });
   if (requestVersion !== selectionVersion) return;
   if (!data.preview) return;
   selectedMode = 'preview';
   selected = '__preview__';
+  stepBrowserPage = 0;
+  stepBrowserQuery = '';
+  stepBrowserType = '';
   selectedDetail = data.preview.workflow;
+  selectedPreviewMedia = data.preview.media || null;
   selectedReplay = null;
   selectedReplayError = '';
-  els.detailTitle.textContent = 'Replay 详情';
-  els.detailMetrics.style.display = 'grid';
-  els.selectedId.textContent = `preview:${data.preview.preview_id.slice(0, 8)}`;
+  editorBaseSignature = editableWorkflowSignature(selectedDetail);
+  pendingEditorDraft = getStoredEditorDraft();
+  setEditorDirty(false);
+  els.detailTitle.textContent = `录制预览 · ${selectedDetail.title || selectedDetail.name || '未命名 Replay'}`;
+  els.detailTitle.title = els.detailTitle.textContent;
+  setDetailHeaderMode('录制预览', 'preview');
   renderWorkflowList();
   renderDetail();
   renderVariables();
   renderRuntimeStatus();
+  if (openOnMobile) openMobileStudioDetail('__preview__');
   await loadRunHistory();
 }
 
 function renderEmptyDetail() {
+  pendingEditorDraft = null;
+  runFeedback = null;
+  editorBaseSignature = '';
+  setEditorDirty(false);
+  mobileStudioDetailOpen = false;
+  syncMobileStudioView();
   els.detailTitle.textContent = 'Replay 详情';
-  els.detailMetrics.style.display = 'grid';
-  els.selectedId.textContent = '未选择';
-  els.metricSteps.textContent = '0';
-  els.metricVars.textContent = '0';
-  els.metricSubgraphs.textContent = '0';
-  els.detail.innerHTML = '<div class="empty">选择一个 Replay 查看意图与步骤，或停止录制进入预览。</div>';
+  els.detailTitle.removeAttribute('title');
+  setDetailHeaderMode('未选择', 'neutral');
+  setDetailHeaderCounts('0', '0');
+  els.detail.className = '';
+  els.detail.setAttribute('aria-busy', 'false');
+  els.detail.innerHTML = '<div class="empty product-empty state-surface is-empty"><strong>选择一个 Replay</strong><span>查看任务目标和运行条件，或完成一次录制创建新的 Replay。</span></div>';
   els.vars.innerHTML = '<div class="empty">未选择 Replay。</div>';
   renderRunHistory();
 }
 
-function renderQualityPanel(quality) {
-  if (!quality || !quality.issue_count) return '';
-  const klass = quality.status === 'blocking' ? 'error' : quality.status === 'warn' ? 'warn' : '';
-  const title = quality.status === 'blocking'
-    ? 'Workflow 有阻塞项'
-    : quality.status === 'warn'
-      ? 'Workflow 有风险项'
-      : 'Workflow 可优化';
-  const issues = (quality.issues || []).slice(0, 8).map(item =>
-    `<div>${escapeHtml(item.severity)} · ${escapeHtml(item.message)}</div>`
-  ).join('');
-  return `
-    <div class="editor-section">
-      <div class="feedback ${klass}">
-        <strong>${escapeHtml(title)}</strong>
-        <div>${issues}</div>
-      </div>
+function readinessIssuePresentation(code, items) {
+  const steps = [...new Set(items.map(item => Number(item.step || 0)).filter(Boolean))].sort((a, b) => a - b);
+  const stepText = steps.length ? `步骤 ${steps.slice(0, 6).join('、')}${steps.length > 6 ? ` 等 ${steps.length} 步` : ''}` : '';
+  const firstStep = steps[0] || 0;
+  const severity = items.some(item => item.severity === 'blocking') ? 'blocking' : items.some(item => item.severity === 'warn') ? 'warn' : 'info';
+  const known = {
+    internal_regression_keyboard_disabled: {
+      title: '全局键盘操作已锁定',
+      detail: '这一步使用了已停用的全局键盘输入。请改成可验证的语义动作，或在可信环境中重新录制。',
+    },
+    coordinate_only: {
+      title: `${items.length} 个步骤依赖固定坐标`,
+      detail: '窗口位置变化时可能点错目标。建议为这些步骤补充可识别的按钮、文本或应用上下文。',
+    },
+    browser_semantic_repair: {
+      title: `${items.length} 个网页步骤可自动优化`,
+      detail: '运行时会尽量转换为直接打开网址，降低对浏览器窗口位置的依赖。',
+    },
+  }[code];
+  return {
+    code,
+    severity,
+    steps,
+    firstStep,
+    stepText,
+    title: known?.title || (severity === 'blocking' ? '存在阻止运行的问题' : severity === 'warn' ? '建议运行前检查' : '运行时可自动优化'),
+    detail: known?.detail || items[0]?.message || '请检查相关步骤。',
+  };
+}
+
+function groupedReadinessIssues(issues = []) {
+  const groups = new Map();
+  issues.forEach(item => {
+    const key = item.code || `${item.severity || 'info'}:${item.message || ''}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+  return [...groups.entries()]
+    .map(([code, items]) => readinessIssuePresentation(code, items))
+    .sort((a, b) => ({ blocking: 0, warn: 1, info: 2 }[a.severity] - ({ blocking: 0, warn: 1, info: 2 }[b.severity])));
+}
+
+function renderReadinessPanel(wf = {}, mode = 'workflow') {
+  const quality = wf.quality || {};
+  const safeWeb = wf.safe_web || {};
+  const gate = wf.reproduction_gate || {};
+  const blocked = quality.runnable === false || gate.can_execute === false;
+  const warned = !blocked && (quality.status === 'warn' || Number(quality.warn_count || 0) > 0);
+  const klass = blocked ? 'blocked' : warned ? 'warn' : 'ready';
+  const safeWebRunnable = safeWeb.runnable === true;
+  const issueGroups = groupedReadinessIssues(quality.issues || []);
+  const blockingGroups = issueGroups.filter(item => item.severity === 'blocking').length;
+  const executionTitle = safeWebRunnable ? '安全网页验证' : '桌面 Replay';
+  const baseTitle = mode === 'preview'
+    ? '保存后即可运行'
+    : blocked
+      ? `需要处理 ${Math.max(1, Number(quality.blocking_count || blockingGroups))} 个阻塞项`
+      : safeWebRunnable ? '可以安全验证' : warned ? '可以运行，建议先检查' : '可以运行';
+  const baseMeta = mode === 'preview'
+    ? '确认标题、步骤和变量后保存为 Replay'
+    : blocked
+      ? `${Number(quality.issue_count || quality.issues?.length || 0)} 条检查已合并为 ${issueGroups.length} 组`
+      : safeWebRunnable
+        ? `结构检查通过 · 只读访问 ${Number(safeWeb.public_url_count || 0)} 个公开来源`
+        : warned ? `${Number(quality.warn_count || 0)} 个提醒 · 运行前会检查桌面权限` : '结构检查通过 · 运行前会检查桌面权限';
+  const displayTitle = editorDirty ? '先保存当前修改' : baseTitle;
+  const displayMeta = editorDirty ? '未保存的步骤和设置不会用于本次运行' : baseMeta;
+  const executionNote = safeWebRunnable
+    ? `本次只读取 ${Number(safeWeb.public_url_count || 0)} 个公开 HTTP(S) 来源并验证结果；不会控制桌面、写入系统剪贴板或调用 LLM。`
+    : '本任务需要实时应用状态。启动前会检查目标应用、桌面权限和当前环境，并在倒计时后开始控制鼠标和键盘。';
+  const taskSummary = wf.task_description || wf.description || '按已保存步骤完成任务并验证结果。';
+  const issueRows = issueGroups.map(item => `
+    <div class="readiness-check ${escapeHtml(item.severity)}">
+      <span class="readiness-check-mark" aria-hidden="true">${item.severity === 'blocking' ? '!' : item.severity === 'warn' ? '△' : '↗'}</span>
+      <span class="readiness-check-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.detail)}</span>${item.stepText ? `<small>${escapeHtml(item.stepText)}</small>` : ''}</span>
+      ${item.firstStep ? `<button type="button" class="secondary readiness-step-action" data-readiness-step="${item.firstStep}">查看第 ${item.firstStep} 步</button>` : ''}
     </div>
+  `).join('');
+  const saveActionVisible = editorDirty || mode === 'preview';
+  return `
+    <section class="editor-section readiness-summary ${klass}${editorDirty ? ' unsaved' : ''}" data-readiness-title="${escapeHtml(baseTitle)}" data-readiness-meta="${escapeHtml(baseMeta)}">
+      <div class="readiness-compact-head">
+        <span class="readiness-symbol" aria-hidden="true">${editorDirty || mode === 'preview' ? '•' : blocked ? '!' : safeWebRunnable ? '◎' : '✓'}</span>
+        <span class="readiness-primary-copy"><small>运行准备</small><strong class="readiness-primary-title">${escapeHtml(displayTitle)}</strong><span class="readiness-primary-meta">${escapeHtml(displayMeta)}</span></span>
+        <span class="readiness-head-actions">
+          <span class="readiness-mode-pill">${escapeHtml(executionTitle)}</span>
+          <span class="badge ${editorDirty || mode === 'preview' ? 'warn' : 'ready'}" id="editorSaveState" aria-live="polite">${editorDirty ? '未保存' : mode === 'preview' ? '待保存' : '已保存'}</span>
+          <button type="button" class="secondary readiness-save-action" data-readiness-action="save"${saveActionVisible ? '' : ' hidden'}>${mode === 'preview' ? '保存 Replay' : '保存修改'}</button>
+          ${mode === 'workflow' ? `<button type="button" class="readiness-run-action" data-readiness-action="run"${editorDirty ? ' disabled' : ''}>${editorDirty ? '请先保存' : safeWebRunnable ? '运行验证' : '运行 Replay'}</button>` : ''}
+        </span>
+      </div>
+      <div class="readiness-task-brief"><small>任务目标</small><p>${escapeHtml(taskSummary)}</p></div>
+      <details class="readiness-details">
+        <summary><span>${issueGroups.length ? `查看 ${issueGroups.length} 组检查` : '查看安全边界'}</span><span>${issueGroups.length ? `${Number(quality.issue_count || quality.issues?.length || 0)} 条检查` : '检查通过'}</span></summary>
+        <div class="readiness-details-body">
+          <div class="readiness-safety-note"><span aria-hidden="true">${safeWebRunnable ? '◎' : '⌁'}</span><p>${escapeHtml(executionNote)}</p></div>
+          <div class="readiness-checklist">${issueRows || '<div class="readiness-clear"><span aria-hidden="true">✓</span><span><strong>关键检查已通过</strong><small>流程结构、目标上下文和运行条件没有发现阻塞项。</small></span></div>'}</div>
+          ${safeWebRunnable ? '<div class="profile-proof"><span>公开 URL 防护</span><span>逐次校验跳转</span><span>支持超时取消</span><span>保留运行证据</span></div>' : ''}
+        </div>
+      </details>
+    </section>
   `;
+}
+
+function renderReproductionGate(wf) {
+  const gate = wf.reproduction_gate || {};
+  if (!gate.schema) return '';
+  const statusLabels = {
+    ready: '可直接复现',
+    adaptation_required: '需环境适配',
+    review: '证据待补齐',
+    blocked: '已阻止运行',
+  };
+  const modeLabel = gate.execution_mode === 'safe_web' ? '安全网页验证' : '桌面 Replay';
+  const contract = gate.reproduction_contract || {};
+  const assumptions = gate.reused_assumptions || [];
+  const adaptations = gate.required_adaptations || [];
+  const lines = [
+    ...(gate.blockers || []).map(item => ({ kind: 'block', label: '阻塞', text: item.message })),
+    ...(gate.review_items || []).slice(0, 3).map(item => ({ kind: 'review', label: '待补证', text: item.message })),
+    ...adaptations.slice(0, 3).map(item => ({ kind: 'adapt', label: item.strategy || '适配', text: item.action || '' })),
+  ];
+  const lineHtml = lines.length ? lines.map(item => `
+    <div class="gate-line ${escapeHtml(item.kind)}">
+      <span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.text)}</strong>
+    </div>`).join('') : '<div class="gate-line ready"><span>结论</span><strong>环境与复现证据均满足运行要求。</strong></div>';
+  return `
+    <details class="technical-subsection studio-disclosure gate-disclosure ${gate.can_execute ? 'pass' : 'blocked'}">
+      <summary>
+        <span><small>复现门禁</small><strong>${escapeHtml(statusLabels[gate.status] || gate.status || '待评估')}</strong></span>
+        <span class="disclosure-meta">${escapeHtml(gate.score || 0)} 分 · ${escapeHtml(modeLabel)}</span>
+      </summary>
+      <div class="disclosure-body gate-content">
+        <div class="gate-facts">
+          <span><b>${escapeHtml(gate.success_criteria_count || 0)}</b> 成功条件</span>
+          <span><b>${escapeHtml(assumptions.length)}</b> 可复用假设</span>
+          <span><b>${escapeHtml(adaptations.length)}</b> 环境适配</span>
+          <span><b>${escapeHtml(contract.score || 0)}</b> 证据分</span>
+        </div>
+        <div class="gate-lines">${lineHtml}</div>
+        <code class="gate-decision">decision ${escapeHtml(gate.decision_id || 'pending')}</code>
+      </div>
+    </details>`;
+}
+
+function renderWorkflowEvidence(wf) {
+  const environment = wf.environment || {};
+  const system = environment.system || {};
+  const screen = environment.screen || {};
+  const captureSurface = environment.capture_surface || {};
+  const browserEnvironment = environment.browser || {};
+  const understanding = wf.understanding || {};
+  const health = wf.health || {};
+  const interaction = understanding.interaction_profile || {};
+  const recordingAnalysis = wf.provenance?.recording_analysis || {};
+  const diff = wf.environment_diff || {};
+  const artifact = (wf.artifacts || {}).recording;
+  const requirements = understanding.required_environment || {};
+  const previewVideo = selectedMode === 'preview' && selectedPreviewMedia?.available;
+  const hasVideo = Boolean(artifact || previewVideo);
+  const videoUrl = previewVideo
+    ? `/api/preview/media?preview_id=${encodeURIComponent(status?.preview?.preview_id || '')}`
+    : `/api/workflows/${encodeURIComponent(wf.id)}/recording`;
+  const dimensionSource = screen.width && screen.height
+    ? {width: screen.width, height: screen.height, label: '系统屏幕'}
+    : captureSurface.width && captureSurface.height
+      ? {width: captureSurface.width, height: captureSurface.height, label: '录屏捕获面'}
+      : browserEnvironment.viewport_width && browserEnvironment.viewport_height
+        ? {width: browserEnvironment.viewport_width, height: browserEnvironment.viewport_height, label: '浏览器视口'}
+        : null;
+  const dimensions = dimensionSource
+    ? `${dimensionSource.width}×${dimensionSource.height} · ${dimensionSource.label}`
+    : '未记录捕获尺寸';
+  const differences = (diff.differences || []).slice(0, 4).map(item => {
+    const scale = item.scale_hint ? ` · scale ${item.scale_hint.x}×${item.scale_hint.y}` : '';
+    return `<div><strong>${escapeHtml(item.severity || 'info')}</strong> · ${escapeHtml(item.field)}：${escapeHtml(item.recorded)} → ${escapeHtml(item.current)}${escapeHtml(scale)}</div>`;
+  }).join('');
+  const adaptationPlan = (diff.adaptation_plan || []).slice(0, 4).map(item => (
+    `<div><strong>${escapeHtml(item.strategy || '适配')}</strong> · ${escapeHtml(item.action || '')}</div>`
+  )).join('');
+  const requiredApps = (requirements.applications || []).join(' · ') || '通用';
+  const requiredHosts = (requirements.web_hosts || []).join(' · ') || '无固定站点';
+  const recordingMeta = artifact
+    ? `${artifact.duration_seconds ? `${artifact.duration_seconds}s · ` : ''}${artifact.width && artifact.height ? `${artifact.width}×${artifact.height} · ` : ''}${artifact.bytes ? `${(artifact.bytes / 1024 / 1024).toFixed(1)} MB` : ''}`
+    : '';
+  const sourceEventCount = Number(recordingAnalysis.source_event_count || 0);
+  const retainedStepCount = Number(recordingAnalysis.retained_step_count || wf.steps.length || 0);
+  const reducedEventCount = Number(recordingAnalysis.step_reduction_count || Math.max(0, sourceEventCount - retainedStepCount));
+  const analysisMeta = sourceEventCount
+    ? `${sourceEventCount} 个原始动作 → ${retainedStepCount} 个步骤${reducedEventCount ? `<br>收束 ${reducedEventCount} 个重复或非必要动作` : ''}`
+    : `${escapeHtml(interaction.step_count ?? wf.steps.length)} 步 · ${escapeHtml((understanding.success_criteria || []).length)} 个成功条件`;
+  const targetCoverage = health.semantic_target_coverage || {};
+  const environmentConclusion = diff.status === 'unknown'
+    ? `环境证据不足：${(diff.missing_evidence || []).includes('recorded.system.name') ? '缺少录制主机身份' : '缺少当前主机身份'}，桌面 Replay 已锁定。`
+    : differences
+      ? ''
+      : '当前环境未发现需要适配的关键差异。';
+  return `
+    <details class="technical-subsection studio-disclosure">
+      <summary>
+        <span><small>环境、理解与录屏</small><strong>可复现证据</strong></span>
+        <span class="disclosure-meta">${hasVideo ? '已附录屏' : '无录屏'} · ${escapeHtml(diff.status || '已捕获')}</span>
+      </summary>
+      <div class="disclosure-body">
+      <div class="evidence-grid">
+        <div class="evidence-card"><span>Replay 健康度</span><strong>${escapeHtml(health.score ?? '—')} 分 · ${escapeHtml(health.grade || '待评估')}<br>${escapeHtml(targetCoverage.covered || 0)} / ${escapeHtml(targetCoverage.total || 0)} 个目标已语义化</strong></div>
+        <div class="evidence-card"><span>原始系统与捕获环境</span><strong>${escapeHtml(system.name || 'unknown')} · ${escapeHtml(system.machine || 'unknown')}<br>${escapeHtml(dimensions)}</strong></div>
+        <div class="evidence-card"><span>Agent 理解与收束</span><strong>${analysisMeta}</strong></div>
+        <div class="evidence-card"><span>屏幕证据</span><strong>${hasVideo ? `真实录屏已附带${recordingMeta ? `<br>${escapeHtml(recordingMeta)}` : ''}` : '该流程未附带录屏'}</strong></div>
+      </div>
+      <div class="adaptation-note">
+        <strong>Agent 复现上下文</strong>
+        <span>应用：${escapeHtml(requiredApps)} · 站点：${escapeHtml(requiredHosts)}</span>
+        ${environmentConclusion ? `<div>${escapeHtml(environmentConclusion)}</div>` : differences}
+        ${adaptationPlan ? `<div><strong>Agent 适配计划</strong></div>${adaptationPlan}` : ''}
+      </div>
+      ${hasVideo ? `<video class="recording-player" controls preload="metadata" src="${videoUrl}"></video>` : ''}
+      </div>
+    </details>`;
 }
 
 function renderReplayManifest(replay) {
@@ -1004,11 +2437,12 @@ function renderReplayManifest(replay) {
   const capabilities = (intent.capabilities || []).map(item => `<span class="badge ready">${escapeHtml(item)}</span>`).join('');
   const permissions = (intent.permissions || []).map(item => `<span class="badge warn">${escapeHtml(item)}</span>`).join('');
   return `
-    <div class="editor-section manifest-panel">
-      <div class="section-title">
-        <div><div class="mini-label">Replay plugin</div><h3>意图与可移植性</h3></div>
-        <span class="badge ${intent.irreversible ? 'warn' : 'ready'}">${intent.irreversible ? '需安全确认' : '可预检'}</span>
-      </div>
+    <details class="technical-subsection studio-disclosure manifest-panel">
+      <summary>
+        <span><small>Replay 插件</small><strong>意图与可移植性</strong></span>
+        <span class="disclosure-meta">${intent.irreversible ? '需安全确认' : '可预检'}</span>
+      </summary>
+      <div class="disclosure-body">
       <p>${escapeHtml(intent.summary || '尚未解析意图')}</p>
       <div class="manifest-grid">
         <div class="manifest-fact"><span>应用</span><strong>${escapeHtml((intent.apps || []).join(' · ') || '通用')}</strong></div>
@@ -1022,108 +2456,720 @@ function renderReplayManifest(replay) {
         <div class="field"><label>隔离 Space</label><button class="secondary" id="planReplay">创建预检计划</button></div>
       </div>
       <div id="planResult" aria-live="polite"></div>
-    </div>
+      </div>
+    </details>
   `;
 }
 
-function renderDetail() {
+function stepSearchText(step, index) {
+  return [index + 1, actionLabel(step.action_type), step.action_type, step.action, step.value, step.active_app_name]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function stepBrowserState(wf = selectedDetail) {
+  const query = stepBrowserQuery.trim().toLowerCase();
+  const matches = (wf?.steps || []).map((step, index) => ({ step, index })).filter(({ step, index }) => (
+    (!query || stepSearchText(step, index).includes(query))
+    && (!stepBrowserType || step.action_type === stepBrowserType)
+  ));
+  const pageCount = Math.max(1, Math.ceil(matches.length / STEP_PAGE_SIZE));
+  stepBrowserPage = Math.min(Math.max(0, stepBrowserPage), pageCount - 1);
+  const start = stepBrowserPage * STEP_PAGE_SIZE;
+  const end = Math.min(start + STEP_PAGE_SIZE, matches.length);
+  return {
+    query,
+    matches,
+    pageCount,
+    start,
+    end,
+    entries: matches.slice(start, end),
+    filtering: Boolean(query || stepBrowserType),
+  };
+}
+
+function stepBrowserSummary(state) {
+  if (!state.matches.length) return '0 个结果';
+  return state.filtering
+    ? `显示 ${state.start + 1}–${state.end} / ${state.matches.length} 个结果`
+    : `步骤 ${state.start + 1}–${state.end} / ${state.matches.length}`;
+}
+
+function stepBrowserPosition(state) {
+  if (!state.matches.length) return '无结果';
+  return state.pageCount > 1
+    ? `第 ${stepBrowserPage + 1} / ${state.pageCount} 组`
+    : '单组';
+}
+
+function stepActionVisual(actionType) {
+  const type = String(actionType || '').trim().toLowerCase();
+  if (type.startsWith('assert_') || type === 'verify' || type === 'check') return { kind: 'verify', symbol: '✓' };
+  if (type.startsWith('wait')) return { kind: 'wait', symbol: '…' };
+  if (['type', 'paste', 'input', 'write_text'].includes(type)) return { kind: 'input', symbol: 'T' };
+  if (['click', 'double_click', 'right_click', 'drag', 'scroll'].includes(type)) return { kind: 'interact', symbol: '•' };
+  if (['hotkey', 'key', 'press_key'].includes(type)) return { kind: 'command', symbol: '⌘' };
+  if (['set_clipboard', 'copy', 'save_result', 'export'].includes(type)) return { kind: 'output', symbol: '⇥' };
+  if (['open_url', 'navigate', 'go_back', 'go_forward'].includes(type)) return { kind: 'navigate', symbol: '↗' };
+  return { kind: 'other', symbol: '·' };
+}
+
+function renderStepEditorRow(step, index) {
+  const coords = step.click_coordinates || ['', ''];
+  const showCoordinates = stepActionUsesCoordinates(step.action_type) || (coords[0] !== '' && coords[1] !== '');
+  const showValue = stepActionUsesValue(step.action_type) || Boolean(step.value);
+  const valueLabel = stepValueLabel(step.action_type);
+  const stepSummary = step.action || step.value || step.active_app_name || '未命名步骤';
+  const actionVisual = stepActionVisual(step.action_type);
+  const normalization = step.metadata?.intent_normalization || {};
+  const normalizationLabels = {
+    typed_correction_or_continuation: '连续输入已合并',
+    scroll_burst: '连续滚动已合并',
+    duplicate_hotkey: '重复快捷键已合并',
+    semantic_group: '相关动作已归并',
+  };
+  const normalizationLabel = normalizationLabels[normalization.strategy] || '';
+  const normalizationNote = normalizationLabel
+    ? `<div class="step-normalization-note"><span>Agent 整理</span><strong>${escapeHtml(normalizationLabel)}</strong><small>${escapeHtml(normalization.source_event_count || 0)} 个原始动作</small></div>`
+    : '';
+  const targetContract = step.metadata?.target_contract || {};
+  const targetNote = targetContract.schema ? `<div class="step-normalization-note semantic"><span>语义目标</span><strong>${escapeHtml([targetContract.role, targetContract.name].filter(Boolean).join(' · ') || '结构与视觉上下文')}</strong><small>${escapeHtml((targetContract.strategies || []).length)} 层定位</small></div>` : '';
+  return `
+    <details class="edit-step step-disclosure" data-step-id="${escapeHtml(step.id)}" data-step-index="${index}" data-step-type="${escapeHtml(step.action_type)}" data-step-kind="${escapeHtml(actionVisual.kind)}" data-step-search="${escapeHtml(stepSearchText(step, index))}">
+      <summary>
+        <span class="step-number">${escapeHtml(index + 1)}</span>
+        <span class="step-action-mark" aria-hidden="true">${escapeHtml(actionVisual.symbol)}</span>
+        <span class="step-summary-copy"><strong>${escapeHtml(actionLabel(step.action_type))}</strong><span>${escapeHtml(stepSummary)}</span></span>
+        <span class="step-edit-label">编辑</span>
+      </summary>
+      <div class="step-fields">
+        ${normalizationNote}
+        ${targetNote}
+        <div class="step-primary-fields">
+          <label class="step-field step-type-field"><span>动作类型</span><input data-step-field="action_type" value="${escapeHtml(step.action_type)}" list="stepActionTypes" autocomplete="off" spellcheck="false"><small>选择建议动作，也可以保留旧版自定义类型</small></label>
+          <label class="step-field step-action-field"><span>动作说明</span><textarea data-step-field="action">${escapeHtml(step.action)}</textarea></label>
+        </div>
+        <div class="step-coordinate-fields${showCoordinates ? '' : ' is-hidden'}" aria-label="点击坐标">
+          <label class="step-field"><span>横坐标 X</span><input data-step-field="x" inputmode="decimal" value="${escapeHtml(coords[0])}"></label>
+          <label class="step-field"><span>纵坐标 Y</span><input data-step-field="y" inputmode="decimal" value="${escapeHtml(coords[1])}"></label>
+        </div>
+        <div class="step-secondary-fields${showValue ? '' : ' value-hidden'}">
+          <label class="step-field step-value-field${showValue ? '' : ' is-hidden'}"><span class="step-value-label">${escapeHtml(valueLabel)}</span><textarea data-step-field="value">${escapeHtml(step.value || '')}</textarea></label>
+          <label class="step-field step-app-field"><span>目标应用</span><input data-step-field="active_app_name" value="${escapeHtml(step.active_app_name || '')}" placeholder="例如 Google Chrome"></label>
+        </div>
+        <input type="hidden" data-step-field="pause_duration" value="${escapeHtml(step.pause_duration || 0)}">
+        <div class="step-field-footer">
+          <span>第 ${escapeHtml(index + 1)} 步</span>
+          <div class="step-field-actions">
+            <span class="step-order-actions" role="group" aria-label="调整第 ${escapeHtml(index + 1)} 步顺序">
+              <button type="button" class="secondary step-move-action" data-move-step="${escapeHtml(step.id)}" data-move-direction="-1" aria-label="上移第 ${escapeHtml(index + 1)} 步" title="上移"${index === 0 ? ' disabled' : ''}>↑</button>
+              <button type="button" class="secondary step-move-action" data-move-step="${escapeHtml(step.id)}" data-move-direction="1" aria-label="下移第 ${escapeHtml(index + 1)} 步" title="下移"${index === selectedDetail.steps.length - 1 ? ' disabled' : ''}>↓</button>
+            </span>
+            <button type="button" class="secondary step-duplicate-action" data-duplicate-step="${escapeHtml(step.id)}" aria-label="复制第 ${escapeHtml(index + 1)} 步">复制步骤</button>
+            <button type="button" class="secondary step-delete-action" data-remove-step="${escapeHtml(step.id)}">删除步骤</button>
+          </div>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderDetail({ openSettings = false } = {}) {
   const wf = selectedDetail;
+  els.detail.className = '';
+  els.detail.setAttribute('aria-busy', 'false');
   els.metricSteps.textContent = wf.steps.length;
   els.metricVars.textContent = wf.variables.length;
-  els.metricSubgraphs.textContent = wf.subgraph_count;
-  const vars = wf.variables.map((item, index) => `
-    <div class="edit-var" data-var-index="${index}">
-      <div><div class="mini-label">Name</div><input data-var-field="name" value="${escapeHtml(item.name)}"></div>
-      <div><div class="mini-label">Default</div><input data-var-field="default_value" value="${escapeHtml(item.default_value || '')}"></div>
-      <div><div class="mini-label">Description</div><input data-var-field="description" value="${escapeHtml(item.description || '')}"></div>
-      <button class="secondary" data-remove-var="${index}">删除</button>
-    </div>
-  `).join('');
-  const steps = wf.steps.map((step, index) => {
-    const coords = step.click_coordinates || ['', ''];
+  const vars = wf.variables.map((item, index) => {
+    const variableName = item.name || `变量 ${index + 1}`;
     return `
-      <div class="edit-step" data-step-id="${escapeHtml(step.id)}">
-        <div><div class="mini-label">#</div><input data-step-field="number" value="${escapeHtml(index + 1)}" disabled></div>
-        <div><div class="mini-label">Type</div><input data-step-field="action_type" value="${escapeHtml(step.action_type)}"></div>
-        <div><div class="mini-label">Action</div><textarea data-step-field="action">${escapeHtml(step.action)}</textarea></div>
-        <div><div class="mini-label">X</div><input data-step-field="x" value="${escapeHtml(coords[0])}"></div>
-        <div><div class="mini-label">Y</div><input data-step-field="y" value="${escapeHtml(coords[1])}"></div>
-        <button class="secondary" data-remove-step="${escapeHtml(step.id)}">删除</button>
-        <div style="grid-column: 1 / -1">
-          <div class="grid2">
-            <div>
-              <div class="mini-label">Value / Typed text / Hotkey</div>
-              <textarea data-step-field="value">${escapeHtml(step.value || '')}</textarea>
-            </div>
-            <div>
-              <div class="mini-label">Target App</div>
-              <input data-step-field="active_app_name" value="${escapeHtml(step.active_app_name || '')}" placeholder="Google Chrome / REDcity">
-            </div>
-          </div>
-          <input type="hidden" data-step-field="pause_duration" value="${escapeHtml(step.pause_duration || 0)}">
+      <article class="edit-var" data-var-index="${index}">
+        <div class="variable-card-head">
+          <span class="variable-card-index">${escapeHtml(index + 1)}</span>
+          <span class="variable-card-title"><strong>${escapeHtml(variableName)}</strong><small>运行时输入</small></span>
+          <button type="button" class="secondary variable-remove-action" data-remove-var="${index}" aria-label="删除变量 ${escapeHtml(variableName)}">删除</button>
         </div>
-      </div>
+        <div class="variable-card-fields">
+          <label class="variable-field"><span>变量名称</span><input data-var-field="name" value="${escapeHtml(item.name)}" placeholder="例如 repo_path" autocomplete="off"></label>
+          <label class="variable-field"><span>默认值</span><textarea data-var-field="default_value" placeholder="没有默认值时留空">${escapeHtml(item.default_value || '')}</textarea></label>
+          <label class="variable-field variable-description-field"><span>用途说明</span><input data-var-field="description" value="${escapeHtml(item.description || '')}" placeholder="说明运行时需要填写什么"></label>
+        </div>
+      </article>
     `;
   }).join('');
+  const currentStepState = stepBrowserState(wf);
+  if (selectedMode === 'workflow' && !currentStepState.filtering) {
+    rememberWorkspaceContext(wf.id, stepBrowserPage);
+  }
+  const steps = currentStepState.entries.map(({ step, index }) => renderStepEditorRow(step, index)).join('');
+  const stepTypes = [...new Set(wf.steps.map(step => step.action_type).filter(Boolean))];
+  const stepTypeOptions = stepTypes.map(type => `<option value="${escapeHtml(type)}"${stepBrowserType === type ? ' selected' : ''}>${escapeHtml(actionLabel(type))}</option>`).join('');
+  const actionTypeSuggestions = Object.entries(ACTION_LABELS).map(([type, label]) => `<option value="${escapeHtml(type)}">${escapeHtml(label)}</option>`).join('');
+  const criteria = wf.understanding?.success_criteria || [];
+  const suggestedCriteria = wf.understanding?.suggested_success_criteria || wf.provenance?.recording_analysis?.suggested_success_criteria || [];
+  const successCriteria = [...criteria, ...suggestedCriteria].slice(0, 4).map(item => `<div class="success-criterion ${criteria.includes(item) ? 'confirmed' : 'suggested'}"><span>${criteria.includes(item) ? '已验证' : '建议'}</span><strong>${escapeHtml(actionLabel(item.type))}</strong><code>${escapeHtml(item.expected || '')}</code></div>`).join('');
   els.detail.innerHTML = `
     <div class="editor">
-      <div class="section-title">
-        <h2>${selectedMode === 'preview' ? 'Recording Preview' : 'Replay Editor'}</h2>
-        <span class="badge ${selectedMode === 'preview' ? 'warn' : 'ready'}">${selectedMode === 'preview' ? 'preview' : 'saved'}</span>
-      </div>
-      ${renderQualityPanel(wf.quality)}
-      ${renderReplayManifest(selectedReplay)}
-      <div class="editor-section">
-        <h3>Metadata</h3>
-        <div class="grid2">
-          <div class="field"><label>Name</label><input id="wfName" value="${escapeHtml(wf.name)}"></div>
-          <div class="field"><label>Title</label><input id="wfTitle" value="${escapeHtml(wf.title)}"></div>
+      ${renderDraftRecoveryNotice()}
+      ${renderReadinessPanel(wf, selectedMode)}
+      <section class="editor-section outcome-section">
+        <div class="settings-group-head"><div><small>完成定义</small><strong>成功条件</strong></div><button type="button" class="secondary" id="addSuccessCriterion">添加成功条件</button></div>
+        <div class="success-criteria-list">${successCriteria || '<div class="variable-empty"><strong>还没有成功条件</strong><span>运行完成不代表任务成功。添加可观察的文本、网址或结果检查。</span></div>'}</div>
+      </section>
+      <div class="inline-run-status" id="inlineRunStatus" hidden aria-live="polite"></div>
+      <details class="editor-section studio-disclosure step-editor-section"${stepBrowserQuery || stepBrowserType || REQUESTED_STEP_NUMBER ? ' open' : ''}>
+        <summary><span><small>需要修改时展开</small><strong>执行步骤</strong></span><span class="disclosure-meta">${escapeHtml(wf.steps.length)} 步</span></summary>
+        <div class="disclosure-body step-editor-body">
+        <datalist id="stepActionTypes">${actionTypeSuggestions}</datalist>
+        ${wf.steps.length ? `<div class="step-browser" id="stepBrowser">
+          <label class="step-search"><span aria-hidden="true">⌕</span><input id="stepSearch" type="search" value="${escapeHtml(stepBrowserQuery)}" placeholder="搜索步骤、动作或内容" aria-label="搜索执行步骤" aria-controls="stepEditor"></label>
+          <select id="stepTypeFilter" aria-label="按动作类型筛选步骤" aria-controls="stepEditor"><option value="">全部动作</option>${stepTypeOptions}</select>
+        </div>` : ''}
+        <div id="stepEditor" data-rendered-steps="${currentStepState.entries.length}">${wf.steps.length ? steps : '<div class="empty">没有步骤。</div>'}</div>
+        ${wf.steps.length ? `<div class="step-browser-empty product-empty" id="stepBrowserEmpty"${currentStepState.matches.length ? ' hidden' : ''}><strong>没有匹配的步骤</strong><span>换个关键词或动作类型。</span><button type="button" class="secondary" id="clearStepFilters">清除筛选</button></div>
+        <div class="step-pager" id="stepPager" role="navigation" aria-label="步骤分页"${currentStepState.matches.length ? '' : ' hidden'}>
+          <div class="step-page-status"><strong id="stepPageSummary" aria-live="polite">${escapeHtml(stepBrowserSummary(currentStepState))}</strong><small id="stepPagePosition">${escapeHtml(stepBrowserPosition(currentStepState))}</small></div>
+          <div class="step-page-actions">
+            <button type="button" class="secondary step-page-direction" id="stepPrev" aria-label="上一组步骤" aria-controls="stepEditor"${stepBrowserPage === 0 ? ' disabled' : ''}><span aria-hidden="true">←</span><span>上一组</span></button>
+            <div class="step-jump" role="group" aria-label="跳转到指定步骤"><label for="stepJump">跳到</label><input id="stepJump" type="number" min="1" max="${escapeHtml(wf.steps.length)}" inputmode="numeric" placeholder="${escapeHtml(currentStepState.start + 1)}" aria-label="步骤编号" aria-describedby="stepPageSummary"><span>步</span><button type="button" class="secondary" id="stepJumpGo">定位</button></div>
+            <button type="button" class="secondary step-page-direction" id="stepNext" aria-label="下一组步骤" aria-controls="stepEditor"${stepBrowserPage >= currentStepState.pageCount - 1 ? ' disabled' : ''}><span>下一组</span><span aria-hidden="true">→</span></button>
+          </div>
+        </div>` : ''}
         </div>
-        <div class="field"><label>Description</label><textarea id="wfDesc">${escapeHtml(wf.description || '')}</textarea></div>
-        <div class="field"><label>Task Goal</label><textarea id="wfTask">${escapeHtml(wf.task_description || '')}</textarea></div>
-      </div>
-      <div class="editor-section">
-        <div class="section-title"><h3>Variables</h3><button class="secondary" id="addVariable">新增变量</button></div>
-        <div id="variableEditor">${vars || '<div class="empty">没有变量。</div>'}</div>
-      </div>
-      <div class="editor-section">
-        <h3>Steps</h3>
-        <div id="stepEditor">${steps || '<div class="empty">没有步骤。</div>'}</div>
-      </div>
-      <div class="button-row action-row">
-        <button id="saveWorkflow">${selectedMode === 'preview' ? '保存为 Workflow' : '保存修改'}</button>
-        <button class="secondary" id="reloadWorkflow">${selectedMode === 'preview' ? '重新载入预览' : '重新载入'}</button>
-        ${selectedMode === 'workflow' ? `<a class="button-link" href="/store?publish=${encodeURIComponent(wf.id)}">发布到 Replay Store</a>` : ''}
-        ${selectedMode === 'preview' ? '<button class="danger" id="discardPreview">放弃预览</button>' : ''}
+      </details>
+      <details class="editor-section studio-disclosure replay-settings-disclosure"${openSettings ? ' open' : ''}>
+        <summary><span><small>标题、目标与变量</small><strong>Replay 设置</strong></span><span class="disclosure-meta">${escapeHtml(wf.variables.length)} 个变量</span></summary>
+        <div class="disclosure-body replay-settings-body">
+          <section class="settings-group">
+            <div class="settings-group-head"><div><small>基本信息</small><strong>用户看到的内容</strong></div></div>
+            <div class="settings-primary-fields">
+              <label class="settings-field settings-title-field"><span>显示标题</span><input id="wfTitle" value="${escapeHtml(wf.title)}" placeholder="清楚说明这个 Replay 做什么"></label>
+              <label class="settings-field settings-task-field"><span>任务目标</span><textarea id="wfTask" placeholder="描述完成条件和期望结果">${escapeHtml(wf.task_description || '')}</textarea></label>
+              <label class="settings-field settings-description-field"><span>补充说明 <small>选填</small></span><textarea id="wfDesc" placeholder="添加适用范围、限制或交接信息">${escapeHtml(wf.description || '')}</textarea></label>
+            </div>
+            <details class="replay-identity-disclosure">
+              <summary><span>高级标识</span><code>${escapeHtml(wf.name)}</code></summary>
+              <div class="replay-identity-body">
+                <label class="settings-field"><span>内部名称</span><input id="wfName" value="${escapeHtml(wf.name)}" autocomplete="off"></label>
+                <p>用于文件、API 和任务引用。修改后请检查外部调用。</p>
+              </div>
+            </details>
+          </section>
+          <section class="settings-group">
+            <div class="settings-group-head"><div><small>变量定义</small><strong>运行时输入</strong></div><button class="secondary" id="addVariable">添加变量</button></div>
+            <div id="variableEditor" class="variable-editor">${vars || '<div class="variable-empty"><strong>没有运行变量</strong><span>固定任务无需添加；只有每次运行需要替换的内容才适合设为变量。</span></div>'}</div>
+          </section>
+        </div>
+      </details>
+      <details class="editor-section studio-disclosure technical-details-disclosure">
+        <summary><span><small>门禁、环境与可移植性</small><strong>技术详情</strong></span><span class="disclosure-meta">按需查看</span></summary>
+        <div class="disclosure-body technical-details-stack">
+          ${renderReproductionGate(wf)}
+          ${renderWorkflowEvidence(wf)}
+          ${renderReplayManifest(selectedReplay)}
+        </div>
+      </details>
+      <div class="editor-command-dock${editorDirty ? ' unsaved' : ''}" role="toolbar" aria-label="Replay 操作">
+        <span class="editor-command-state"><i aria-hidden="true"></i><span id="editorActionStateText" aria-live="polite">${editorDirty ? '未保存' : selectedMode === 'preview' ? '待保存' : '已保存'}</span></span>
+        <div class="editor-command-actions">
+        ${selectedMode === 'workflow' ? `<button class="editor-run-action" id="runWorkflowInline"${wf.safe_web?.runnable ? ' data-mode="safe-web"' : ''}>${wf.safe_web?.runnable ? '运行验证' : '运行 Replay'}</button>` : ''}
+        <button id="saveWorkflow" class="editor-save-action${selectedMode === 'workflow' ? ' secondary' : ''}"${selectedMode === 'workflow' && !editorDirty ? ' hidden' : ''} aria-keyshortcuts="Meta+S Control+S" title="${selectedMode === 'preview' ? '保存为 Replay' : '保存修改'}（⌘/Ctrl+S）">${selectedMode === 'preview' ? '保存为 Replay' : '保存修改'}</button>
+        <details class="editor-action-menu">
+          <summary class="secondary" aria-label="更多编辑操作" title="更多操作">···</summary>
+          <div class="editor-action-popover" role="menu">
+            <button type="button" class="secondary action-menu-item" id="openStepEditor" role="menuitem">编辑执行步骤</button>
+            <button type="button" class="secondary action-menu-item" id="openReplaySettings" role="menuitem">编辑 Replay 设置</button>
+            <button type="button" class="secondary action-menu-item" id="openTechnicalDetails" role="menuitem">查看技术详情</button>
+            ${selectedMode === 'workflow' ? '<button type="button" class="secondary action-menu-item" id="openRuntimeConsole" role="menuitem">运行设置与记录</button>' : ''}
+            <button type="button" class="secondary action-menu-item" id="reloadWorkflow" role="menuitem">${selectedMode === 'preview' ? '重新载入预览' : '重新载入'}</button>
+            ${selectedMode === 'workflow' ? `<a class="button-link action-menu-item" href="/store?publish=${encodeURIComponent(wf.id)}" role="menuitem">发布到 Replay Store</a>` : ''}
+            ${selectedMode === 'workflow' ? '<button type="button" class="danger action-menu-item" id="deleteWorkflowInline" role="menuitem">删除 Replay</button>' : ''}
+            ${selectedMode === 'preview' ? '<button type="button" class="danger action-menu-item" id="discardPreview" role="menuitem">放弃预览</button>' : ''}
+          </div>
+        </details>
+        </div>
       </div>
     </div>
   `;
   bindEditorEvents();
+  renderRequestedRunContext(REQUESTED_STEP_NUMBER);
+}
+
+function createEditorStepId() {
+  const existing = new Set((selectedDetail?.steps || []).map(step => step.id));
+  let id = '';
+  do {
+    id = globalThis.crypto?.randomUUID?.() || `step_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  } while (existing.has(id));
+  return id;
+}
+
+function duplicateEditorStep(step) {
+  const duplicate = typeof structuredClone === 'function'
+    ? structuredClone(step)
+    : JSON.parse(JSON.stringify(step));
+  duplicate.id = createEditorStepId();
+  duplicate.metadata = {
+    ...(duplicate.metadata || {}),
+    editor_duplicate_source_step_id: step.id,
+  };
+  return duplicate;
+}
+
+function bindStepRowActions() {
+  els.detail.querySelectorAll('[data-move-step]').forEach(button => {
+    button.addEventListener('click', () => {
+      syncEditorDraftFromDom();
+      const workflowId = selectedDetail.id;
+      const stepId = button.dataset.moveStep;
+      const fromIndex = selectedDetail.steps.findIndex(step => step.id === stepId);
+      const direction = Number(button.dataset.moveDirection || 0);
+      const toIndex = fromIndex + direction;
+      if (fromIndex < 0 || ![-1, 1].includes(direction) || toIndex < 0 || toIndex >= selectedDetail.steps.length) return;
+      const [movedStep] = selectedDetail.steps.splice(fromIndex, 1);
+      selectedDetail.steps.splice(toIndex, 0, movedStep);
+      stepBrowserQuery = '';
+      stepBrowserType = '';
+      stepBrowserPage = Math.floor(toIndex / STEP_PAGE_SIZE);
+      setEditorDirty(true);
+      renderDetail();
+      requestAnimationFrame(() => {
+        const row = [...els.detail.querySelectorAll('.step-disclosure')].find(item => item.dataset.stepId === stepId);
+        if (!row) return;
+        row.closest('.step-editor-section').open = true;
+        row.open = true;
+        row.classList.add('step-just-moved');
+        row.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+        row.querySelector('summary')?.focus({ preventScroll: true });
+      });
+      showToast(`步骤已移动到第 ${toIndex + 1} 步`, '', {
+        action: {
+          label: '撤销',
+          onClick: () => {
+            if (selectedDetail?.id !== workflowId) {
+              showToast('无法撤销：当前 Replay 已切换', 'error');
+              return;
+            }
+            syncEditorDraftFromDom();
+            const currentIndex = selectedDetail.steps.findIndex(step => step.id === stepId);
+            if (currentIndex < 0) return;
+            const [currentStep] = selectedDetail.steps.splice(currentIndex, 1);
+            selectedDetail.steps.splice(Math.min(fromIndex, selectedDetail.steps.length), 0, currentStep);
+            stepBrowserPage = Math.floor(fromIndex / STEP_PAGE_SIZE);
+            const returnedToBase = editableWorkflowSignature(selectedDetail) === editorBaseSignature;
+            setEditorDirty(!returnedToBase);
+            if (returnedToBase) clearStoredEditorDraft();
+            renderDetail();
+            requestAnimationFrame(() => {
+              const row = [...els.detail.querySelectorAll('.step-disclosure')].find(item => item.dataset.stepId === stepId);
+              row?.querySelector('summary')?.focus({ preventScroll: true });
+            });
+            showToast('步骤顺序已恢复');
+          },
+        },
+      });
+    });
+  });
+  els.detail.querySelectorAll('[data-duplicate-step]').forEach(button => {
+    button.addEventListener('click', () => {
+      syncEditorDraftFromDom();
+      const workflowId = selectedDetail.id;
+      const sourceIndex = selectedDetail.steps.findIndex(step => step.id === button.dataset.duplicateStep);
+      if (sourceIndex < 0) return;
+      const duplicate = duplicateEditorStep(selectedDetail.steps[sourceIndex]);
+      const duplicateIndex = sourceIndex + 1;
+      selectedDetail.steps.splice(duplicateIndex, 0, duplicate);
+      stepBrowserQuery = '';
+      stepBrowserType = '';
+      stepBrowserPage = Math.floor(duplicateIndex / STEP_PAGE_SIZE);
+      setEditorDirty(true);
+      renderDetail();
+      requestAnimationFrame(() => {
+        const row = [...els.detail.querySelectorAll('.step-disclosure')].find(item => item.dataset.stepId === duplicate.id);
+        if (!row) return;
+        row.closest('.step-editor-section').open = true;
+        row.open = true;
+        row.classList.add('step-just-created');
+        row.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+        const field = row.querySelector('[data-step-field="action"]') || row.querySelector('[data-step-field="action_type"]');
+        field?.focus({ preventScroll: true });
+        field?.select();
+      });
+      showToast(`已复制为第 ${duplicateIndex + 1} 步，请确认目标和内容`, '', {
+        action: {
+          label: '撤销',
+          onClick: () => {
+            if (selectedDetail?.id !== workflowId) {
+              showToast('无法撤销：当前 Replay 已切换', 'error');
+              return;
+            }
+            syncEditorDraftFromDom();
+            const currentIndex = selectedDetail.steps.findIndex(step => step.id === duplicate.id);
+            if (currentIndex < 0) return;
+            selectedDetail.steps.splice(currentIndex, 1);
+            const pageCount = Math.max(1, Math.ceil(selectedDetail.steps.length / STEP_PAGE_SIZE));
+            stepBrowserPage = Math.min(stepBrowserPage, pageCount - 1);
+            const returnedToBase = editableWorkflowSignature(selectedDetail) === editorBaseSignature;
+            setEditorDirty(!returnedToBase);
+            if (returnedToBase) clearStoredEditorDraft();
+            renderDetail();
+            showToast('复制的步骤已撤销');
+          },
+        },
+      });
+    });
+  });
+  els.detail.querySelectorAll('[data-remove-step]').forEach(button => {
+    button.addEventListener('click', event => {
+      syncEditorDraftFromDom();
+      const workflowId = selectedDetail.id;
+      const removedIndex = selectedDetail.steps.findIndex(step => step.id === button.dataset.removeStep);
+      if (removedIndex < 0) return;
+      const removedPage = stepBrowserPage;
+      const [removedStep] = selectedDetail.steps.splice(removedIndex, 1);
+      setEditorDirty(true);
+      renderDetail();
+      const undoButton = showToast('步骤已移除，保存后生效', '', {
+        action: {
+          label: '撤销',
+          onClick: () => {
+            if (selectedDetail?.id !== workflowId) {
+              showToast('无法撤销：当前 Replay 已切换', 'error');
+              return;
+            }
+            syncEditorDraftFromDom();
+            if (selectedDetail.steps.some(step => step.id === removedStep.id)) return;
+            selectedDetail.steps.splice(Math.min(removedIndex, selectedDetail.steps.length), 0, removedStep);
+            stepBrowserPage = removedPage;
+            const returnedToBase = editableWorkflowSignature(selectedDetail) === editorBaseSignature;
+            setEditorDirty(!returnedToBase);
+            if (returnedToBase) clearStoredEditorDraft();
+            renderDetail();
+            showToast('步骤已恢复');
+          },
+        },
+      });
+      if (event.detail === 0) requestAnimationFrame(() => undoButton?.focus());
+    });
+  });
+}
+
+function renderStepBrowserView({ moveToBrowser = false } = {}) {
+  const editor = document.getElementById('stepEditor');
+  const pager = document.getElementById('stepPager');
+  const summary = document.getElementById('stepPageSummary');
+  const position = document.getElementById('stepPagePosition');
+  const jump = document.getElementById('stepJump');
+  const previous = document.getElementById('stepPrev');
+  const next = document.getElementById('stepNext');
+  const empty = document.getElementById('stepBrowserEmpty');
+  if (!editor || !pager || !summary || !position || !jump || !previous || !next || !empty || !selectedDetail) return;
+  const state = stepBrowserState(selectedDetail);
+  if (!state.filtering) rememberWorkspaceContext(selectedDetail.id, stepBrowserPage);
+  editor.innerHTML = state.entries.map(({ step, index }) => renderStepEditorRow(step, index)).join('');
+  editor.dataset.renderedSteps = String(state.entries.length);
+  summary.textContent = stepBrowserSummary(state);
+  position.textContent = stepBrowserPosition(state);
+  jump.placeholder = String(state.matches.length ? state.start + 1 : 1);
+  previous.disabled = stepBrowserPage === 0;
+  next.disabled = stepBrowserPage >= state.pageCount - 1;
+  pager.hidden = state.matches.length === 0;
+  empty.hidden = state.matches.length !== 0;
+  bindStepRowActions();
+  renderRequestedRunContext(REQUESTED_STEP_NUMBER);
+  if (moveToBrowser) document.getElementById('stepBrowser')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function jumpToEditorStep(rawStepNumber) {
+  const stepNumber = Number(rawStepNumber);
+  const totalSteps = selectedDetail?.steps?.length || 0;
+  const jump = document.getElementById('stepJump');
+  if (!Number.isInteger(stepNumber) || stepNumber < 1 || stepNumber > totalSteps) {
+    if (jump) {
+      jump.setAttribute('aria-invalid', 'true');
+      jump.focus();
+      jump.select();
+    }
+    showToast(`请输入 1–${totalSteps} 之间的步骤编号`, 'error');
+    return false;
+  }
+  syncEditorDraftFromDom();
+  stepBrowserQuery = '';
+  stepBrowserType = '';
+  stepBrowserPage = Math.floor((stepNumber - 1) / STEP_PAGE_SIZE);
+  const search = document.getElementById('stepSearch');
+  const typeFilter = document.getElementById('stepTypeFilter');
+  if (search) search.value = '';
+  if (typeFilter) typeFilter.value = '';
+  renderStepBrowserView();
+  requestAnimationFrame(() => revealEditorStep(stepNumber));
+  return true;
 }
 
 function bindEditorEvents() {
-  document.getElementById('saveWorkflow')?.addEventListener('click', () => saveCurrentWorkflow().catch(alert));
-  document.getElementById('reloadWorkflow')?.addEventListener('click', () => {
-    if (selectedMode === 'preview') selectPreview().catch(alert);
-    else if (selected) selectWorkflow(selected).catch(alert);
+  bindStepBrowser();
+  const editorActionMenu = els.detail.querySelector('.editor-action-menu');
+  if (editorActionMenu) {
+    let outsideMenuAbort = null;
+    editorActionMenu.querySelectorAll('.action-menu-item').forEach(item => {
+      item.addEventListener('click', () => { editorActionMenu.open = false; });
+    });
+    editorActionMenu.addEventListener('toggle', () => {
+      outsideMenuAbort?.abort();
+      outsideMenuAbort = null;
+      if (!editorActionMenu.open) return;
+      outsideMenuAbort = new AbortController();
+      queueMicrotask(() => document.addEventListener('pointerdown', event => {
+        if (!editorActionMenu.contains(event.target)) editorActionMenu.open = false;
+      }, { capture: true, signal: outsideMenuAbort.signal }));
+    });
+    editorActionMenu.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      editorActionMenu.open = false;
+      editorActionMenu.querySelector('summary')?.focus({ preventScroll: true });
+    });
+  }
+  document.getElementById('restoreEditorDraft')?.addEventListener('click', restorePendingEditorDraft);
+  document.getElementById('dismissEditorDraft')?.addEventListener('click', dismissPendingEditorDraft);
+  els.detail.querySelectorAll('[data-readiness-step]').forEach(button => {
+    button.addEventListener('click', () => {
+      const stepNumber = Number(button.dataset.readinessStep || 0);
+      stepBrowserQuery = '';
+      stepBrowserType = '';
+      stepBrowserPage = Math.max(0, Math.floor((stepNumber - 1) / STEP_PAGE_SIZE));
+      renderDetail();
+      requestAnimationFrame(() => revealEditorStep(stepNumber));
+    });
   });
-  document.getElementById('discardPreview')?.addEventListener('click', () => discardPreview().catch(alert));
+  els.detail.querySelector('[data-readiness-action="save"]')?.addEventListener('click', () => {
+    document.getElementById('saveWorkflow')?.click();
+  });
+  els.detail.querySelector('[data-readiness-action="run"]')?.addEventListener('click', () => openRunLauncher());
+  els.detail.oninput = event => {
+    if (event.target.matches('#wfName, #wfTitle, [data-var-field="name"], [data-step-field]')) {
+      clearEditorFieldError(event.target);
+    }
+    if (event.target.matches('#wfName, #wfTitle, #wfDesc, #wfTask, [data-var-field], [data-step-field]:not([disabled])')) {
+      setEditorDirty(true);
+    }
+    if (event.target.matches('[data-var-field="name"]')) {
+      const card = event.target.closest('.edit-var');
+      const title = card?.querySelector('.variable-card-title strong');
+      const displayName = event.target.value.trim() || `变量 ${Number(card.dataset.varIndex) + 1}`;
+      if (title) title.textContent = displayName;
+      card?.querySelector('[data-remove-var]')?.setAttribute('aria-label', `删除变量 ${displayName}`);
+    }
+    if (event.target.matches('#wfTitle')) {
+      const title = event.target.value.trim() || '未命名 Replay';
+      els.detailTitle.textContent = selectedMode === 'preview' ? `录制预览 · ${title}` : title;
+      els.detailTitle.title = els.detailTitle.textContent;
+    }
+    if (event.target.matches('[data-step-field="action_type"]')) {
+      const actionType = event.target.value.trim();
+      if (Object.prototype.hasOwnProperty.call(ACTION_LABELS, actionType)) {
+        const row = event.target.closest('.step-disclosure');
+        const actionVisual = stepActionVisual(actionType);
+        row.dataset.stepKind = actionVisual.kind;
+        const actionMark = row.querySelector('.step-action-mark');
+        if (actionMark) actionMark.textContent = actionVisual.symbol;
+        syncStepConditionalFields(row, actionType, { clearHidden: true });
+        const summaryType = row?.querySelector('.step-summary-copy strong');
+        if (summaryType) summaryType.textContent = actionLabel(actionType);
+      }
+    }
+  };
+  document.getElementById('runWorkflowInline')?.addEventListener('click', () => openRunLauncher());
+  document.getElementById('openStepEditor')?.addEventListener('click', () => {
+    const stepEditor = document.querySelector('.step-editor-section');
+    if (!stepEditor) return;
+    stepEditor.open = true;
+    stepEditor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => stepEditor.querySelector('summary')?.focus({ preventScroll: true }), 220);
+  });
+  document.getElementById('openRuntimeConsole')?.addEventListener('click', () => {
+    openRunLauncher();
+  });
+  document.getElementById('deleteWorkflowInline')?.addEventListener('click', () => els.deleteWorkflow.click());
+  document.getElementById('openReplaySettings')?.addEventListener('click', () => {
+    const settings = document.querySelector('.replay-settings-disclosure');
+    if (!settings) return;
+    settings.open = true;
+    settings.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => document.getElementById('wfTitle')?.focus({ preventScroll: true }), 220);
+  });
+  document.getElementById('openTechnicalDetails')?.addEventListener('click', () => {
+    const technical = document.querySelector('.technical-details-disclosure');
+    if (!technical) return;
+    technical.open = true;
+    technical.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => technical.querySelector('summary')?.focus({ preventScroll: true }), 220);
+  });
+  document.getElementById('saveWorkflow')?.addEventListener('click', () => saveCurrentWorkflow().catch(showActionError));
+  document.getElementById('reloadWorkflow')?.addEventListener('click', async () => {
+    if (!(await confirmDiscardEditorChanges('重新载入'))) return;
+    clearStoredEditorDraft();
+    pendingEditorDraft = null;
+    setEditorDirty(false);
+    if (selectedMode === 'preview') selectPreview().catch(showActionError);
+    else if (selected) selectWorkflow(selected).catch(showActionError);
+  });
+  document.getElementById('discardPreview')?.addEventListener('click', () => discardPreview().catch(showActionError));
   document.getElementById('planReplay')?.addEventListener('click', () => planReplay().catch(error => showPlanError(error.message)));
-  document.getElementById('addVariable')?.addEventListener('click', () => {
-    selectedDetail.variables.push({ name: 'new_variable', default_value: '', description: '' });
+  document.getElementById('addSuccessCriterion')?.addEventListener('click', () => {
+    syncEditorDraftFromDom();
+    const expected = window.prompt('输入任务成功时可观察到的文字、网址片段或结果值：', '');
+    if (!expected?.trim()) return;
+    const rawType = window.prompt('检查类型：assert_text、assert_url 或 assert_clipboard', 'assert_text');
+    const actionType = ['assert_text', 'assert_url', 'assert_clipboard'].includes(String(rawType || '').trim())
+      ? String(rawType).trim()
+      : 'assert_text';
+    selectedDetail.steps.push({
+      id: createEditorStepId(),
+      action_type: actionType,
+      action: `确认任务结果：${expected.trim()}`,
+      value: expected.trim(),
+      pause_duration: 0,
+      active_app_name: selectedDetail.steps.at(-1)?.active_app_name || '',
+      metadata: { success_criterion: true, source: 'user_confirmed' },
+    });
+    stepBrowserPage = Math.floor((selectedDetail.steps.length - 1) / STEP_PAGE_SIZE);
+    setEditorDirty(true);
     renderDetail();
+    showToast('成功条件已加入最后一步，保存后生效');
+  });
+  document.getElementById('addVariable')?.addEventListener('click', () => {
+    syncEditorDraftFromDom();
+    const names = new Set(selectedDetail.variables.map(item => String(item.name || '').toLowerCase()));
+    let suffix = 1;
+    let name = 'new_variable';
+    while (names.has(name.toLowerCase())) name = `new_variable_${++suffix}`;
+    const index = selectedDetail.variables.length;
+    selectedDetail.variables.push({ name, default_value: '', description: '' });
+    setEditorDirty(true);
+    renderDetail({ openSettings: true });
+    requestAnimationFrame(() => {
+      const input = els.detail.querySelector(`.edit-var[data-var-index="${index}"] [data-var-field="name"]`);
+      input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      input?.focus({ preventScroll: true });
+      input?.select();
+    });
   });
   els.detail.querySelectorAll('[data-remove-var]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedDetail.variables.splice(Number(btn.dataset.removeVar), 1);
-      renderDetail();
+    btn.addEventListener('click', event => {
+      syncEditorDraftFromDom();
+      const workflowId = selectedDetail.id;
+      const removedIndex = Number(btn.dataset.removeVar);
+      const [removedVariable] = selectedDetail.variables.splice(removedIndex, 1);
+      if (!removedVariable) return;
+      setEditorDirty(true);
+      renderDetail({ openSettings: true });
+      const undoButton = showToast('变量已移除，保存后生效', '', {
+        action: {
+          label: '撤销',
+          onClick: () => {
+            if (selectedDetail?.id !== workflowId) {
+              showToast('无法撤销：当前 Replay 已切换', 'error');
+              return;
+            }
+            syncEditorDraftFromDom();
+            selectedDetail.variables.splice(Math.min(removedIndex, selectedDetail.variables.length), 0, removedVariable);
+            const returnedToBase = editableWorkflowSignature(selectedDetail) === editorBaseSignature;
+            setEditorDirty(!returnedToBase);
+            if (returnedToBase) clearStoredEditorDraft();
+            renderDetail({ openSettings: true });
+            showToast('变量已恢复');
+          },
+        },
+      });
+      if (event.detail === 0) requestAnimationFrame(() => undoButton?.focus());
     });
   });
-  els.detail.querySelectorAll('[data-remove-step]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedDetail.steps = selectedDetail.steps.filter(step => step.id !== btn.dataset.removeStep);
-      renderDetail();
-    });
+  bindStepRowActions();
+}
+
+function bindStepBrowser() {
+  const search = document.getElementById('stepSearch');
+  const typeFilter = document.getElementById('stepTypeFilter');
+  const editor = document.getElementById('stepEditor');
+  const pager = document.getElementById('stepPager');
+  const summary = document.getElementById('stepPageSummary');
+  const position = document.getElementById('stepPagePosition');
+  const jump = document.getElementById('stepJump');
+  const jumpButton = document.getElementById('stepJumpGo');
+  const previous = document.getElementById('stepPrev');
+  const next = document.getElementById('stepNext');
+  const empty = document.getElementById('stepBrowserEmpty');
+  if (!search || !typeFilter || !editor || !pager || !summary || !position || !jump || !jumpButton || !previous || !next || !empty) return;
+  stepBrowserType = typeFilter.value;
+  search.addEventListener('input', () => {
+    syncEditorDraftFromDom();
+    stepBrowserQuery = search.value;
+    stepBrowserPage = 0;
+    renderStepBrowserView();
+  });
+  search.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && search.value) {
+      event.preventDefault();
+      search.value = '';
+      syncEditorDraftFromDom();
+      stepBrowserQuery = '';
+      stepBrowserPage = 0;
+      renderStepBrowserView();
+    }
+  });
+  typeFilter.addEventListener('change', () => {
+    syncEditorDraftFromDom();
+    stepBrowserType = typeFilter.value;
+    stepBrowserPage = 0;
+    renderStepBrowserView();
+  });
+  previous.addEventListener('click', () => {
+    syncEditorDraftFromDom();
+    stepBrowserPage -= 1;
+    renderStepBrowserView({ moveToBrowser: true });
+  });
+  next.addEventListener('click', () => {
+    syncEditorDraftFromDom();
+    stepBrowserPage += 1;
+    renderStepBrowserView({ moveToBrowser: true });
+  });
+  jump.addEventListener('input', () => jump.removeAttribute('aria-invalid'));
+  jump.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    jumpToEditorStep(jump.value);
+  });
+  jumpButton.addEventListener('click', () => jumpToEditorStep(jump.value));
+  document.getElementById('clearStepFilters')?.addEventListener('click', () => {
+    syncEditorDraftFromDom();
+    search.value = '';
+    typeFilter.value = '';
+    stepBrowserQuery = '';
+    stepBrowserType = '';
+    stepBrowserPage = 0;
+    renderStepBrowserView();
+    search.focus();
+  });
+  editor.addEventListener('change', event => {
+    const row = event.target.closest('.step-disclosure');
+    if (!row) return;
+    const actionType = row.querySelector('[data-step-field="action_type"]').value.trim();
+    const action = row.querySelector('[data-step-field="action"]').value;
+    const value = row.querySelector('[data-step-field="value"]').value;
+    const app = row.querySelector('[data-step-field="active_app_name"]').value;
+    const number = Number(row.dataset.stepIndex) + 1;
+    syncStepConditionalFields(row, actionType, { clearHidden: true });
+    const actionVisual = stepActionVisual(actionType);
+    row.dataset.stepType = actionType;
+    row.dataset.stepKind = actionVisual.kind;
+    row.querySelector('.step-action-mark').textContent = actionVisual.symbol;
+    row.dataset.stepSearch = [number, actionLabel(actionType), actionType, action, value, app].filter(Boolean).join(' ').toLowerCase();
+    row.querySelector('.step-summary-copy strong').textContent = actionLabel(actionType);
+    row.querySelector('.step-summary-copy span').textContent = action || value || app || '未命名步骤';
+    syncEditorDraftFromDom();
+    if (stepBrowserQuery || stepBrowserType) renderStepBrowserView();
   });
 }
 
@@ -1135,13 +3181,13 @@ function showPlanError(message) {
 async function planReplay(platform = document.getElementById('planPlatform')?.value || '') {
   if (!selectedDetail || selectedMode !== 'workflow') throw new Error('请先选择一个已保存的 Replay。');
   const replayId = selectedDetail.id;
-  const data = await postJson(`/api/replays/${encodeURIComponent(replayId)}/plan`, platform ? { platform } : {});
+  const data = await postJson(`/api/replays/${encodeURIComponent(replayId)}/plan`, platform ? { platform } : {}, { timeoutMs: 120000 });
   if (selectedDetail?.id !== replayId) throw new Error('选择已变化，预检结果已丢弃。');
   const report = data.plan.compatibility;
   const target = document.getElementById('planResult');
   if (target) target.innerHTML = `
     <div class="feedback ${report.runnable ? '' : 'error'}">
-      <strong>${escapeHtml(report.status)} · ${escapeHtml(report.supported_steps)}/${escapeHtml(report.total_steps)} steps</strong>
+      <strong>${escapeHtml(report.status === 'ready' ? '预检通过' : report.status || '预检完成')} · ${escapeHtml(report.supported_steps)}/${escapeHtml(report.total_steps)} 步</strong>
       <div>Space: ${escapeHtml(data.plan.space_id)}</div>
       ${(report.warnings || []).map(item => `<div>${escapeHtml(item)}</div>`).join('')}
       ${(report.missing_capabilities || []).map(item => `<div>缺少：${escapeHtml(item)}</div>`).join('')}
@@ -1149,28 +3195,87 @@ async function planReplay(platform = document.getElementById('planPlatform')?.va
   return data.plan;
 }
 
+function clearEditorFieldError(field) {
+  if (!field) return;
+  const describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+  describedBy.filter(id => id.startsWith('editor-validation-')).forEach(id => document.getElementById(id)?.remove());
+  const remainingIds = describedBy.filter(id => !id.startsWith('editor-validation-'));
+  if (remainingIds.length) field.setAttribute('aria-describedby', remainingIds.join(' '));
+  else field.removeAttribute('aria-describedby');
+  field.removeAttribute('aria-invalid');
+  field.closest('.settings-field, .variable-field, .step-field')?.classList.remove('has-error');
+}
+
+function clearEditorValidationErrors() {
+  els.detail.querySelectorAll('#wfTitle[aria-invalid], #wfName[aria-invalid], [data-var-field="name"][aria-invalid], [data-step-field][aria-invalid]').forEach(clearEditorFieldError);
+  els.detail.querySelectorAll('.editor-field-error').forEach(error => error.remove());
+}
+
+function showEditorFieldError(field, message) {
+  if (!field) return false;
+  clearEditorFieldError(field);
+  let ancestor = field.parentElement;
+  while (ancestor && ancestor !== els.detail) {
+    if (ancestor.matches('details')) ancestor.open = true;
+    ancestor = ancestor.parentElement;
+  }
+  const errorId = `editor-validation-${++editorValidationId}`;
+  const error = document.createElement('span');
+  error.id = errorId;
+  error.className = 'editor-field-error';
+  error.textContent = message;
+  const describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+  field.setAttribute('aria-describedby', [...describedBy, errorId].join(' '));
+  field.setAttribute('aria-invalid', 'true');
+  field.closest('.settings-field, .variable-field, .step-field')?.classList.add('has-error');
+  field.insertAdjacentElement('afterend', error);
+  requestAnimationFrame(() => {
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    field.scrollIntoView({ behavior, block: 'center' });
+    field.focus({ preventScroll: true });
+  });
+  return true;
+}
+
+function showStepEditorError(workflow, stepIndex, message, fieldName = 'action_type') {
+  selectedDetail = { ...selectedDetail, ...workflow };
+  stepBrowserQuery = '';
+  stepBrowserType = '';
+  stepBrowserPage = Math.floor(stepIndex / STEP_PAGE_SIZE);
+  renderDetail();
+  const row = els.detail.querySelector(`.edit-step[data-step-index="${stepIndex}"]`);
+  if (row) {
+    row.closest('.step-editor-section').open = true;
+    row.open = true;
+  }
+  return showEditorFieldError(row?.querySelector(`[data-step-field="${fieldName}"]`), message);
+}
+
 function collectEditorPayload() {
   const variables = [...els.detail.querySelectorAll('.edit-var')].map(row => ({
     name: row.querySelector('[data-var-field="name"]').value.trim(),
     default_value: row.querySelector('[data-var-field="default_value"]').value,
     description: row.querySelector('[data-var-field="description"]').value,
-  })).filter(item => item.name);
+  }));
   const existingSteps = new Map((selectedDetail?.steps || []).map(step => [step.id, step]));
-  const steps = [...els.detail.querySelectorAll('.edit-step')].map(row => {
+  const renderedSteps = new Map([...els.detail.querySelectorAll('.edit-step')].map(row => {
     const x = row.querySelector('[data-step-field="x"]').value.trim();
     const y = row.querySelector('[data-step-field="y"]').value.trim();
     const existing = existingSteps.get(row.dataset.stepId) || {};
-    return {
+    return [row.dataset.stepId, {
       id: row.dataset.stepId,
       action_type: row.querySelector('[data-step-field="action_type"]').value.trim(),
       action: row.querySelector('[data-step-field="action"]').value,
       value: row.querySelector('[data-step-field="value"]').value,
       pause_duration: row.querySelector('[data-step-field="pause_duration"]').value,
       active_app_name: row.querySelector('[data-step-field="active_app_name"]').value,
-      click_coordinates: x && y ? [Number(x), Number(y)] : null,
+      click_coordinates: x && y && Number.isFinite(Number(x)) && Number.isFinite(Number(y))
+        ? [Number(x), Number(y)]
+        : (x || y ? [x, y] : null),
       metadata: existing.metadata || {},
-    };
-  });
+    }];
+  }));
+  const steps = (selectedDetail?.steps || []).map(step => renderedSteps.get(step.id) || { ...step });
   return {
     id: selectedDetail.id,
     name: document.getElementById('wfName').value.trim(),
@@ -1182,33 +3287,131 @@ function collectEditorPayload() {
   };
 }
 
-async function saveCurrentWorkflow() {
+function syncEditorDraftFromDom() {
+  if (!selectedDetail || !document.getElementById('wfName')) return;
+  selectedDetail = { ...selectedDetail, ...collectEditorPayload() };
+}
+
+function stepEditorValidationIssue(step, index) {
+  const actionType = String(step.action_type || '').trim().toLowerCase();
+  if (!actionType) return { index, field: 'action_type', message: `第 ${index + 1} 步缺少动作类型。` };
+  const coordinates = Array.isArray(step.click_coordinates) ? step.click_coordinates : [];
+  const x = String(coordinates[0] ?? '').trim();
+  const y = String(coordinates[1] ?? '').trim();
+  if (Boolean(x) !== Boolean(y)) {
+    return { index, field: x ? 'y' : 'x', message: `第 ${index + 1} 步的 X、Y 坐标必须同时填写。` };
+  }
+  if (x && (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y)) || Number(x) < 0 || Number(y) < 0)) {
+    return { index, field: !Number.isFinite(Number(x)) || Number(x) < 0 ? 'x' : 'y', message: `第 ${index + 1} 步的坐标必须是大于或等于 0 的数字。` };
+  }
+  const value = String(step.value || '').trim();
+  if (STEP_VALUE_REQUIRED_ACTIONS.has(actionType) && !value) {
+    return { index, field: 'value', message: `第 ${index + 1} 步“${actionLabel(actionType)}”缺少${stepValueLabel(actionType)}。` };
+  }
+  if (actionType === 'wait' && value) {
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 300) {
+      return { index, field: 'value', message: `第 ${index + 1} 步的等待秒数必须在 0–300 之间。` };
+    }
+  }
+  return null;
+}
+
+function saveCurrentWorkflow() {
+  return runExclusiveAction('workflow-mutation', '保存 Replay', saveCurrentWorkflowOnce);
+}
+
+async function saveCurrentWorkflowOnce() {
+  clearEditorValidationErrors();
   const workflow = collectEditorPayload();
+  if (!workflow.title.trim()) {
+    const message = '请填写 Replay 的显示标题。';
+    showEditorFieldError(document.getElementById('wfTitle'), message);
+    throw new Error(message);
+  }
+  if (!workflow.name.trim()) {
+    const message = '内部名称不能为空。';
+    showEditorFieldError(document.getElementById('wfName'), message);
+    throw new Error(message);
+  }
+  const emptyVariableIndex = workflow.variables.findIndex(item => !item.name);
+  if (emptyVariableIndex >= 0) {
+    const message = `变量 ${emptyVariableIndex + 1} 的名称不能为空。`;
+    const field = els.detail.querySelector(`.edit-var[data-var-index="${emptyVariableIndex}"] [data-var-field="name"]`);
+    showEditorFieldError(field, message);
+    throw new Error(message);
+  }
+  const seenVariableNames = new Map();
+  let duplicateVariableIndex = -1;
+  workflow.variables.some((item, index) => {
+    const normalized = item.name.toLowerCase();
+    if (seenVariableNames.has(normalized)) {
+      duplicateVariableIndex = index;
+      return true;
+    }
+    seenVariableNames.set(normalized, index);
+    return false;
+  });
+  if (duplicateVariableIndex >= 0) {
+    const duplicateVariable = workflow.variables[duplicateVariableIndex];
+    const message = `变量名称“${duplicateVariable.name}”重复，请修改后再保存。`;
+    const field = els.detail.querySelector(`.edit-var[data-var-index="${duplicateVariableIndex}"] [data-var-field="name"]`);
+    showEditorFieldError(field, message);
+    throw new Error(message);
+  }
+  const stepIssue = workflow.steps.map(stepEditorValidationIssue).find(Boolean);
+  if (stepIssue) {
+    showStepEditorError(workflow, stepIssue.index, stepIssue.message, stepIssue.field);
+    throw new Error(stepIssue.message);
+  }
+  const savedDraftKey = editorDraftKey();
   const saveButton = document.getElementById('saveWorkflow');
   if (saveButton) {
     saveButton.disabled = true;
     saveButton.textContent = selectedMode === 'preview' ? '正在保存...' : '正在更新...';
   }
-  showRecordFeedback(selectedMode === 'preview' ? '正在保存 workflow...' : '正在保存修改...', 'warn');
-  if (selectedMode === 'preview') {
-    const result = await postJson('/api/preview/save', { workflow });
-    selectedMode = 'workflow';
-    selected = result.workflow_id;
-    selectedDetail = result.workflow;
-    await loadWorkflows();
-    await selectWorkflow(result.workflow_id);
-    showRecordFeedback(`预览已保存为 workflow：${result.workflow_id}`);
-  } else {
-    const result = await postJson(`/api/workflows/${encodeURIComponent(selectedDetail.id)}/update`, { workflow });
-    selectedDetail = result.workflow;
-    await loadWorkflows();
-    await selectWorkflow(result.workflow.id);
-    showRecordFeedback(`Workflow 已保存：${result.workflow.id}`);
+  showRecordFeedback(selectedMode === 'preview' ? '正在保存 Replay...' : '正在保存修改...', 'warn');
+  try {
+    if (selectedMode === 'preview') {
+      const result = await postJson('/api/preview/save', { workflow }, { timeoutMs: 120000 });
+      clearStoredEditorDraft(savedDraftKey);
+      pendingEditorDraft = null;
+      setEditorDirty(false);
+      selectedMode = 'workflow';
+      selected = result.workflow_id;
+      selectedDetail = result.workflow;
+      await loadWorkflows();
+      await selectWorkflow(result.workflow_id);
+      showRecordFeedback('录制预览已保存为 Replay。');
+    } else {
+      const result = await postJson(`/api/workflows/${encodeURIComponent(selectedDetail.id)}/update`, { workflow }, { timeoutMs: 120000 });
+      clearStoredEditorDraft(savedDraftKey);
+      pendingEditorDraft = null;
+      setEditorDirty(false);
+      selectedDetail = result.workflow;
+      await loadWorkflows();
+      await selectWorkflow(result.workflow.id);
+      showRecordFeedback('Replay 修改已保存。');
+    }
+  } catch (error) {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent = selectedMode === 'preview' ? '保存为 Replay' : '保存修改';
+    }
+    throw error;
   }
+  showToast(selectedMode === 'workflow' ? 'Replay 已保存' : '预览已保存');
 }
 
-async function discardPreview() {
+function discardPreview() {
+  return runExclusiveAction('workflow-mutation', '放弃预览', discardPreviewOnce);
+}
+
+async function discardPreviewOnce() {
   await postJson('/api/preview/discard');
+  clearStoredEditorDraft();
+  pendingEditorDraft = null;
+  setEditorDirty(false);
   selectedMode = 'workflow';
   selected = null;
   selectedDetail = null;
@@ -1217,16 +3420,15 @@ async function discardPreview() {
 
 function renderVariables() {
   if (!selectedDetail || selectedMode !== 'workflow') {
-    els.vars.innerHTML = '<div class="empty">保存 workflow 后可配置回放变量。</div>';
+    els.vars.innerHTML = '<div class="run-variable-empty"><strong>尚未选择可运行的 Replay</strong><span>保存或选择 Replay 后，这里会显示本次运行需要确认的输入。</span></div>';
     return;
   }
   els.vars.innerHTML = selectedDetail.variables.map(item => `
-    <div>
-      <label for="var-${escapeHtml(item.name)}">${escapeHtml(item.name)}</label>
-      <textarea id="var-${escapeHtml(item.name)}" data-var="${escapeHtml(item.name)}">${escapeHtml(item.default_value || '')}</textarea>
-      ${item.description ? `<div class="var-help">${escapeHtml(item.description)}</div>` : ''}
-    </div>
-  `).join('') || '<div class="empty">这个 workflow 没有变量。</div>';
+    <label class="run-variable-field" for="var-${escapeHtml(item.name)}">
+      <span><strong>${escapeHtml(item.name)}</strong>${item.description ? `<small>${escapeHtml(item.description)}</small>` : ''}</span>
+      <textarea id="var-${escapeHtml(item.name)}" data-var="${escapeHtml(item.name)}" placeholder="填写本次运行使用的值">${escapeHtml(item.default_value || '')}</textarea>
+    </label>
+  `).join('') || '<div class="run-variable-empty"><strong>无需填写变量</strong><span>这个 Replay 已包含运行所需信息，可以直接确认执行。</span></div>';
 }
 
 function runtimeVariables() {
@@ -1237,11 +3439,129 @@ function runtimeVariables() {
   return variables;
 }
 
+function runtimeOptions() {
+  const threshold = Number(els.threshold.value);
+  const retries = Number(els.retries.value);
+  const countdown = Number(els.countdown.value);
+  const maxRuntime = Number(els.maxRuntime.value);
+  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('就绪阈值必须在 0 到 1 之间。');
+  if (!Number.isInteger(retries) || retries < 0 || retries > 20) throw new Error('重试次数必须是 0 到 20 之间的整数。');
+  if (!Number.isInteger(countdown) || countdown < 0 || countdown > 30) throw new Error('开始倒计时必须是 0 到 30 秒之间的整数。');
+  if (!Number.isInteger(maxRuntime) || maxRuntime < 10 || maxRuntime > 3600) throw new Error('最长运行时间必须是 10 到 3600 秒之间的整数。');
+  return { threshold, retries, countdown, maxRuntime };
+}
+
+async function beginScreenRecording() {
+  if (!els.captureScreenVideo.checked) return;
+  if (!navigator.mediaDevices?.getDisplayMedia || !window.MediaRecorder) {
+    throw new Error('当前浏览器不支持屏幕录制，请取消“附带真实屏幕录制”后重试。');
+  }
+  screenStream = await navigator.mediaDevices.getDisplayMedia({
+    video: { frameRate: { ideal: 12, max: 20 } },
+    audio: false,
+  });
+  const videoTrack = screenStream.getVideoTracks()[0];
+  const settings = videoTrack?.getSettings?.() || {};
+  const selectedSurface = String(settings.displaySurface || 'unknown').toLowerCase();
+  if (!['browser', 'window'].includes(selectedSurface)) {
+    screenStream.getTracks().forEach(track => track.stop());
+    screenStream = null;
+    throw new Error('为了生成可交接证据，请只选择一个浏览器标签页或单一应用窗口；不能录制整个显示器。');
+  }
+  screenCaptureMetadata = {
+    capture_scope: selectedSurface,
+    capture_method: 'media-recorder',
+    width: Number(settings.width || 0),
+    height: Number(settings.height || 0),
+    frame_rate: Number(settings.frameRate || 0),
+  };
+  const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+    .find(type => MediaRecorder.isTypeSupported(type)) || '';
+  screenChunks = [];
+  screenRecorder = new MediaRecorder(screenStream, mimeType ? { mimeType } : undefined);
+  screenRecordingDone = new Promise((resolve, reject) => {
+    screenRecorder.addEventListener('dataavailable', event => {
+      if (event.data?.size) screenChunks.push(event.data);
+    });
+    screenRecorder.addEventListener('stop', () => {
+      const type = screenRecorder?.mimeType?.split(';')[0] || 'video/webm';
+      resolve(new Blob(screenChunks, { type }));
+    }, { once: true });
+    screenRecorder.addEventListener('error', event => reject(event.error || new Error('屏幕录制失败。')), { once: true });
+  });
+  screenStream.getVideoTracks()[0]?.addEventListener('ended', () => {
+    if (screenRecorder?.state === 'recording') screenRecorder.stop();
+  }, { once: true });
+  screenRecorder.start(1000);
+}
+
+async function finishScreenRecording() {
+  if (!screenRecorder) return null;
+  if (screenRecorder.state === 'recording') screenRecorder.stop();
+  screenStream?.getTracks().forEach(track => track.stop());
+  try {
+    return await screenRecordingDone;
+  } finally {
+    screenRecorder = null;
+    screenStream = null;
+    screenChunks = [];
+    screenRecordingDone = null;
+  }
+}
+
+async function uploadPreviewRecording(previewId, blob) {
+  if (!previewId || !blob?.size) return null;
+  if (blob.size > 48 * 1024 * 1024) throw new Error('屏幕录制超过 48 MB，请缩短任务后重试。');
+  const captureQuery = new URLSearchParams({
+    preview_id: previewId,
+    capture_scope: String(screenCaptureMetadata.capture_scope || 'unknown'),
+    capture_method: String(screenCaptureMetadata.capture_method || 'media-recorder'),
+    capture_width: String(screenCaptureMetadata.width || 0),
+    capture_height: String(screenCaptureMetadata.height || 0),
+    capture_frame_rate: String(screenCaptureMetadata.frame_rate || 0),
+  });
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 180000);
+  try {
+    const response = await fetch(`${API_BASE}/api/preview/media?${captureQuery}`, {
+      method: 'POST',
+      headers: { 'Content-Type': blob.type || 'video/webm' },
+      body: blob,
+      signal: controller.signal,
+    });
+    const data = await response.json();
+    if (!response.ok || data.ok === false) throw new Error(data.error || '屏幕录制上传失败。');
+    screenCaptureMetadata = {};
+    return data;
+  } catch (error) {
+    if (timedOut) throw new Error('屏幕录制上传超时，请重试。');
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 async function loadRunHistory() {
-  const query = selectedMode === 'workflow' && selected ? `?workflow_id=${encodeURIComponent(selected)}` : '';
-  const data = await getJson(`/api/runs${query}`);
+  const requestVersion = ++runHistoryRequestVersion;
+  const selectionSnapshot = selectionVersion;
+  const modeSnapshot = selectedMode;
+  const workflowSnapshot = selected;
+  const query = modeSnapshot === 'workflow' && workflowSnapshot ? `?workflow_id=${encodeURIComponent(workflowSnapshot)}` : '';
+  const data = await getJson(`/api/runs${query}`, { timeoutMs: 20000 });
+  if (
+    requestVersion !== runHistoryRequestVersion
+    || selectionSnapshot !== selectionVersion
+    || modeSnapshot !== selectedMode
+    || workflowSnapshot !== selected
+  ) return false;
   runHistories = data.runs;
   renderRunHistory();
+  renderRuntimeStatus();
+  return true;
 }
 
 function renderRunHistory() {
@@ -1253,95 +3573,335 @@ function renderRunHistory() {
   if (token === runHistoryRenderToken) return;
   runHistoryRenderToken = token;
   els.runHistoryCount.textContent = String(runHistories.length);
-  els.runHistory.innerHTML = runHistories.map(item => {
-    const steps = (item.steps || []).slice(0, 4).map(step =>
-      `#${escapeHtml(step.step_number)} ${escapeHtml(step.state)} · ${escapeHtml(step.duration_seconds || 0)}s${step.retries ? ` · retry:${escapeHtml(step.retries)}` : ''}${step.localization?.method ? ` · ${escapeHtml(step.localization.method)}` : ''}${step.agent_decision ? ` · agent:${escapeHtml(step.agent_decision.action_type || '')}` : ''}${step.error ? ` · ${escapeHtml(step.error)}` : ''}`
-    ).join('<br>');
+  const latestRun = runHistories[0];
+  if (!latestRun) {
+    els.runHistorySummary.textContent = '暂无记录';
+  } else if (latestRun.success === true) {
+    els.runHistorySummary.textContent = `最近通过 · ${formatDisplayTime(latestRun.finished_at || latestRun.started_at)}`;
+  } else {
+    const latestDiagnosis = runFailureContext(latestRun, failedRunStep(latestRun));
+    els.runHistorySummary.textContent = `${latestDiagnosis.label} · ${formatDisplayTime(latestRun.finished_at || latestRun.started_at)}`;
+  }
+  els.runHistory.innerHTML = runHistories.map((item, index) => {
+    const failedStep = failedRunStep(item);
+    const failedStepNumber = Number(failedStep?.step_number || 0);
+    const diagnosis = item.success === false ? runFailureContext(item, failedStep) : null;
+    const kind = item.success === true
+      ? 'passed'
+      : item.failure_category === 'external_blocker'
+        ? 'external'
+        : ['cancelled', 'panic_stopped', 'client_disconnected'].includes(item.status)
+          ? 'stopped'
+          : 'failed';
+    const title = item.success === true
+      ? '运行通过'
+      : failedStepNumber
+        ? `第 ${failedStepNumber} 步未完成`
+        : diagnosis?.label || statusLabel(item.status, item.failure_category);
+    const symbol = kind === 'passed' ? '✓' : kind === 'external' ? '↗' : kind === 'stopped' ? '■' : '!';
+    const mode = item.execution_mode === 'safe_web' ? '安全网页验证' : '桌面 Replay';
+    const totalSteps = Number(selectedDetail?.steps?.length || Math.max(item.steps_run || 0, failedStepNumber));
+    const completedSteps = item.success === true
+      ? Number(item.steps_run || totalSteps)
+      : failedStepNumber > 0
+        ? Math.max(0, failedStepNumber - 1)
+        : Math.max(0, Number(item.steps_run || 0) - Number(item.steps_failed || 0));
+    const stepItems = (item.steps || []).slice(0, 8).map(step => {
+      const stepKind = step.state === 'failed' || step.error ? 'failed' : 'passed';
+      const label = `第 ${step.step_number} 步，${stepStateLabel(step.state)}${step.retries ? `，重试 ${step.retries} 次` : ''}`;
+      return `<span class="run-step-node is-${stepKind}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${escapeHtml(step.step_number)}</span>`;
+    }).join('');
+    const remainingSteps = Math.max(0, Number((item.steps || []).length) - 8);
+    const traceSteps = item.trace?.steps || [];
+    const traceHtml = traceSteps.slice(0, 12).map(trace => {
+      const target = trace.target || {};
+      const phaseLabels = { observe: '观察', locate: '定位', decide: '判断', act: '执行', verify: '验证' };
+      const phases = (trace.phases || []).map(phase => `<span class="trace-phase ${phase.passed === false ? 'failed' : ''}">${escapeHtml(phaseLabels[phase.phase] || phase.phase)}</span>`).join('');
+      return `<div class="trace-row ${trace.status}"><span class="trace-step">${escapeHtml(trace.step)}</span><span class="trace-copy"><strong>${escapeHtml(trace.intent || actionLabel(trace.action_type))}</strong><small>${escapeHtml([target.role, target.name].filter(Boolean).join(' · ') || '无语义目标')} · 置信度 ${Math.round(Number(trace.confidence || 0) * 100)}%</small></span><span class="trace-phases">${phases}</span></div>`;
+    }).join('');
+    const intervention = item.intervention;
     return `
-      <div class="run-item">
-        <strong>${escapeHtml(item.status || 'run')} · ${escapeHtml(item.workflow_id)}</strong>
-        <div>${escapeHtml(item.finished_at || item.started_at || '')} · ${escapeHtml(item.steps_run)} steps · ${escapeHtml(item.elapsed_seconds || 0)}s</div>
-        ${item.error ? `<div class="run-steps">${escapeHtml(item.error)}</div>` : ''}
-        ${steps ? `<div class="run-steps">${steps}</div>` : ''}
-      </div>
+      <details class="run-timeline-item is-${kind}${index === 0 ? ' is-latest' : ''}" data-run-id="${escapeHtml(item.run_id)}">
+        <summary>
+          <span class="run-timeline-mark" aria-hidden="true">${symbol}</span>
+          <span class="run-timeline-copy"><strong>${escapeHtml(title)}</strong><small>${index === 0 ? '最新 · ' : ''}${escapeHtml(formatDisplayTime(item.finished_at || item.started_at))} · ${escapeHtml(mode)}</small></span>
+          <span class="run-timeline-facts"><strong>${escapeHtml(completedSteps)} / ${escapeHtml(totalSteps || '?')} 步</strong><small>${escapeHtml(item.elapsed_seconds || 0)} 秒</small></span>
+          <span class="run-timeline-chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="run-timeline-detail">
+          ${diagnosis ? `<div class="run-timeline-diagnosis"><span>${escapeHtml(diagnosis.label)}</span><p>${escapeHtml(diagnosis.summary)}</p><small>${escapeHtml(diagnosis.suggestion)}</small></div>` : `<div class="run-timeline-diagnosis is-passed"><span>结果</span><p>全部步骤已完成。</p><small>${escapeHtml(mode)} · ${escapeHtml(item.steps_run || totalSteps)} 步</small></div>`}
+          ${stepItems ? `<div class="run-step-strip" aria-label="步骤结果">${stepItems}${remainingSteps ? `<span class="run-step-more">+${remainingSteps}</span>` : ''}</div>` : ''}
+          ${intervention ? `<div class="run-intervention"><span>等待人工判断</span><p>${escapeHtml(intervention.reason || '目标不明确')}</p><div class="checkpoint-actions"><button type="button" class="secondary" data-history-step="${escapeHtml(intervention.step || failedStepNumber)}">查看步骤</button><button type="button" class="secondary" data-checkpoint-decision="edit" data-run-id="${escapeHtml(item.run_id)}">修改目标</button><button type="button" data-checkpoint-decision="approve" data-run-id="${escapeHtml(item.run_id)}">批准恢复</button><button type="button" class="danger" data-checkpoint-decision="reject" data-run-id="${escapeHtml(item.run_id)}">拒绝</button></div></div>` : ''}
+          ${traceHtml ? `<details class="run-trace"><summary>Replay Trace · ${escapeHtml(traceSteps.length)} 步</summary><div>${traceHtml}</div></details>` : ''}
+          <div class="run-timeline-actions">
+            ${failedStepNumber ? `<button type="button" class="secondary" data-history-step="${failedStepNumber}">定位第 ${failedStepNumber} 步</button>` : ''}
+            ${item.error ? `<details class="run-history-raw"><summary>原始错误</summary><code>${escapeHtml(item.error)}</code></details>` : ''}
+          </div>
+        </div>
+      </details>
     `;
-  }).join('') || '<div class="empty">暂无 run history。</div>';
+  }).join('') || '<div class="empty run-history-empty">暂无运行记录。</div>';
+  els.runHistory.querySelectorAll('[data-history-step]').forEach(button => {
+    button.addEventListener('click', () => revealRunFailureStep(Number(button.dataset.historyStep || 0)));
+  });
+  els.runHistory.querySelectorAll('[data-checkpoint-decision]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const decision = button.dataset.checkpointDecision;
+      const runId = button.dataset.runId;
+      const body = { decision, feedback: '' };
+      if (decision === 'edit') {
+        const name = window.prompt('输入正确目标的可见名称：', '');
+        if (!name?.trim()) return;
+        body.patch = { target_contract: { name: name.trim() }, version: 1 };
+      }
+      if (decision === 'reject') {
+        const feedback = window.prompt('说明拒绝原因：', '目标或账户不正确');
+        if (feedback === null) return;
+        body.feedback = feedback;
+      }
+      button.disabled = true;
+      try {
+        await postJson(`/api/runs/${encodeURIComponent(runId)}/checkpoint`, body);
+        await loadRunHistory();
+        showToast(decision === 'reject' ? '本次恢复已拒绝' : '检查点决策已保存；再次运行会使用已审核状态');
+      } catch (error) {
+        button.disabled = false;
+        showActionError(error);
+      }
+    });
+  });
 }
 
-async function startRecording() {
+function startRecording() {
+  return runExclusiveAction('recording-mutation', '启动录制', startRecordingOnce);
+}
+
+async function startRecordingOnce() {
   const workflowId = els.recordWorkflowId.value.trim();
   const taskDescription = els.recordTaskDescription.value.trim();
+  const narration = els.recordNarration.value.trim();
+  const successCriterion = els.recordSuccessCriterion.value.trim();
+  if (!taskDescription) {
+    const message = '请先用一句话描述要完成的任务。';
+    els.recorderPanel.open = true;
+    setRecordTaskError(message);
+    requestAnimationFrame(() => {
+      const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      els.recordTaskDescription.scrollIntoView({ behavior, block: 'center' });
+      els.recordTaskDescription.focus({ preventScroll: true });
+    });
+    throw new Error(message);
+  }
+  setRecordTaskError();
   els.startRecord.disabled = true;
   showRecordFeedback('正在启动录制...', 'warn');
-  await postJson('/api/record/start', { workflow_id: workflowId, task_description: taskDescription });
+  try {
+    await beginScreenRecording();
+    await postJson('/api/record/start', {
+      workflow_id: workflowId,
+      task_description: taskDescription,
+      narration,
+      success_criterion: successCriterion,
+      client_environment: clientEnvironmentSnapshot(),
+    }, { timeoutMs: 30000 });
+  } catch (error) {
+    await finishScreenRecording().catch(() => null);
+    throw error;
+  }
   await loadStatus();
 }
 
-async function stopRecording() {
+function stopRecording() {
+  return runExclusiveAction('recording-mutation', '生成 Replay', stopRecordingOnce);
+}
+
+async function stopRecordingOnce() {
   const workflowId = els.recordWorkflowId.value.trim();
   const taskDescription = els.recordTaskDescription.value.trim();
+  const narration = els.recordNarration.value.trim();
+  const successCriterion = els.recordSuccessCriterion.value.trim();
   els.stopRecord.disabled = true;
   els.stopRecord.textContent = '正在构建预览...';
   showRecordFeedback('正在停止录制并调用大模型构建结果预览，请稍等。', 'warn');
-  const result = await postJson('/api/record/stop', { workflow_id: workflowId, task_description: taskDescription, build: true, preview: true });
+  const mediaPromise = finishScreenRecording();
+  let result;
+  try {
+    result = await postJson('/api/record/stop', { workflow_id: workflowId, task_description: taskDescription, narration, success_criterion: successCriterion, build: true, preview: true }, { timeoutMs: 240000 });
+  } catch (error) {
+    await mediaPromise.catch(() => null);
+    throw error;
+  }
+  const mediaBlob = await mediaPromise;
+  if (result.preview_id && mediaBlob?.size) {
+    await uploadPreviewRecording(result.preview_id, mediaBlob);
+  }
   await loadStatus();
   renderWorkflowList();
-  if (result.preview_id) await selectPreview();
+  if (result.preview_id) await selectPreview({ openOnMobile: true });
   if (result.preview_id) {
     const stepCount = selectedDetail?.steps?.length ?? 0;
-    showRecordFeedback(`构建结果预览已就绪：${stepCount} 个步骤。确认无误后点击“保存为 Workflow”。`);
+    const analysis = selectedDetail?.provenance?.recording_analysis || {};
+    const sourceCount = Number(analysis.source_event_count || 0);
+    const reducedCount = Number(analysis.step_reduction_count || Math.max(0, sourceCount - stepCount));
+    const analysisSummary = sourceCount
+      ? `Agent 已将 ${sourceCount} 个原始动作整理为 ${stepCount} 个步骤${reducedCount ? `，收束 ${reducedCount} 个重复或非必要动作` : ''}。`
+      : `构建结果预览已就绪：${stepCount} 个步骤。`;
+    showRecordFeedback(`${analysisSummary}确认无误后保存为 Replay。`);
   } else if (result.built === false) {
     showRecordFeedback(result.warning || '录制已停止，但没有生成预览。', 'warn');
   }
-  if (result.warning) alert(result.warning);
+  if (result.warning) showToast(result.warning, 'error');
 }
 
-async function runWorkflow() {
+function runWorkflow() {
+  return runExclusiveAction('replay-mutation', '启动 Replay', runWorkflowOnce);
+}
+
+async function runWorkflowOnce() {
   if (!selectedDetail || selectedMode !== 'workflow') return;
+  const reproductionGate = selectedDetail.reproduction_gate || {};
+  if (reproductionGate.can_execute === false) {
+    throw new Error(`Reproduction Gate 已阻止运行：${(reproductionGate.blockers || []).map(item => item.message).join('；') || '请修复阻塞项。'}`);
+  }
   const workflowId = selectedDetail.id;
+  const executionMode = reproductionGate.execution_mode || (selectedDetail.safe_web?.runnable ? 'safe_web' : 'desktop');
+  const options = runtimeOptions();
   const runSelectionVersion = selectionVersion;
   els.runWorkflow.disabled = true;
-  showRunFeedback('正在创建本机 Space 并执行兼容性预检。', 'warn');
+  showRunFeedback(executionMode === 'safe_web' ? '正在创建隔离 Space 并校验公开网页来源。' : '正在创建本机 Space 并执行兼容性预检。', 'warn');
   const plan = await planReplay('');
   if (!plan.compatibility.runnable) {
     throw new Error(`Replay 与本机不兼容：${(plan.compatibility.missing_capabilities || []).join(', ')}`);
   }
-  showRunFeedback('预检通过，正在启动回放；倒计时结束后会真实控制桌面。', 'warn');
-  const arm = await postJson('/api/run/arm', { workflow_id: workflowId });
+  showRunFeedback(executionMode === 'safe_web'
+    ? '预检通过：本次只访问公开网页并验证文本，不控制桌面、不写系统剪贴板。'
+    : '预检通过，正在启动回放；倒计时结束后会真实控制桌面。', 'warn');
+  const arm = await postJson('/api/run/arm', {
+    workflow_id: workflowId,
+    client_id: CLIENT_ID,
+  }, { timeoutMs: 20000 });
   if (runSelectionVersion !== selectionVersion || selectedMode !== 'workflow' || selectedDetail?.id !== workflowId) {
     throw new Error('选择已变化，已取消本次回放启动。');
   }
   await postJson(`/api/workflows/${encodeURIComponent(workflowId)}/run`, {
     arm_token: arm.arm_token,
+    client_id: CLIENT_ID,
     space_id: plan.space_id,
     variables: runtimeVariables(),
-    threshold: els.threshold.value,
-    retries: els.retries.value,
-    countdown_seconds: els.countdown.value,
-    max_runtime_seconds: els.maxRuntime.value,
-  });
+    threshold: options.threshold,
+    retries: options.retries,
+    countdown_seconds: options.countdown,
+    max_runtime_seconds: options.maxRuntime,
+    execution_mode: executionMode,
+    gate_decision_id: reproductionGate.decision_id || '',
+    client_environment: clientEnvironmentSnapshot(),
+  }, { timeoutMs: 60000 });
   await loadStatus();
 }
 
-async function stopReplay() {
+function stopReplay() {
+  return runExclusiveAction('replay-mutation', '停止 Replay', stopReplayOnce);
+}
+
+async function stopReplayOnce() {
   els.stopReplay.disabled = true;
-  showRunFeedback('正在紧急停止回放，后续桌面动作会被拦截。', 'warn');
-  await postJson('/api/run/panic');
+  const safeWebActive = status.run?.execution_mode === 'safe_web';
+  showRunFeedback(safeWebActive ? '正在取消安全网页验证。' : '正在紧急停止回放，后续桌面动作会被拦截。', 'warn');
+  await postJson(safeWebActive ? '/api/run/stop' : '/api/run/panic', {}, { timeoutMs: 20000 });
   await loadStatus();
 }
 
-async function deleteWorkflow() {
+function deleteWorkflow() {
+  return runExclusiveAction('workflow-mutation', '删除 Replay', deleteWorkflowOnce);
+}
+
+async function deleteWorkflowOnce() {
   if (!selectedDetail || selectedMode !== 'workflow') return;
+  const deletedWorkflowId = selectedDetail.id;
   const title = selectedDetail.title || selectedDetail.id;
-  if (!window.confirm(`删除 workflow「${title}」？`)) return;
-  await postJson(`/api/workflows/${encodeURIComponent(selectedDetail.id)}/delete`);
+  const confirmed = globalThis.productConfirm
+    ? await globalThis.productConfirm(`删除 Replay「${title}」？删除后无法恢复。`, { confirmLabel: '删除 Replay' })
+    : window.confirm(`删除 Replay「${title}」？`);
+  if (!confirmed) return;
+  els.deleteWorkflow.disabled = true;
+  const inlineDeleteButton = document.getElementById('deleteWorkflowInline');
+  if (inlineDeleteButton) inlineDeleteButton.disabled = true;
+  try {
+    await postJson(`/api/workflows/${encodeURIComponent(deletedWorkflowId)}/delete`, {}, { timeoutMs: 30000 });
+  } catch (error) {
+    if (status) renderRuntimeStatus();
+    throw error;
+  }
+  clearStoredEditorDraft();
+  forgetWorkspaceContext(deletedWorkflowId);
+  pendingEditorDraft = null;
   selected = null;
   selectedDetail = null;
+  mobileStudioDetailOpen = false;
+  syncMobileStudioView();
   await loadWorkflows();
 }
 
 els.search.addEventListener('input', renderWorkflowList);
-els.refresh.addEventListener('click', loadWorkflows);
+els.search.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !els.search.value) return;
+  event.preventDefault();
+  els.search.value = '';
+  renderWorkflowList();
+});
+els.list.addEventListener('keydown', event => {
+  const current = event.target.closest('.workflow-card');
+  const key = event.key.toLowerCase();
+  if (!current || !['arrowdown', 'arrowup', 'home', 'end', 'j', 'k'].includes(key)) return;
+  const cards = [...els.list.querySelectorAll('.workflow-card:not(:disabled)')];
+  if (!cards.length) return;
+  const currentIndex = Math.max(0, cards.indexOf(current));
+  const nextIndex = key === 'home'
+    ? 0
+    : key === 'end'
+      ? cards.length - 1
+      : key === 'arrowdown' || key === 'j'
+        ? Math.min(cards.length - 1, currentIndex + 1)
+        : Math.max(0, currentIndex - 1);
+  event.preventDefault();
+  cards[nextIndex].focus({ preventScroll: true });
+  cards[nextIndex].scrollIntoView({ block: 'nearest' });
+});
+els.clearWorkflowSearch.addEventListener('click', () => {
+  els.search.value = '';
+  renderWorkflowList();
+  els.search.focus();
+});
+els.refresh.addEventListener('click', () => loadWorkflows().catch(showWorkflowLoadError));
+els.openRecorder.addEventListener('click', openRecorderPanel);
+els.recordTaskDescription.addEventListener('input', () => {
+  if (els.recordTaskDescription.value.trim()) setRecordTaskError();
+});
+if (els.recordDictate) {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    els.recordDictate.hidden = true;
+  } else {
+    els.recordDictate.addEventListener('click', () => {
+      const recognition = new Recognition();
+      recognition.lang = navigator.language || 'zh-CN';
+      recognition.interimResults = false;
+      recognition.continuous = false;
+      els.recordDictate.disabled = true;
+      els.recordDictate.textContent = '正在听…';
+      recognition.addEventListener('result', event => {
+        const text = [...event.results].map(item => item[0]?.transcript || '').join(' ').trim();
+        if (text) els.recordNarration.value = [els.recordNarration.value.trim(), text].filter(Boolean).join('\n');
+      });
+      recognition.addEventListener('end', () => {
+        els.recordDictate.disabled = false;
+        els.recordDictate.textContent = '语音输入';
+      });
+      recognition.addEventListener('error', () => showToast('语音输入不可用，请直接填写文字', 'error'));
+      recognition.start();
+    });
+  }
+}
 els.startRecord.addEventListener('click', () => startRecording().catch(error => {
   showRecordFeedback(error.message, 'error');
   loadStatus().catch(() => {});
@@ -1358,10 +3918,50 @@ els.stopReplay.addEventListener('click', () => stopReplay().catch(error => {
   showRunFeedback(error.message, 'error');
   loadStatus().catch(() => {});
 }));
-els.deleteWorkflow.addEventListener('click', () => deleteWorkflow().catch(alert));
+els.closeRuntimeConsole.addEventListener('click', closeRunLauncher);
+els.cancelRuntimeConsole.addEventListener('click', closeRunLauncher);
+els.runtimeConsole.addEventListener('cancel', event => {
+  event.preventDefault();
+  closeRunLauncher();
+});
+els.runtimeConsole.addEventListener('close', () => {
+  const returnFocus = runLauncherReturnFocus;
+  runLauncherReturnFocus = null;
+  requestAnimationFrame(() => {
+    if (returnFocus instanceof HTMLElement && returnFocus.isConnected) {
+      returnFocus.focus({ preventScroll: true });
+    }
+  });
+});
+els.runtimeConsole.addEventListener('click', event => {
+  if (runtimeConsoleClickIsBackdrop(event)) closeRunLauncher();
+});
+els.runtimeConsole.addEventListener('input', event => {
+  if (!event.target.matches('[data-var], #threshold, #retries, #countdown, #maxRuntime')) return;
+  if (!runFeedback) return;
+  runFeedback = null;
+  renderRuntimeStatus();
+});
+els.deleteWorkflow.addEventListener('click', () => deleteWorkflow().catch(showActionError));
+els.mobileLibraryBack.addEventListener('click', closeMobileStudioDetail);
+mobileStudioMedia.addEventListener('change', () => syncMobileStudioView({ focusBack: mobileStudioDetailOpen && mobileStudioMedia.matches }));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && mobileStudioDetailOpen && mobileStudioMedia.matches) {
+    event.preventDefault();
+    closeMobileStudioDetail();
+  }
+});
+syncMobileStudioView();
 
 window.addEventListener('pagehide', sendClientDisconnect);
-window.addEventListener('beforeunload', sendClientDisconnect);
+window.addEventListener('beforeunload', event => {
+  if (editorDirty) persistEditorDraft();
+  sendClientDisconnect();
+  if (editorDirty) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
 window.addEventListener('pageshow', () => {
   disconnectSent = false;
   startClientHeartbeat();
@@ -1379,6 +3979,7 @@ function runPollToken() {
     success: run.success,
     steps_run: run.steps_run,
     steps_failed: run.steps_failed,
+    failed_step: run.failed_step,
     error: run.error,
   });
 }
@@ -1388,6 +3989,7 @@ function statusPollDelay() {
 }
 
 function startStatusPolling() {
+  const generation = ++statusPollGeneration;
   if (statusPollTimer) clearTimeout(statusPollTimer);
   const tick = async () => {
     try {
@@ -1401,18 +4003,15 @@ function startStatusPolling() {
     } catch {
       // Keep the UI lease alive; visible errors are rendered by explicit actions.
     } finally {
-      statusPollTimer = setTimeout(tick, statusPollDelay());
+      if (generation !== statusPollGeneration) return;
+      statusPollTimer = setTimeout(tick, document.hidden ? 10000 : statusPollDelay());
     }
   };
-  statusPollTimer = setTimeout(tick, statusPollDelay());
+  statusPollTimer = setTimeout(tick, document.hidden ? 10000 : statusPollDelay());
 }
 
 startClientHeartbeat();
-loadWorkflows().catch(error => {
-  if (!selectedDetail) {
-    els.detail.innerHTML = `<div class="empty">加载失败：${escapeHtml(error.message || error)}</div>`;
-  }
-});
+loadWorkflows().catch(showWorkflowLoadError);
 startStatusPolling();
 </script>
 </body>

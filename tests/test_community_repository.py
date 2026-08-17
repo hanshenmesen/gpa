@@ -1,14 +1,15 @@
-import tempfile
-import unittest
-import zipfile
+import hashlib
 import json
+import tempfile
 import threading
+import unittest
 import warnings
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-import gpa.storage.workflow as workflow_module
 import gpa.community.repository as repository_module
+import gpa.storage.workflow as workflow_module
 from gpa.community.package import export_workflow_package, inspect_workflow_package
 from gpa.community.repository import CommunityRepository
 from gpa.storage.workflow import Workflow, WorkflowStep, WorkflowStorage
@@ -31,6 +32,12 @@ class CommunityRepositoryTests(unittest.TestCase):
                 description="A browser workflow for community sharing.",
                 task_description="Open an article and scroll it.",
                 category="browser",
+                provenance={
+                    "kind": "public-benchmark",
+                    "benchmark": "AssistantBench",
+                    "task_id": "task-1",
+                    "source_url": "https://assistantbench.github.io/",
+                },
                 steps=[
                     WorkflowStep(
                         step_number=1,
@@ -71,6 +78,7 @@ class CommunityRepositoryTests(unittest.TestCase):
         self.assertEqual(record["workflow_title"], "Shareable Record")
         self.assertEqual(record["tags"], ["browser", "demo"])
         self.assertFalse(record["duplicate"])
+        self.assertEqual(record["provenance"]["task_id"], "task-1")
 
         duplicate = self.publish()
         self.assertEqual(duplicate["record_id"], record["record_id"])
@@ -78,6 +86,7 @@ class CommunityRepositoryTests(unittest.TestCase):
 
         listed = self.repository.list_records(query="article")
         self.assertEqual([item["record_id"] for item in listed], [record["record_id"]])
+        self.assertEqual(listed[0]["provenance"]["benchmark"], "AssistantBench")
 
         self.repository.register_download(record["record_id"])
         imported = self.repository.import_record(
@@ -88,6 +97,14 @@ class CommunityRepositoryTests(unittest.TestCase):
         self.assertEqual(imported.workflow_id, "community_copy")
         loaded, _ = self.storage.load("community_copy")
         self.assertEqual(loaded.workflow_title, "Shareable Record")
+        self.assertEqual(
+            loaded.provenance["community_import"]["record_id"],
+            record["record_id"],
+        )
+        self.assertEqual(
+            loaded.provenance["community_import"]["package_sha256"],
+            record["package_sha256"],
+        )
         imported_metadata = json.loads(
             (self.workflows_dir / "community_copy" / "metadata.json").read_text()
         )
@@ -128,6 +145,157 @@ class CommunityRepositoryTests(unittest.TestCase):
                 privacy_reviewed=False,
             )
 
+    def test_publisher_declaration_requires_every_commitment(self):
+        with self.assertRaisesRegex(ValueError, "Publisher declaration"):
+            self.repository.publish_package(
+                self.package_path,
+                author="Alice",
+                tags=[],
+                license_id="CC-BY-4.0",
+                privacy_reviewed=True,
+                publisher_declaration={
+                    "owns_rights": True,
+                    "no_secrets": True,
+                    "safe_content": False,
+                    "public_consent": True,
+                },
+            )
+
+    def test_high_severity_report_restricts_distribution_until_operator_approval(self):
+        record = self.publish()
+        report = self.repository.submit_report(
+            record["record_id"],
+            category="privacy_or_credentials",
+            details="The recording appears to contain a reusable credential.",
+            report_id="rpt_privacy_fixture",
+        )
+
+        self.assertEqual(report["record_status"], "restricted")
+        self.assertEqual(self.repository.list_records(), [])
+        with self.assertRaisesRegex(PermissionError, "restricted"):
+            self.repository.import_record(
+                record["record_id"],
+                workflow_id="restricted_copy",
+                storage=self.storage,
+            )
+        overview = self.repository.moderation_overview()
+        self.assertEqual(overview["records"]["by_status"]["restricted"], 1)
+        self.assertEqual(overview["reports"]["open"], 1)
+
+        approved = self.repository.moderate_record(
+            record["record_id"],
+            action="approve",
+            reason="Credential report reviewed and confirmed as a false positive.",
+        )
+        self.assertEqual(approved["moderation"]["status"], "published")
+        self.assertEqual(approved["moderation"]["trust_tier"], "operator_reviewed")
+        self.assertEqual(len(self.repository.list_records()), 1)
+        self.assertEqual(self.repository.moderation_overview()["reports"]["open"], 0)
+
+    def test_report_and_appeal_retries_are_idempotent(self):
+        record = self.publish()
+        first = self.repository.submit_report(
+            record["record_id"],
+            category="malware",
+            details="Suspicious command execution.",
+            report_id="rpt_idempotent_fixture",
+        )
+        retry = self.repository.submit_report(
+            record["record_id"],
+            category="malware",
+            details="Suspicious command execution.",
+            report_id="rpt_idempotent_fixture",
+        )
+        self.assertFalse(first["duplicate"])
+        self.assertTrue(retry["duplicate"])
+
+        appeal = self.repository.submit_appeal(
+            record["record_id"],
+            explanation="The command is a documented, read-only package inspection step.",
+            appeal_id="apl_idempotent_fixture",
+        )
+        appeal_retry = self.repository.submit_appeal(
+            record["record_id"],
+            explanation="The command is a documented, read-only package inspection step.",
+            appeal_id="apl_idempotent_fixture",
+        )
+        self.assertFalse(appeal["duplicate"])
+        self.assertTrue(appeal_retry["duplicate"])
+
+    def test_duplicate_publish_can_upgrade_isolated_media_verification(self):
+        record = self.publish()
+        verification = {
+            "schema": "gpa.recording-media-probe/v1",
+            "status": "verified",
+            "verified": True,
+            "decoded_sample_count": 3,
+        }
+
+        upgraded = self.repository.publish_package(
+            self.package_path,
+            author="Alice",
+            tags=["browser"],
+            license_id="CC-BY-4.0",
+            privacy_reviewed=True,
+            recording_verification=verification,
+        )
+
+        self.assertTrue(upgraded["duplicate"])
+        self.assertEqual(upgraded["record_id"], record["record_id"])
+        self.assertTrue(upgraded["recording_verification"]["verified"])
+        persisted = self.repository.get_record(record["record_id"])
+        self.assertEqual(persisted["recording_verification"]["decoded_sample_count"], 3)
+        listed = self.repository.list_records()
+        self.assertTrue(listed[0]["recording_verification"]["verified"])
+
+    def test_declared_recording_without_probe_is_not_treated_as_verified(self):
+        workflow, subgraphs = self.storage.load("shareable")
+        recording = b"\x00\x00\x00\x18ftypmp42recording-evidence"
+        recording_path = workflow.storage_dir / "recording.mp4"
+        recording_path.write_bytes(recording)
+        workflow.artifacts = {
+            "recording": {
+                "kind": "screen-recording",
+                "path": "recording.mp4",
+                "mime_type": "video/mp4",
+                "bytes": len(recording),
+                "sha256": hashlib.sha256(recording).hexdigest(),
+                "capture_scope": "monitor",
+                "privacy_review": {
+                    "status": "failed",
+                    "other_apps_visible": True,
+                    "scope_confirmed": "monitor",
+                },
+            }
+        }
+        self.storage.save(workflow, subgraphs)
+        package = export_workflow_package(
+            "shareable",
+            self.root / "recording-packages",
+            storage=self.storage,
+        )
+
+        record = self.repository.publish_package(
+            package,
+            author="Alice",
+            tags=["browser"],
+            license_id="CC-BY-4.0",
+            privacy_reviewed=True,
+        )
+
+        checks = {
+            item["id"]: item
+            for item in record["reproduction_contract"]["checks"]
+        }
+        self.assertFalse(checks["recording_evidence"]["passed"])
+        self.assertFalse(record["reproduction_contract"]["publishable_as_verified"])
+        with self.assertRaisesRegex(PermissionError, "Privacy-quarantined"):
+            self.repository.import_record(
+                record["record_id"],
+                workflow_id="must_not_import",
+                storage=self.storage,
+            )
+
     def test_store_save_is_idempotent_and_saved_state_tracks_local_workflow(self):
         record = self.publish()
 
@@ -158,6 +326,27 @@ class CommunityRepositoryTests(unittest.TestCase):
         self.assertEqual(
             self.repository.get_record(record["record_id"])["saved_workflow_id"],
             "",
+        )
+
+    def test_import_rolls_back_when_provenance_persistence_fails(self):
+        record = self.publish()
+
+        with patch.object(self.storage, "save", side_effect=OSError("disk full")):
+            with self.assertRaisesRegex(OSError, "disk full"):
+                self.repository.import_record(
+                    record["record_id"],
+                    workflow_id="orphan_candidate",
+                    storage=self.storage,
+                )
+
+        self.assertFalse((self.workflows_dir / "orphan_candidate").exists())
+        self.assertEqual(
+            self.repository.get_record(record["record_id"])["saved_workflow_id"],
+            "",
+        )
+        self.assertEqual(
+            self.repository.get_record(record["record_id"])["stats"]["imports"],
+            0,
         )
 
     def test_package_inspection_rejects_extra_or_oversized_archives(self):

@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import logging
+import math
 import threading
 import time
 from collections import OrderedDict
@@ -22,9 +23,16 @@ import numpy as np
 from PIL import Image
 
 from gpa.config import (
-    YOLO_CONF, YOLO_IOU, YOLO_IMGSZ, KNN_K,
-    MODELS_CACHE_DIR, HF_GUI_DETECTOR, HF_ICON_CLIP, HF_SENTENCE_E5,
-    UI_PARSE_CACHE_SIZE, UI_PARSER_BACKEND,
+    HF_GUI_DETECTOR,
+    HF_ICON_CLIP,
+    HF_SENTENCE_E5,
+    KNN_K,
+    MODELS_CACHE_DIR,
+    UI_PARSE_CACHE_SIZE,
+    UI_PARSER_BACKEND,
+    YOLO_CONF,
+    YOLO_IMGSZ,
+    YOLO_IOU,
 )
 from gpa.core.ui_graph import UIGraph, UINode
 
@@ -141,8 +149,8 @@ def _elapsed_ms(start: float) -> float:
 def _load_yolo():
     global _yolo_model
     if _yolo_model is None:
-        from ultralytics import YOLO
         from huggingface_hub import hf_hub_download
+        from ultralytics import YOLO
         model_path = MODELS_CACHE_DIR / "gpa_gui_detector.pt"
         if not model_path.exists():
             logger.info("Downloading GPA-GUI-Detector from HuggingFace …")
@@ -236,7 +244,7 @@ def _detect_icons(image: Image.Image) -> list[dict]:
     for r in results:
         boxes = r.boxes.xyxy.cpu().numpy()   # [x1,y1,x2,y2]
         confs = r.boxes.conf.cpu().numpy()
-        for box, conf in zip(boxes, confs):
+        for box, conf in zip(boxes, confs, strict=True):
             x1, y1, x2, y2 = box
             detections.append({
                 "pos": [float(x1), float(y1), float(x2 - x1), float(y2 - y1)],
@@ -341,7 +349,7 @@ def _compute_icon_embeddings(image: Image.Image, boxes: list[list[float]]) -> np
             feats = model.visual_projection(cls_feats)      # (N, 512)
         else:
             feats = cls_feats
-        feats = feats / feats.norm(dim=-1, keepdim=True)
+        feats = feats / feats.norm(dim=-1, keepdim=True).clamp_min(1e-12)
     return feats.cpu().numpy().astype(np.float32)
 
 
@@ -352,7 +360,7 @@ def _compute_text_embeddings(texts: list[Optional[str]]) -> np.ndarray:
         return np.zeros((len(texts), 384), dtype=np.float32)
 
     model = _load_e5()
-    indices, sentences = zip(*valid)
+    indices, sentences = zip(*valid, strict=True)
     # E5 models work best with "query: " prefix for retrieval
     prefixed = [f"passage: {s}" for s in sentences]
     embs = model.encode(list(prefixed), normalize_embeddings=True, show_progress_bar=False)
@@ -411,6 +419,16 @@ def parse_screenshot(
         use_cache: reuse identical screenshot parses within this process.
         backend: parser backend name; defaults to GPA_UI_PARSER_BACKEND.
     """
+    if not isinstance(image, Image.Image):
+        raise TypeError("image must be a PIL.Image.Image")
+    if not isinstance(knn_k, int) or isinstance(knn_k, bool) or knn_k < 0:
+        raise ValueError("knn_k must be a non-negative integer")
+    if not math.isfinite(float(scale_factor)) or scale_factor <= 0:
+        raise ValueError("scale_factor must be finite and greater than zero")
+    if window_bounds is not None:
+        if len(window_bounds) != 4 or not all(math.isfinite(float(value)) for value in window_bounds):
+            raise ValueError("window_bounds must contain four finite numbers")
+
     total_start = time.perf_counter()
     backend_name, parser = _resolve_parser_backend(backend)
     cache_key = None
@@ -441,6 +459,8 @@ def parse_screenshot(
         knn_k=knn_k,
         scale_factor=scale_factor,
     )
+    if not isinstance(graph, UIGraph):
+        raise TypeError(f"UI parser backend {backend_name!r} must return a UIGraph")
     graph.parse_metrics = {
         **getattr(graph, "parse_metrics", {}),
         "backend": backend_name,
@@ -569,5 +589,6 @@ def _parse_screenshot_builtin(
 
 
 def parse_screenshot_path(path: str | Path, **kwargs) -> UIGraph:
-    img = Image.open(path).convert("RGB")
+    with Image.open(path) as source:
+        img = source.convert("RGB")
     return parse_screenshot(img, **kwargs)

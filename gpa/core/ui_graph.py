@@ -6,12 +6,12 @@ elements via KNN. Mirrors the steps_data.json format from the paper.
 """
 from __future__ import annotations
 
-import json
 import inspect
 from dataclasses import dataclass, field
 from typing import Optional
-import numpy as np
+
 import networkx as nx
+import numpy as np
 
 
 def _node_link_data(graph: nx.Graph) -> dict:
@@ -97,18 +97,23 @@ class UIGraph:
 
     def build_knn_edges(self, k: int = 8) -> None:
         """Connect each node to its k nearest neighbours by centre distance."""
-        if len(self.nodes) < 2:
+        if k < 0:
+            raise ValueError("k must be non-negative")
+        self.edges = []
+        neighbor_count = min(k, max(0, len(self.nodes) - 1))
+        if neighbor_count == 0:
             return
         centers = np.array([n.center for n in self.nodes])  # (N, 2)
-        self.edges = []
+        edges: set[tuple[int, int]] = set()
         for i, ci in enumerate(centers):
             dists = np.linalg.norm(centers - ci, axis=1)
             dists[i] = np.inf
-            nn_ids = np.argsort(dists)[:k]
+            nn_ids = np.argsort(dists)[:neighbor_count]
             for j in nn_ids:
-                edge = (min(i, int(j)), max(i, int(j)))
-                if edge not in self.edges:
-                    self.edges.append(edge)
+                source_id = self.nodes[i].id
+                target_id = self.nodes[int(j)].id
+                edges.add((min(source_id, target_id), max(source_id, target_id)))
+        self.edges = sorted(edges)
 
     # ------------------------------------------------------------------ #
     # Query                                                                #

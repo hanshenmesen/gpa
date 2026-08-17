@@ -1,0 +1,47 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/cloud/Dockerfile
+    restart: unless-stopped
+    environment:
+      GPA_CLOUD_SERVER_ENVIRONMENT: ${GPA_CLOUD_SERVER_ENVIRONMENT:-staging}
+      GPA_CLOUD_SERVER_BIND_HOST: 0.0.0.0
+      GPA_CLOUD_SERVER_PORT: 8080
+      GPA_CLOUD_SERVER_PUBLIC_ORIGIN: ${GPA_CLOUD_SERVER_PUBLIC_ORIGIN:?required}
+      GPA_CLOUD_SERVER_DATABASE_URL: postgresql://gpa:${POSTGRES_PASSWORD:?required}@postgres:5432/gpa
+      GPA_CLOUD_SERVER_SESSION_SIGNING_KEY: ${GPA_CLOUD_SERVER_SESSION_SIGNING_KEY:?required}
+      GPA_CLOUD_SERVER_IDENTITY_ISSUER: ${GPA_CLOUD_SERVER_IDENTITY_ISSUER:?required}
+      GPA_CLOUD_SERVER_IDENTITY_AUDIENCE: ${GPA_CLOUD_SERVER_IDENTITY_AUDIENCE:?required}
+      GPA_CLOUD_SERVER_IDENTITY_JWKS_URL: ${GPA_CLOUD_SERVER_IDENTITY_JWKS_URL:?required}
+      GPA_CLOUD_SERVER_OBJECT_STORAGE_ENDPOINT: ${GPA_CLOUD_SERVER_OBJECT_STORAGE_ENDPOINT:?required}
+      GPA_CLOUD_SERVER_OBJECT_STORAGE_BUCKET: ${GPA_CLOUD_SERVER_OBJECT_STORAGE_BUCKET:?required}
+    command: ["sh", "-c", "gpa-cloud-migrate && exec gpa-cloud"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gpa
+      POSTGRES_USER: gpa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - gpa_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gpa -d gpa"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  gpa_postgres:

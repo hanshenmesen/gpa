@@ -51,6 +51,34 @@ class UIParserCacheTests(unittest.TestCase):
         self.assertEqual(len(second.nodes), 2)
         self.assertEqual(second.nodes[1].content, "OK")
 
+    def test_invalid_parameters_fail_before_detection(self):
+        calls = []
+        ui_parser._detect_icons = lambda image: calls.append(image) or []
+        image = Image.new("RGB", (10, 10))
+
+        invalid_calls = (
+            lambda: ui_parser.parse_screenshot("not-an-image"),
+            lambda: ui_parser.parse_screenshot(image, knn_k=-1),
+            lambda: ui_parser.parse_screenshot(image, knn_k=True),
+            lambda: ui_parser.parse_screenshot(image, scale_factor=0),
+            lambda: ui_parser.parse_screenshot(image, scale_factor=float("nan")),
+            lambda: ui_parser.parse_screenshot(image, window_bounds=[0, 0, 10]),
+        )
+        for invoke in invalid_calls:
+            with self.subTest(invoke=invoke):
+                with self.assertRaises((TypeError, ValueError)):
+                    invoke()
+        self.assertEqual(calls, [])
+
+    def test_custom_backend_must_return_ui_graph(self):
+        image = Image.new("RGB", (10, 10))
+        ui_parser.register_parser_backend("broken-test", lambda *args, **kwargs: object())
+        try:
+            with self.assertRaisesRegex(TypeError, "must return a UIGraph"):
+                ui_parser.parse_screenshot(image, backend="broken-test", use_cache=False)
+        finally:
+            ui_parser._parser_backends.pop("broken-test", None)
+
 
 if __name__ == "__main__":
     unittest.main()

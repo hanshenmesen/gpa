@@ -15,20 +15,27 @@ GPA 实战 Demo：Mail.app 批量邮件草稿生成器
   - 屏幕没有全屏遮挡
 """
 
-import subprocess, sys, time, pathlib, warnings, os, json
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import time
+import warnings
+
+import pyautogui
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 ROOT = pathlib.Path(__file__).parent
 sys.path.insert(0, str(ROOT))
-
-import pyautogui
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.syntax import Syntax
-from rich import box
 
 console = Console()
 pyautogui.FAILSAFE = True
@@ -82,6 +89,23 @@ def wait(sec, msg=""):
         info(msg)
     time.sleep(sec)
 
+
+def set_first_matching_variable(var_names, variables, candidates, value):
+    """Populate the first exact or fuzzy workflow variable name."""
+    for candidate in candidates:
+        if candidate in var_names:
+            variables[candidate] = value
+            return candidate
+    for variable_name in var_names:
+        for candidate in candidates:
+            if (
+                candidate.lower() in variable_name.lower()
+                or variable_name.lower() in candidate.lower()
+            ):
+                variables[variable_name] = value
+                return variable_name
+    return None
+
 # ── Mail.app helpers ──────────────────────────────────────────────────────────
 
 def activate_mail():
@@ -110,7 +134,7 @@ def close_draft_save():
 def phase_a_record():
     phase("A", "录制示范操作（Mail.app 写一封草稿邮件）")
 
-    from gpa.recording.recorder import Recording, RecordedEvent, capture_screenshot
+    from gpa.recording.recorder import RecordedEvent, Recording, capture_screenshot
 
     recording = Recording()
 
@@ -210,8 +234,6 @@ def phase_a_record():
     # 用 OCR 定位更准，但也有坐标回退
     to_y    = find_field_y(["To", "收件人", "to:"], 0.43)
     subj_y  = find_field_y(["Subject", "主题", "subject:"], 0.49)
-    body_y  = find_field_y([], 0.60)          # body 没有标签，直接回退
-
     # 新建邮件窗口中心 x 大约在屏幕 55-75%
     field_x = W * 0.62
 
@@ -248,9 +270,9 @@ def phase_a_record():
 def phase_b_build(recording):
     phase("B", "LLM 分析录制 → 提取变量 → 生成 Workflow")
 
-    from gpa.recording.builder import build_workflow
     import gpa.config as cfg
     import gpa.storage.workflow as wsm
+    from gpa.recording.builder import build_workflow
 
     wf_dir = ROOT / "storage" / "workflows"
     wf_dir.mkdir(parents=True, exist_ok=True)
@@ -260,7 +282,7 @@ def phase_b_build(recording):
     # 清除旧的同名 workflow
     old = wf_dir / WORKFLOW_ID
     if old.exists():
-        import shutil; shutil.rmtree(old)
+        shutil.rmtree(old)
 
     with Progress(SpinnerColumn(), TextColumn("{task.description}"),
                   console=console, transient=True) as prog:
@@ -344,22 +366,24 @@ def phase_c_batch_replay(build_result):
         var_names = {v.name for v in wf.variables}
         variables = {}
 
-        def pick(candidates, value):
-            for c in candidates:
-                if c in var_names:
-                    variables[c] = value
-                    return c
-            # fallback: 用第一个含关键词的变量
-            for v in var_names:
-                for c in candidates:
-                    if c.lower() in v.lower() or v.lower() in c.lower():
-                        variables[v] = value
-                        return v
-            return None
-
-        pick(["to", "recipient", "email", "address", "收件人"], email_data["to"])
-        pick(["subject", "title", "主题", "标题"], email_data["subject"])
-        pick(["body", "content", "message", "正文", "内容"], email_data["body"])
+        set_first_matching_variable(
+            var_names,
+            variables,
+            ["to", "recipient", "email", "address", "收件人"],
+            email_data["to"],
+        )
+        set_first_matching_variable(
+            var_names,
+            variables,
+            ["subject", "title", "主题", "标题"],
+            email_data["subject"],
+        )
+        set_first_matching_variable(
+            var_names,
+            variables,
+            ["body", "content", "message", "正文", "内容"],
+            email_data["body"],
+        )
 
         # 未匹配的变量用默认值
         for v in wf.variables:

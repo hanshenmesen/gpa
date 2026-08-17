@@ -2,7 +2,6 @@
 
 Commands:
   gpa record [NAME]   — start recording, hit Enter to stop
-  gpa build NAME      — (re-)build workflow from a saved recording
   gpa run NAME        — replay a workflow
   gpa list            — list all stored workflows
   gpa show NAME       — show workflow steps
@@ -14,23 +13,28 @@ Commands:
 """
 from __future__ import annotations
 
-import json
+import logging
+import os
 import sys
 import time
-import logging
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
+from gpa import __version__
+from gpa.config import MAX_RETRIES_LIMIT
+from gpa.runtime_config import RuntimeConfigurationError, env_bool
 from gpa.storage.workflow import storage as wf_storage
 
 console = Console()
+diagnostic_console = Console(stderr=True)
 logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+DESKTOP_AUTOMATION_ENV = "GPA_ENABLE_DESKTOP_AUTOMATION"
 
 
 def _setup_verbose(verbose: bool) -> None:
@@ -45,9 +49,10 @@ def _setup_verbose(verbose: bool) -> None:
 
 @click.group()
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
+@click.version_option(version=__version__, prog_name="gpa")
 @click.pass_context
 def main(ctx, verbose):
-    """GPA — GUI Process Automation (arXiv:2604.01676 reproduction)."""
+    """GPA — local-first GUI workflow recording and safe Replay."""
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     _setup_verbose(verbose)
@@ -66,8 +71,8 @@ def record(ctx, name):
     Starts capturing mouse clicks and keyboard input until you press Enter.
     Then builds a workflow template (with LLM) and saves it.
     """
-    from gpa.recording.recorder import Recorder
     from gpa.recording.builder import build_workflow
+    from gpa.recording.recorder import Recorder
     from gpa.storage.workflow import storage
 
     console.print("[bold green]GPA Recorder[/bold green] — perform your workflow, then press Enter to stop.")
@@ -99,7 +104,7 @@ def record(ctx, name):
     wf = build_result.workflow
     saved_path = storage.save(wf, build_result.step_subgraphs)
 
-    console.print(f"\n[bold green]Workflow saved![/bold green]")
+    console.print("\n[bold green]Workflow saved![/bold green]")
     console.print(f"  ID:    {wf.workflow_id}")
     console.print(f"  Name:  {wf.workflow_name}")
     console.print(f"  Steps: {len(wf.steps)}")
@@ -116,22 +121,30 @@ def record(ctx, name):
 @click.option("--var", "-v", multiple=True, metavar="KEY=VALUE",
               help="Variable override (repeatable, e.g. -v email=foo@bar.com).")
 @click.option("--threshold", default=0.5, show_default=True,
+              type=click.FloatRange(min=0.0, max=1.0),
               help="Readiness confidence threshold (0–1).")
 @click.option("--retries", default=5, show_default=True,
+              type=click.IntRange(min=0, max=MAX_RETRIES_LIMIT),
               help="Max retries per step before failing.")
 @click.option("--metrics", is_flag=True, help="Show per-step parser and decision timings.")
 @click.pass_context
 def run(ctx, workflow_id_or_name, var, threshold, retries, metrics):
     """Replay a recorded workflow on the live desktop."""
-    from gpa.execution.executor import Executor
+    try:
+        desktop_enabled = env_bool(DESKTOP_AUTOMATION_ENV, False)
+    except RuntimeConfigurationError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not desktop_enabled:
+        raise click.ClickException(
+            "Desktop automation is disabled. Set "
+            f"{DESKTOP_AUTOMATION_ENV}=1 only before running a trusted, reviewed Replay."
+        )
 
     # Resolve name → id
     wf_id = _resolve_id(workflow_id_or_name)
     if wf_id is None:
         console.print(f"[red]Workflow not found: {workflow_id_or_name}[/red]")
         sys.exit(1)
-
-    workflow, subgraphs = wf_storage.load(wf_id)
 
     # Parse variable overrides
     variables: dict[str, str] = {}
@@ -140,7 +153,13 @@ def run(ctx, workflow_id_or_name, var, threshold, retries, metrics):
             console.print(f"[red]Invalid --var format (use KEY=VALUE): {kv}[/red]")
             sys.exit(1)
         k, v = kv.split("=", 1)
-        variables[k.strip()] = v.strip()
+        key = k.strip()
+        if not key:
+            raise click.ClickException(f"Invalid --var key: {kv}")
+        variables[key] = v.strip()
+
+    workflow, subgraphs = wf_storage.load(wf_id)
+    from gpa.execution.executor import Executor
 
     console.print(
         f"[bold green]Running[/bold green] '{workflow.workflow_title}' "
@@ -161,7 +180,7 @@ def run(ctx, workflow_id_or_name, var, threshold, retries, metrics):
         _print_run_metrics(result)
 
     if result.success:
-        console.print(f"[bold green]✓ Workflow completed successfully.[/bold green]")
+        console.print("[bold green]✓ Workflow completed successfully.[/bold green]")
     else:
         console.print(f"[bold red]✗ Workflow failed: {result.error}[/bold red]")
         sys.exit(1)
@@ -324,9 +343,15 @@ def delete(workflow_id_or_name):
 @main.command("download-models")
 def download_models():
     """Pre-download all required ML models."""
-    from gpa.models.model_loader import ensure_all_models
+    from gpa.models.model_loader import ModelDependencyError, ensure_all_models
+
     console.print("[yellow]Downloading models (this may take a while) …[/yellow]")
-    ensure_all_models()
+    try:
+        ensure_all_models()
+    except ModelDependencyError as exc:
+        raise click.ClickException(str(exc)) from exc
+    except Exception as exc:
+        raise click.ClickException(f"Model download failed: {exc}") from exc
     console.print("[bold green]All models downloaded.[/bold green]")
 
 
@@ -335,11 +360,28 @@ def download_models():
 # ──────────────────────────────────────────────────────────────────────────── #
 
 @main.command("mcp-serve")
-def mcp_serve():
-    """Start the GPA MCP server (stdio transport)."""
+@click.option(
+    "--allow-execution",
+    is_flag=True,
+    help="Explicitly allow MCP clients to run trusted Replays.",
+)
+def mcp_serve(allow_execution):
+    """Start the GPA MCP server (stdio transport).
+
+    The default server exposes workflow schemas but refuses execution. Use
+    --allow-execution together with GPA_ENABLE_DESKTOP_AUTOMATION=1 only for
+    trusted local clients and reviewed Replays.
+    """
     import asyncio
-    from gpa.integration.mcp_server import run_server
-    console.print("[bold green]Starting GPA MCP server …[/bold green]")
+
+    from gpa.integration.mcp_server import MCP_EXECUTION_ENV, run_server
+
+    # The command-line choice overrides inherited and .env values so an old
+    # permissive shell cannot silently turn a discovery server into an executor.
+    os.environ[MCP_EXECUTION_ENV] = "1" if allow_execution else "0"
+    mode = "execution enabled" if allow_execution else "discovery only"
+    # stdout is reserved for the MCP stdio protocol.
+    diagnostic_console.print(f"[bold green]Starting GPA MCP server[/bold green] ({mode})")
     asyncio.run(run_server())
 
 
@@ -348,20 +390,29 @@ def mcp_serve():
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def _resolve_id(name_or_id: str) -> str | None:
-    """Resolve workflow name or ID to storage ID."""
+    """Resolve an exact ID, unique name, or unique ID prefix."""
     all_wf = wf_storage.list_workflows()
     # Exact ID match
     for wf in all_wf:
         if wf["id"] == name_or_id:
             return wf["id"]
-    # Name match
-    for wf in all_wf:
-        if wf["name"] == name_or_id:
-            return wf["id"]
-    # Partial ID match
-    for wf in all_wf:
-        if wf["id"].startswith(name_or_id):
-            return wf["id"]
+
+    name_matches = [wf["id"] for wf in all_wf if wf["name"] == name_or_id]
+    if len(name_matches) == 1:
+        return name_matches[0]
+    if len(name_matches) > 1:
+        raise click.ClickException(
+            f"Workflow name is ambiguous: {name_or_id!r}. Use an exact workflow ID."
+        )
+
+    prefix_matches = [wf["id"] for wf in all_wf if wf["id"].startswith(name_or_id)]
+    if len(prefix_matches) == 1:
+        return prefix_matches[0]
+    if len(prefix_matches) > 1:
+        choices = ", ".join(prefix_matches[:5])
+        raise click.ClickException(
+            f"Workflow ID prefix is ambiguous: {name_or_id!r}. Matches: {choices}"
+        )
     return None
 
 
