@@ -7,7 +7,7 @@ repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 build_dir="$repo_dir/build/macos"
 artifact_dir="$repo_dir/artifacts"
 image_root="$build_dir/dmg-root"
-icon_source="$repo_dir/web/public/favicon.svg"
+icon_source="$repo_dir/packaging/macos/GPA.svg"
 iconset_dir="$build_dir/GPA.iconset"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -37,8 +37,16 @@ else
 fi
 
 mkdir -p "$build_dir" "$artifact_dir" "$iconset_dir"
+if [[ ! -f "$icon_source" ]]; then
+  echo "Application icon source not found: $icon_source" >&2
+  exit 1
+fi
 base_icon="$build_dir/icon-1024.png"
 sips -s format png "$icon_source" --out "$base_icon" >/dev/null
+if [[ ! -s "$base_icon" ]]; then
+  echo "Failed to render application icon: $icon_source" >&2
+  exit 1
+fi
 for size in 16 32 128 256 512; do
   sips -z "$size" "$size" "$base_icon" --out "$iconset_dir/icon_${size}x${size}.png" >/dev/null
   double_size=$((size * 2))
