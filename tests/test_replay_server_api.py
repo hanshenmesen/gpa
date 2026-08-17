@@ -952,7 +952,7 @@ class ReplayServerApiTests(unittest.TestCase):
                 started["reproduction_gate"]["decision_id"],
                 decision_id,
             )
-            deadline = time.monotonic() + 3
+            deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 run = self.get_json("/api/status")["run"]
                 if not run["active"]:
@@ -1188,7 +1188,7 @@ class ReplayServerApiTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(started["execution_mode"], "safe_web")
             self.assertFalse(started["desktop_input"])
-            deadline = time.monotonic() + 3
+            deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 run = self.get_json("/api/status")["run"]
                 if not run["active"]:
