@@ -8833,3 +8833,94 @@ body.sidebar-collapsed .guide-trigger > span:last-child { display: none; }
   .product-guide-head button { width: 44px !important; min-width: 44px !important; min-height: 44px !important; }
   .guide-trigger { display: none !important; }
 }
+
+/* Visual QA v11: stable CJK wrapping, crisp icons, and bounded action rows. */
+:where(.hero h1,.hero h2,.card-head h2,.panel-head h2,.detail-head h2,.record-card h2,.workflow-card strong,.product-guide h2,.publisher-dialog h2) {
+  text-wrap: balance;
+}
+:where(.hero p,.card-head p,.record-card p,.workflow-card p,.claim-box span,.check span,.product-guide p) {
+  text-wrap: pretty;
+}
+.card-head > div,.detail-heading-group,.claim-box > div,.workspace-status-copy { min-width: 0; }
+.cloud-controls > button,.claim-box > a,.actions > button,.hero-actions > * { white-space: nowrap; }
+.claim-box > div { flex: 1 1 260px; }
+.claim-box > a { flex: 0 0 auto; }
+.catalog-search-icon,
+.command-search-icon {
+  position: relative;
+  width: 18px !important;
+  height: 18px !important;
+  display: block;
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: transparent !important;
+  font-size: 0 !important;
+}
+.catalog-search-icon::before,
+.command-search-icon::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 9px;
+  height: 9px;
+  border: 1.6px solid #85858f;
+  border-radius: 50%;
+}
+.catalog-search-icon::after,
+.command-search-icon::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 12px;
+  width: 6px;
+  height: 1.6px;
+  border-radius: 2px;
+  background: #85858f;
+  transform: rotate(45deg);
+  transform-origin: left center;
+}
+.search-shell::before { content: none !important; }
+.drop-icon {
+  position: relative;
+  overflow: hidden;
+  color: transparent !important;
+  font-size: 0 !important;
+}
+.drop-icon::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  border-top: 1.7px solid var(--ui-accent);
+  border-left: 1.7px solid var(--ui-accent);
+  transform: translateX(-50%) rotate(45deg);
+}
+.drop-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 11px;
+  width: 1.7px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--ui-accent);
+  transform: translateX(-50%);
+  box-shadow: -6px 14px 0 -0.2px var(--ui-accent), 6px 14px 0 -0.2px var(--ui-accent);
+}
+.record-card .card-copy h2,.workflow-card strong { overflow-wrap: normal; word-break: normal; }
+.detail-head-actions,.queue-actions,.actions { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .claim-box.visible { align-items: stretch; flex-direction: column; }
+  .claim-box > a { width: 100%; }
+  .cloud-controls > input { min-width: 100%; }
+  .cloud-controls > button { flex: 1 1 auto; }
+}
+@media (max-width: 430px) {
+  .card-head { align-items: flex-start !important; }
+  .card-head .badge { max-width: 42%; overflow: hidden; text-overflow: ellipsis; }
+  .actions { align-items: stretch; flex-direction: column; }
+  .actions > button { width: 100%; }
+}
