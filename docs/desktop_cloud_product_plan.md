@@ -2,6 +2,25 @@
 
 Status: active product direction
 
+## Implemented connected preview
+
+The current public preview uses the hosted GPA website and its managed SQLite
+database as the first control-plane slice. It implements ChatGPT account sign-in,
+hash-only one-time pairing, revocable 90-day device credentials, Agent heartbeat,
+private library items, short-lived `replay.prepare` proposals, local environment
+preflight, and a local confirmation inbox.
+
+The local Agent polls outbound over HTTPS. Pairing claim secrets remain in the
+URL fragment and are never sent in referrers or request paths; the database only
+stores their SHA-256 hashes. Device credentials are stored in a mode-0600 local
+file in this unsigned preview. Moving those credentials into the OS keychain,
+adding signed rotation, and replacing polling with an outbound event channel are
+required before calling the desktop build production-ready.
+
+This slice deliberately does not upload screenshots, API keys, login sessions,
+or executable desktop actions. Accepting a cloud Replay creates a local
+`manual_review` draft with `execution_ready: false`.
+
 ## Product decision
 
 GPA ships as an installable desktop application with a Web-style interface and

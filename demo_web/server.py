@@ -317,6 +317,8 @@ STOPPED_SERVER_IDS: set[int] = set()
 HEALTH_CACHE_LOCK = threading.Lock()
 REPLAY_SERVICE_LOCK = threading.Lock()
 REPLAY_SERVICE_CACHE = {"key": None, "value": None}
+CLOUD_AGENT_LOCK = threading.Lock()
+CLOUD_AGENT_CACHE = {"key": None, "value": None}
 HEALTH_CACHE = {"expires_at": 0.0, "value": None}
 SHUTDOWN_EVENT = threading.Event()
 STATE = {
@@ -1589,6 +1591,20 @@ def _replay_service():
                 spaces_root=REPLAY_SPACES_DIR,
             )
         return REPLAY_SERVICE_CACHE["value"]
+
+
+def _cloud_agent_service():
+    from gpa.cloud.website_agent import CloudAgentService
+
+    key = str(WORKFLOWS_DIR.resolve())
+    with CLOUD_AGENT_LOCK:
+        if CLOUD_AGENT_CACHE["key"] != key:
+            previous = CLOUD_AGENT_CACHE.get("value")
+            if previous is not None:
+                previous.stop()
+            CLOUD_AGENT_CACHE["key"] = key
+            CLOUD_AGENT_CACHE["value"] = CloudAgentService(workflow_storage=_storage())
+        return CLOUD_AGENT_CACHE["value"]
 
 
 def _transition_replay_space(space_id: str, state: str, *, error: str = "") -> None:
@@ -6985,6 +7001,40 @@ def _moderate_community_record(handler: BaseHTTPRequestHandler, record_id: str) 
         _error(handler, str(exc), 422)
 
 
+def _cloud_pair_start(handler: BaseHTTPRequestHandler) -> None:
+    from gpa.cloud.website_agent import WebsiteAgentError
+
+    try:
+        body = _read_json(handler, max_bytes=8 * 1024)
+        status = _cloud_agent_service().begin_pairing(str(body.get("label") or ""))
+        _json_response(handler, {"ok": True, "cloud": status}, 201)
+    except WebsiteAgentError as exc:
+        _error(handler, str(exc), 502)
+
+
+def _cloud_action(handler: BaseHTTPRequestHandler, action: str, command_id: str = "") -> None:
+    from gpa.cloud.website_agent import WebsiteAgentError
+
+    try:
+        service = _cloud_agent_service()
+        if action == "poll":
+            status = service.poll_pairing()
+        elif action == "sync":
+            status = service.sync_once()
+        elif action == "disconnect":
+            service.disconnect()
+            status = service.status()
+        elif action == "accept":
+            status = service.accept(command_id)
+        elif action == "decline":
+            status = service.decline(command_id)
+        else:
+            raise ValueError("Unsupported cloud action.")
+        _json_response(handler, {"ok": True, "cloud": status})
+    except WebsiteAgentError as exc:
+        _error(handler, str(exc), 409)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         return
@@ -7268,6 +7318,10 @@ class Handler(BaseHTTPRequestHandler):
             _json_response(self, _runtime_settings_payload())
             return
 
+        if path == "/api/cloud/status":
+            _json_response(self, {"ok": True, "cloud": _cloud_agent_service().status()})
+            return
+
         if path == "/api/product/overview":
             try:
                 _json_response(self, _product_overview())
@@ -7415,6 +7469,24 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/settings/llm/test":
             _test_llm_settings(self)
             return
+        if path == "/api/cloud/pair/start":
+            _cloud_pair_start(self)
+            return
+        if path == "/api/cloud/pair/poll":
+            _cloud_action(self, "poll")
+            return
+        if path == "/api/cloud/sync":
+            _cloud_action(self, "sync")
+            return
+        if path == "/api/cloud/disconnect":
+            _cloud_action(self, "disconnect")
+            return
+        if path.startswith("/api/cloud/inbox/"):
+            suffix = path.removeprefix("/api/cloud/inbox/").strip("/")
+            parts = [unquote(part) for part in suffix.split("/") if part]
+            if len(parts) == 2 and parts[1] in {"accept", "decline"}:
+                _cloud_action(self, parts[1], parts[0])
+                return
         if path.startswith("/api/replays/") and path.endswith("/plan"):
             replay_id = unquote(path.removeprefix("/api/replays/").removesuffix("/plan")).strip("/")
             try:
@@ -7590,6 +7662,7 @@ def start_server(*, port: int | None = None):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     server.gpa_thread = thread
     thread.start()
+    _cloud_agent_service().start()
     return server
 
 
@@ -7609,6 +7682,9 @@ def stop_server(server: ThreadingHTTPServer) -> None:
     if not _wait_for_replay_worker():
         _log("Replay worker did not stop within the shutdown grace period.", "warn")
     _abort_active_recording("Service shutdown stopped the active recorder worker.")
+    cloud_agent = CLOUD_AGENT_CACHE.get("value")
+    if cloud_agent is not None:
+        cloud_agent.stop()
     server.shutdown()
     server.server_close()
     thread = getattr(server, "gpa_thread", None)
