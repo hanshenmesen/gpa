@@ -24,7 +24,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-VENV_DIR="$SCRIPT_DIR/.venv"
+VENV_DIR="${GPA_VENV_DIR:-$SCRIPT_DIR/.venv}"
 PORT=8765
 ENV_FILE="${GPA_ENV_FILE:-$SCRIPT_DIR/.env}"
 
@@ -82,13 +82,19 @@ fi
 echo "==> Using interpreter: $PYTHON_BIN ($("$PYTHON_BIN" --version 2>&1))"
 
 # ── Create / reuse virtualenv ───────────────────────────────────────────────
-if [[ ! -d "$VENV_DIR" ]]; then
-  echo "==> Creating virtualenv at .venv"
+if [[ ! -d "$VENV_DIR" && "$SKIP_INSTALL" -eq 0 ]]; then
+  echo "==> Creating virtualenv at $VENV_DIR"
   "$PYTHON_BIN" -m venv "$VENV_DIR"
 fi
-# shellcheck disable=SC1091
-source "$VENV_DIR/bin/activate"
-echo "==> Virtualenv active: $VIRTUAL_ENV"
+if [[ -d "$VENV_DIR" ]]; then
+  # shellcheck disable=SC1091
+  source "$VENV_DIR/bin/activate"
+  echo "==> Virtualenv active: $VIRTUAL_ENV"
+else
+  # A read-only check in CI or an already activated environment must not create
+  # an empty project virtualenv and then diagnose that empty environment.
+  echo "==> Using the current Python environment (--skip-install)"
+fi
 
 # ── Install dependencies ────────────────────────────────────────────────────
 install_deps() {

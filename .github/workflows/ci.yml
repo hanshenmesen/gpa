@@ -43,7 +43,15 @@ jobs:
           node scripts/verify_frontend.js
           python scripts/verify_public_project.py
 
+      - name: Run unit tests
+        if: matrix.python-version != '3.13'
+        env:
+          GPA_ENABLE_DESKTOP_AUTOMATION: "0"
+          GPA_KEYBOARD_QUARANTINE_SECONDS: "0"
+        run: python -m unittest discover -s tests -p "test_*.py"
+
       - name: Run unit tests with coverage floor
+        if: matrix.python-version == '3.13'
         env:
           GPA_ENABLE_DESKTOP_AUTOMATION: "0"
           GPA_KEYBOARD_QUARANTINE_SECONDS: "0"

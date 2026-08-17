@@ -13,10 +13,14 @@ class LauncherTests(unittest.TestCase):
         environment = dict(os.environ)
         # Prove that safe defaults override a permissive parent shell.
         environment["GPA_ENABLE_DESKTOP_AUTOMATION"] = "1"
+        environment["PATH"] = os.pathsep.join(
+            [str(Path(sys.executable).parent), environment.get("PATH", "")]
+        )
         with tempfile.TemporaryDirectory() as temporary:
             env_file = Path(temporary) / ".env"
             env_file.write_text(env_content, encoding="utf-8")
             environment["GPA_ENV_FILE"] = str(env_file)
+            environment["GPA_VENV_DIR"] = str(Path(temporary) / "missing-venv")
             return subprocess.run(
                 ["bash", str(ROOT / "start.sh"), "--check", "--skip-install", *arguments],
                 cwd=ROOT,

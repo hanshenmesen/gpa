@@ -3,6 +3,7 @@ import os
 import tempfile
 import time
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -44,7 +45,7 @@ class ServerRecoveryTests(unittest.TestCase):
             previous = {
                 "status": "running",
                 "pid": 999_999_999,
-                "updated_at": datetime_from_timestamp(marker_time),
+                "updated_at": datetime.fromtimestamp(marker_time).astimezone().isoformat(),
             }
             with patch.object(server, "PREVIOUS_SERVER_SESSION", previous), patch.object(
                 server, "PREVIOUS_SESSION_UNCLEAN", True
@@ -57,11 +58,5 @@ class ServerRecoveryTests(unittest.TestCase):
         self.assertTrue(result["previous_session_crash_suspected"])
         self.assertEqual(result["reports_during_previous_session"], 1)
         self.assertTrue(result["known_signature_mitigated"])
-
-
-def datetime_from_timestamp(value: float) -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(value))
-
-
 if __name__ == "__main__":
     unittest.main()
