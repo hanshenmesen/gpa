@@ -60,6 +60,13 @@ sync and coordination belong to the cloud; system permissions, recording and
 desktop execution remain inside the signed application. See
 `docs/desktop_cloud_product_plan.md` for the target boundaries and delivery plan.
 
+The public preview now includes the first connected vertical slice: a signed-in
+website user can pair a local Agent, see its heartbeat, save a catalog Replay,
+send a short-lived compatibility-preflight proposal, and receive the result.
+The proposal enters a local inbox and can only be imported as a non-executable
+draft after confirmation on that device. Remote desktop execution is not
+enabled by this connection.
+
 > GPA can control the keyboard and pointer. Keep desktop automation disabled
 > while browsing or inspecting untrusted Replay packages, and only arm a
 > trusted Replay after reviewing its steps, variables, applications, and
@@ -96,20 +103,23 @@ lease, a compatible plan, an expiring arm token, and enabled safety gates.
 ## Architecture
 
 ```text
-Replay Studio / Replay Store / Control Center
-            |
-        Local HTTP API
-            |
-   ReplayApplicationService
-     /       |        \
- Registry  Intent   SpaceManager
- Adapter   Parser       |
-     |        |      ReplayEngine
-  packages  rules        |
-                    PlatformAdapter
-                       / | \
-                  macOS Win Linux
+Public website (ChatGPT sign-in + D1)
+  account · library · catalog · devices · preflight proposals
+                         ^
+                         | outbound HTTPS, revocable device token
+                         v
+Desktop Agent (native WebView + loopback-only service)
+  local inbox -> compatibility check -> local confirmation -> draft import
+       |                |                     |
+   recorder        environment gate      Replay engine
+                                                |
+                                      macOS platform adapter
 ```
+
+The website cannot call the loopback API or mint local desktop authority. The
+desktop Agent does not accept arbitrary cloud actions: the preview allowlist is
+limited to `replay.prepare`, and recording or execution stays behind the
+existing local lease, arm token, permission and emergency-stop gates.
 
 The macOS execution path is the currently verified implementation. Windows
 and Linux have compatibility planning contracts but still need native runner

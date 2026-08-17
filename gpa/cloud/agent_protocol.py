@@ -6,6 +6,7 @@ fresh approval identifier minted by the local agent after user review.
 """
 from __future__ import annotations
 
+import json
 import re
 import time
 import uuid
@@ -52,7 +53,7 @@ class AgentCommand:
     expires_at: float
     replay_id: str = ""
     local_approval_id: str = ""
-    metadata: dict[str, str] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 def command_requires_local_approval(command_type: str) -> bool:
@@ -195,15 +196,39 @@ def _permission_state(value: Any) -> str:
     return state
 
 
-def _metadata(value: Any) -> dict[str, str]:
+def _metadata(value: Any) -> dict[str, Any]:
     if value is None:
         return {}
     if not isinstance(value, Mapping) or len(value) > MAX_METADATA_ITEMS:
         raise AgentProtocolError("metadata must be a small object.")
-    return {
-        _bounded_identifier(key, "metadata key"): _bounded_text(item, "metadata value")
+    normalized = {
+        _bounded_identifier(key, "metadata key"): _bounded_json_value(item, depth=0)
         for key, item in value.items()
     }
+    if len(json.dumps(normalized, ensure_ascii=False)) > 24_000:
+        raise AgentProtocolError("metadata is too large.")
+    return normalized
+
+
+def _bounded_json_value(value: Any, *, depth: int) -> Any:
+    if depth > 4:
+        raise AgentProtocolError("metadata is nested too deeply.")
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return _bounded_text(value, "metadata value")
+    if isinstance(value, Mapping):
+        if len(value) > MAX_METADATA_ITEMS:
+            raise AgentProtocolError("metadata object has too many items.")
+        return {
+            _bounded_identifier(key, "metadata key"): _bounded_json_value(item, depth=depth + 1)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        if len(value) > MAX_METADATA_ITEMS:
+            raise AgentProtocolError("metadata list has too many items.")
+        return [_bounded_json_value(item, depth=depth + 1) for item in value]
+    raise AgentProtocolError("metadata contains an unsupported value.")
 
 
 __all__ = [

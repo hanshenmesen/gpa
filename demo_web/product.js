@@ -64,7 +64,7 @@
     </div>
     <div class="product-guide-body">
       <ol>
-        <li><span>1</span><div><strong>完成运行准备</strong><p>配置自己的模型 API，并只在可信任务需要时主动开启当前会话的桌面自动化。</p></div></li>
+        <li><span>1</span><div><strong>完成运行准备</strong><p>配置自己的模型 API；需要网站资料库时连接在线账号，需要可信桌面任务时再主动开启本次会话授权。</p></div></li>
         <li><span>2</span><div><strong>录制任务</strong><p>在工作台描述目标并完成一次操作。Agent 会理解意图、去掉误点和回退，并合并连续输入与重复动作。</p></div></li>
         <li><span>3</span><div><strong>检查 Replay</strong><p>确认步骤、变量和成功条件。系统会自动保存录制主机、浏览器、屏幕与权限环境。</p></div></li>
         <li><span>4</span><div><strong>发布或导入</strong><p>商店会检查来源、录屏、环境证据和复现条件；导入只保存，不会直接运行。</p></div></li>

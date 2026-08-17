@@ -31,6 +31,24 @@ class CloudAgentProtocolTests(unittest.TestCase):
         self.assertEqual(command.command_type, "replay.inspect")
         self.assertEqual(command.metadata, {"origin": "web"})
 
+    def test_replay_preflight_accepts_bounded_structured_metadata(self):
+        command = parse_cloud_command(
+            self.command(
+                command_type="replay.prepare",
+                metadata={"steps": [{"title": "Open page"}], "review_required": True},
+            ),
+            expected_device_id="device_local",
+            now=1030,
+        )
+        self.assertEqual(command.metadata["steps"][0]["title"], "Open page")
+
+        with self.assertRaisesRegex(AgentProtocolError, "nested too deeply"):
+            parse_cloud_command(
+                self.command(metadata={"value": [[[[[["too deep"]]]]]]}),
+                expected_device_id="device_local",
+                now=1030,
+            )
+
     def test_desktop_command_requires_local_approval(self):
         with self.assertRaisesRegex(AgentProtocolError, "local approval"):
             parse_cloud_command(
