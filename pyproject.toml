@@ -40,7 +40,7 @@ dependencies = [
   "pyobjc-framework-Cocoa==11.1; platform_system == 'Darwin'",
   "pyobjc-framework-Quartz==11.1; platform_system == 'Darwin'",
   "pyobjc-framework-ApplicationServices==11.1; platform_system == 'Darwin'",
-  "pyobjc-framework-CoreText==11.1; platform_system == 'Darwin'",
+  "pyobjc-framework-CoreText==12.2.2; platform_system == 'Darwin'",
   "pyobjc-framework-CoreML==11.1; platform_system == 'Darwin'",
   "pyobjc-framework-Vision==11.1; platform_system == 'Darwin'",
   "ocrmac>=0.3.0; platform_system == 'Darwin'",
