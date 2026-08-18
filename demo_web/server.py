@@ -6519,10 +6519,28 @@ def _inspect_community_package_upload(handler: BaseHTTPRequestHandler) -> None:
         _json_response(handler, {"ok": True, "inspection": inspection})
         staged_token = ""
     except PayloadTooLargeError as exc:
+        if upload_path is not None:
+            upload_path.unlink(missing_ok=True)
+            upload_path = None
+        if staged_token:
+            _discard_package_inspection(staged_token)
+            staged_token = ""
         _error(handler, str(exc), 413)
     except (FileNotFoundError, ValueError, TypeError, zipfile.BadZipFile) as exc:
+        if upload_path is not None:
+            upload_path.unlink(missing_ok=True)
+            upload_path = None
+        if staged_token:
+            _discard_package_inspection(staged_token)
+            staged_token = ""
         _error(handler, str(exc), 422)
     except Exception as exc:
+        if upload_path is not None:
+            upload_path.unlink(missing_ok=True)
+            upload_path = None
+        if staged_token:
+            _discard_package_inspection(staged_token)
+            staged_token = ""
         _log(f"Community package inspection failed: {exc}", "error")
         _error(handler, "Internal server error.", 500)
     finally:

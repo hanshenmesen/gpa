@@ -3,6 +3,17 @@
 All notable public-preview changes will be documented here. The project follows
 semantic versioning once the first preview tag is published.
 
+## 0.1.0-preview.5 - 2026-08-18
+
+### Fixed
+
+- Diagnostic privacy flags remain explicit booleans while credential values
+  are still recursively redacted.
+- Invalid community-package uploads are removed before the error response is
+  observable, closing a timing-sensitive temporary-file cleanup race.
+- The automated PostgreSQL 17 restore drill installs matching client tools
+  from the official PostgreSQL package repository.
+
 ## 0.1.0-preview.4 - 2026-08-18
 
 ### Added

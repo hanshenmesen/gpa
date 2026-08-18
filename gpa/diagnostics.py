@@ -21,12 +21,21 @@ _SECRET_VALUE = re.compile(
     r"\b[A-Fa-f0-9]{64}\b"
 )
 _HOME_PATH = re.compile(r"/(?:Users|home)/[^/\s]+")
+_SAFE_PRIVACY_FLAGS = {
+    "raw_logs_included",
+    "screenshots_included",
+    "recordings_included",
+    "environment_variables_included",
+    "credentials_included",
+}
 
 
 def redact(value: Any, *, key: str = "", depth: int = 0) -> Any:
     """Recursively remove credential-like material and user-home identifiers."""
     if depth > 12:
         return "[TRUNCATED]"
+    if key in _SAFE_PRIVACY_FLAGS and isinstance(value, bool):
+        return value
     if _SECRET_KEY.search(str(key or "")):
         return "[REDACTED]"
     if isinstance(value, Mapping):

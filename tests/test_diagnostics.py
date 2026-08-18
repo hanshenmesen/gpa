@@ -35,6 +35,7 @@ class DiagnosticTests(unittest.TestCase):
         self.assertNotIn("device_token", content)
         self.assertNotIn("authorization_token", content)
         self.assertIn('"recordings_included": false', content)
+        self.assertIn('"credentials_included": false', content)
 
 
 if __name__ == "__main__":
