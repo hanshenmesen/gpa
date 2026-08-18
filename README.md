@@ -256,7 +256,7 @@ does not implement or store user passwords.
 | `GPA_PRELOAD_VISUAL_MODELS` | `0` | Warm local visual models at server start |
 | `GPA_REQUIRE_VISUAL_WARMUP` | `0` | Require visual warmup before full startup |
 | `GPA_REPLAY_AGENT_FIRST` | `0` | Prefer model decisions before recorded actions |
-| `GPA_ENABLE_ERROR_RECOVERY` | `1` | Apply only bounded safe recovery (wait, re-observe or dismiss a blocking dialog); set `0` to disable |
+| `GPA_ENABLE_ERROR_RECOVERY` | `1` | Apply only bounded safe recovery (wait or press Esc for a detected blocking dialog); set `0` to disable. Invalid values fail closed. |
 | `GPA_VERIFY_FINAL_STATE` | `GPA_REPLAY_AGENT_FIRST` | Verify and reconcile the visible business outcome; preflight Save/Submit to prevent duplicates |
 | `GPA_UI_PARSE_CACHE_SIZE` | `16` | In-process screenshot graph cache entries (`0` disables it) |
 

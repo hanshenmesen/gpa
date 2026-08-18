@@ -278,6 +278,36 @@ class CommunityRepositoryTests(unittest.TestCase):
         listed = self.repository.list_records()
         self.assertTrue(listed[0]["recording_verification"]["verified"])
 
+    def test_seeded_tutorial_revisions_are_listed_once(self):
+        first = self.repository.publish_package(
+            self.package_bytes,
+            author="GPA Examples",
+            tags=["tutorial", "browser"],
+            license_id="CC-BY-4.0",
+            privacy_reviewed=True,
+        )
+        workflow, subgraphs = self.storage.load("shareable")
+        workflow.description = "An improved tutorial revision."
+        self.storage.save(workflow, subgraphs)
+        revised_package = export_workflow_package(
+            "shareable",
+            self.root / "revised-packages",
+            storage=self.storage,
+        )
+        second = self.repository.publish_package(
+            revised_package.read_bytes(),
+            author="GPA Examples",
+            tags=["tutorial", "browser"],
+            license_id="CC-BY-4.0",
+            privacy_reviewed=True,
+        )
+
+        self.assertNotEqual(first["record_id"], second["record_id"])
+        self.assertEqual(len(list(self.repository.records_dir.iterdir())), 2)
+        listed = self.repository.list_records()
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0]["workflow_id"], "shareable")
+
     def test_declared_recording_without_probe_is_not_treated_as_verified(self):
         workflow, subgraphs = self.storage.load("shareable")
         recording = b"\x00\x00\x00\x18ftypmp42recording-evidence"

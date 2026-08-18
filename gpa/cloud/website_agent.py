@@ -227,6 +227,7 @@ class CloudAgentService:
         inbox = self._load_inbox()
         return {
             "status": state.get("status") or "disconnected",
+            "web_base_url": self.client.config.web_base_url,
             "device_id": state.get("device_id") or "",
             "label": state.get("label") or "",
             "claim_url": state.get("claim_url") or "",

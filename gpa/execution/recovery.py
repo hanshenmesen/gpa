@@ -48,8 +48,16 @@ class RecoveryStrategy:
 
 
 def recovery_enabled() -> bool:
-    value = str(os.environ.get(RECOVERY_ENABLED_ENV, "1") or "").strip().lower()
-    return value not in {"0", "false", "no", "n", "off"}
+    raw = os.environ.get(RECOVERY_ENABLED_ENV)
+    if raw is None or not str(raw).strip():
+        return True
+    value = str(raw).strip().lower()
+    if value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if value in {"0", "false", "no", "n", "off"}:
+        return False
+    # A malformed setting must never silently enable an automatic key press.
+    return False
 
 
 def _graph_text(runtime_graph) -> str:

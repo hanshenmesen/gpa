@@ -344,7 +344,7 @@ class CommunityRepository:
             )
             seeded_example = (
                 item.get("author") == "GPA Examples"
-                and bool({"demo", "case"} & set(item.get("tags") or []))
+                and bool({"demo", "case", "tutorial"} & set(item.get("tags") or []))
             )
             workflow_id = str(item.get("workflow_id") or "")
             seeded = maintained or seeded_example

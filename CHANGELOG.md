@@ -3,6 +3,34 @@
 All notable public-preview changes will be documented here. The project follows
 semantic versioning once the first preview tag is published.
 
+## 0.1.0-preview.6 - 2026-08-18
+
+### Added
+
+- A first-party, authenticated feedback inbox on GPA Online with draft
+  recovery, reference IDs, per-user history, duplicate suppression, rate
+  limits and a private-security-report boundary.
+- The local Agent now exposes its validated online base URL so self-hosted
+  builds send product feedback to the configured control plane.
+
+### Changed
+
+- Website device and Replay actions share timeout-aware request handling and
+  always recover their loading state after network or response failures.
+- Agent commands are deduplicated and capped per user before they can fill the
+  local inbox.
+- Store filters use accurate labels and remain on one line on narrow screens.
+
+### Fixed
+
+- Seeded tutorial revisions are collapsed by stable workflow identity, fixing
+  inflated Store counts and repeated cards.
+- Malformed recovery configuration now fails closed instead of enabling an
+  automatic Escape keypress.
+- Mobile setup status badges no longer truncate short authorization states.
+- Website JSON endpoints reject oversized, malformed or cross-site payloads
+  with bounded reads and consistent no-store security headers.
+
 ## 0.1.0-preview.5 - 2026-08-18
 
 ### Fixed

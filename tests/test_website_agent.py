@@ -93,6 +93,7 @@ class WebsiteAgentTests(unittest.TestCase):
     def test_pairing_preflight_and_local_import_are_end_to_end(self):
         pending = self.service.begin_pairing("Test Mac")
         self.assertEqual(pending["status"], "pending")
+        self.assertEqual(pending["web_base_url"], "https://example.test")
         self.assertNotIn("device_token", pending)
 
         self.cloud.paired = True

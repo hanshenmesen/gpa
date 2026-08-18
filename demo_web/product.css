@@ -1452,6 +1452,7 @@ input:focus, textarea:focus, select:focus {
   color: #5555b7 !important;
 }
 .filter.active { background: #e9e9f5 !important; color: #34345e !important; }
+.catalog-console .filter { white-space: nowrap; }
 .detail-panel { box-shadow: var(--product-shadow-raised) !important; }
 .primary-detail-action {
   border-color: rgba(91,91,214,.14) !important;
@@ -8920,7 +8921,7 @@ body.sidebar-collapsed .guide-trigger > span:last-child { display: none; }
 }
 @media (max-width: 430px) {
   .card-head { align-items: flex-start !important; }
-  .card-head .badge { max-width: 42%; overflow: hidden; text-overflow: ellipsis; }
+  .card-head .badge { flex: 0 0 auto; max-width: none; }
   .actions { align-items: stretch; flex-direction: column; }
   .actions > button { width: 100%; }
 }

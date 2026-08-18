@@ -277,6 +277,8 @@ class RecoveryTests(unittest.TestCase):
         self.assertTrue(recovery.recovery_enabled())
         os.environ[recovery.RECOVERY_ENABLED_ENV] = "0"
         self.assertFalse(recovery.recovery_enabled())
+        os.environ[recovery.RECOVERY_ENABLED_ENV] = "definitely"
+        self.assertFalse(recovery.recovery_enabled())
 
 
 # ──────────────────────────────────────────────────────────────────────────── #
