@@ -160,6 +160,13 @@ class CloudOperationsTests(unittest.TestCase):
         self.assertIn(".venv/bin/python", script)
         self.assertIn("packaging/macos/GPA.svg", script)
 
+    def test_restore_verifier_keeps_remote_connection_parameters(self):
+        root = Path(__file__).resolve().parents[1]
+        script = (root / "scripts/verify_cloud_backup.sh").read_text(encoding="utf-8")
+        self.assertIn('restore_url="${admin_base%/*}/$restore_db$admin_query"', script)
+        self.assertIn('pg_restore --exit-on-error --no-owner --no-acl --dbname="$restore_url"', script)
+        self.assertIn('psql --dbname="$restore_url"', script)
+
     def test_pairing_challenge_is_short_lived_and_secrets_are_only_hashed(self):
         key = "k" * 32
         now = datetime(2026, 8, 17, tzinfo=timezone.utc)
