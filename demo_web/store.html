@@ -1061,13 +1061,15 @@
       els.grid.innerHTML = records.map(record => {
         const feedbackCount = Number(record.stats?.feedback_count || 0);
         const rate = feedbackCount ? `${Math.round(Number(record.stats?.success_rate || 0) * 100)}%` : '暂无反馈';
+        const qualityTier = record.stats?.quality?.tier || (feedbackCount ? 'early' : 'untested');
+        const qualityLabels = {proven:'多环境验证',tested:'已有测试样本',early:'早期样本',untested:'等待首测'};
         const reproduction = record.reproduction || {};
         const contract = record.reproduction_contract || {};
         const decision = catalogDecision(record);
         const proofLabel = recordKind(record) === 'tutorial'
           ? '官方来源已锁定'
           : feedbackCount
-          ? `${rate} 成功率`
+          ? `${rate} · ${qualityLabels[qualityTier] || '早期样本'}`
           : contract.publishable_as_verified
             ? `复现评分 ${contract.score || 0}`
             : reproduction.label || '待验证';
@@ -1233,6 +1235,8 @@
       const stats = record.stats || {};
       const feedbackCount = Number(stats.feedback_count || 0);
       const rate = feedbackCount ? `${Math.round(Number(stats.success_rate || 0) * 100)}%` : '—';
+      const quality = stats.quality || {};
+      const qualityLabels = {proven:'多环境验证',tested:'已有测试样本',early:'早期样本',untested:'等待首测'};
       const platform = record.platform || {};
       const provenance = record.provenance || {};
       const kind = recordKind(record);
@@ -1564,6 +1568,7 @@
               <div class="facts">
                 <div class="fact"><span>作者</span><strong>${escapeHtml(record.author || 'Anonymous')}</strong></div>
                 <div class="fact"><span>许可证</span><strong>${escapeHtml(record.record_license || '未声明')}</strong></div>
+                <div class="fact"><span>社区可靠性</span><strong>${escapeHtml(qualityLabels[quality.tier] || '等待首测')} · ${escapeHtml(quality.sample_size || 0)} 次结果 · ${escapeHtml(quality.verified_environment_count || 0)} 种环境</strong></div>
                 <div class="fact"><span>目标</span><strong>${escapeHtml(record.task_description || '未提供')}</strong></div>
                 <div class="fact"><span>变量</span><strong>${escapeHtml((record.variable_names || []).join(', ') || '无')}</strong></div>
                 <div class="fact"><span>平台</span><strong>${escapeHtml([platform.system, platform.release, platform.machine].filter(Boolean).join(' · ') || '未知')}</strong></div>

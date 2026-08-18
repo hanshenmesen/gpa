@@ -2,10 +2,17 @@
 
 from pathlib import Path
 import os
+import re
 
 ROOT = Path(SPECPATH).parents[1]
 ICON = ROOT / "build" / "macos" / "GPA.icns"
 SIGNING_IDENTITY = os.environ.get("GPA_MACOS_SIGNING_IDENTITY") or None
+VERSION_SOURCE = (ROOT / "gpa" / "__init__.py").read_text(encoding="utf-8")
+VERSION = re.search(r'^__version__\s*=\s*"([^"]+)"', VERSION_SOURCE, re.MULTILINE).group(1)
+RELEASE = re.search(r'^__release__\s*=\s*"([^"]+)"', VERSION_SOURCE, re.MULTILINE).group(1)
+BUILD_NUMBER = str(os.environ.get("GPA_BUILD_NUMBER") or "1")
+if not BUILD_NUMBER.isdigit():
+    raise ValueError("GPA_BUILD_NUMBER must contain only digits")
 
 datas = [
     (str(ROOT / "demo_web"), "demo_web"),
@@ -56,8 +63,9 @@ app = BUNDLE(
     info_plist={
         "CFBundleDisplayName": "GPA",
         "CFBundleName": "GPA",
-        "CFBundleShortVersionString": "0.1.0",
-        "CFBundleVersion": "1",
+        "CFBundleShortVersionString": VERSION,
+        "CFBundleVersion": BUILD_NUMBER,
+        "GPAReleaseChannel": RELEASE,
         "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
         "NSHumanReadableCopyright": "Copyright © 2026 GPA Replay",

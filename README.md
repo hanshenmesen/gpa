@@ -88,6 +88,8 @@ enabled by this connection.
   spending model tokens, while reserving model calls for adaptive visual work.
 - Aggregates real success rate, verified complexity, model cost, runtime health,
   and recent runs in `/control`.
+- Checks public GitHub releases without silently installing software, and lets
+  users export a redacted diagnostics bundle from Runtime Setup.
 - Exposes a local Web console, a CLI, and an MCP server.
 
 ## Replay lifecycle
@@ -210,6 +212,11 @@ artifact for local testing only. Public distribution additionally requires an
 Apple Developer ID certificate and `GPA_MACOS_NOTARY_PROFILE`; the same script
 then verifies Gatekeeper acceptance and submits with `notarytool`.
 
+Tagged CI builds also publish `gpa-update-<architecture>.json` with immutable
+artifact sizes and SHA-256 digests. The desktop update check reads only public
+release metadata; technical previews always require a user-reviewed manual
+install.
+
 Run `gpa-release-preflight desktop` before a public build. Apple signing
 credentials stay in Keychain and are never stored in the repository.
 
@@ -249,6 +256,7 @@ does not implement or store user passwords.
 | `GPA_PRELOAD_VISUAL_MODELS` | `0` | Warm local visual models at server start |
 | `GPA_REQUIRE_VISUAL_WARMUP` | `0` | Require visual warmup before full startup |
 | `GPA_REPLAY_AGENT_FIRST` | `0` | Prefer model decisions before recorded actions |
+| `GPA_ENABLE_ERROR_RECOVERY` | `1` | Apply only bounded safe recovery (wait, re-observe or dismiss a blocking dialog); set `0` to disable |
 | `GPA_VERIFY_FINAL_STATE` | `GPA_REPLAY_AGENT_FIRST` | Verify and reconcile the visible business outcome; preflight Save/Submit to prevent duplicates |
 | `GPA_UI_PARSE_CACHE_SIZE` | `16` | In-process screenshot graph cache entries (`0` disables it) |
 

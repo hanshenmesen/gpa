@@ -30,6 +30,43 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[desktop,cloud,package,dev]"
 
+      - name: Configure optional Developer ID signing
+        env:
+          GPA_CERTIFICATE_P12: ${{ secrets.GPA_MACOS_CERTIFICATE_P12 }}
+          GPA_CERTIFICATE_PASSWORD: ${{ secrets.GPA_MACOS_CERTIFICATE_PASSWORD }}
+          GPA_SIGNING_IDENTITY: ${{ secrets.GPA_MACOS_SIGNING_IDENTITY }}
+          GPA_APPLE_ID: ${{ secrets.GPA_APPLE_ID }}
+          GPA_APP_SPECIFIC_PASSWORD: ${{ secrets.GPA_APP_SPECIFIC_PASSWORD }}
+          GPA_APPLE_TEAM_ID: ${{ secrets.GPA_APPLE_TEAM_ID }}
+        run: |
+          if [[ -z "$GPA_CERTIFICATE_P12" ]]; then
+            echo "Developer ID credentials are not configured; building an unsigned preview."
+            exit 0
+          fi
+          : "${GPA_CERTIFICATE_PASSWORD:?missing certificate password}"
+          : "${GPA_SIGNING_IDENTITY:?missing signing identity}"
+          : "${GPA_APPLE_ID:?missing Apple ID}"
+          : "${GPA_APP_SPECIFIC_PASSWORD:?missing app-specific password}"
+          : "${GPA_APPLE_TEAM_ID:?missing Apple team id}"
+          keychain="$RUNNER_TEMP/gpa-signing.keychain-db"
+          certificate="$RUNNER_TEMP/gpa-signing.p12"
+          keychain_password="$(openssl rand -hex 24)"
+          printf '%s' "$GPA_CERTIFICATE_P12" | base64 --decode > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$GPA_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          xcrun notarytool store-credentials gpa-notary \
+            --apple-id "$GPA_APPLE_ID" \
+            --team-id "$GPA_APPLE_TEAM_ID" \
+            --password "$GPA_APP_SPECIFIC_PASSWORD"
+          echo "GPA_MACOS_SIGNING_IDENTITY=$GPA_SIGNING_IDENTITY" >> "$GITHUB_ENV"
+          echo "GPA_MACOS_NOTARY_PROFILE=gpa-notary" >> "$GITHUB_ENV"
+          echo "GPA_REQUIRE_NOTARIZATION=1" >> "$GITHUB_ENV"
+          echo "GPA_SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+
       - name: Validate source and safety contracts
         run: |
           python -m ruff check .
@@ -38,29 +75,58 @@ jobs:
           python -m unittest discover -s tests -p "test_*.py"
           gpa-release-preflight desktop --allow-unsigned-preview
 
-      - name: Build wheel and unsigned macOS preview
+      - name: Build wheel and macOS preview
+        env:
+          GPA_BUILD_NUMBER: ${{ github.run_number }}
         run: |
           python -m build --wheel
           python scripts/verify_distribution.py dist
           ./scripts/build_macos_app.sh
           architecture="$(uname -m)"
-          cp artifacts/GPA-macOS.dmg "artifacts/GPA-macOS-${architecture}-unsigned.dmg"
+          artifact_label="unsigned"
+          if [[ -n "${GPA_MACOS_SIGNING_IDENTITY:-}" ]]; then
+            artifact_label="signed-notarized"
+          fi
+          artifact_name="GPA-macOS-${architecture}-${artifact_label}.dmg"
+          cp artifacts/GPA-macOS.dmg "artifacts/$artifact_name"
           (
             cd artifacts
-            shasum -a 256 "GPA-macOS-${architecture}-unsigned.dmg" > "GPA-macOS-${architecture}-unsigned.dmg.sha256"
+            shasum -a 256 "$artifact_name" > "$artifact_name.sha256"
           )
-          ./scripts/verify_macos_artifact.sh "artifacts/GPA-macOS-${architecture}-unsigned.dmg"
+          ./scripts/verify_macos_artifact.sh "artifacts/$artifact_name"
+
+      - name: Generate checksummed update manifest
+        run: |
+          architecture="$(uname -m)"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            release_tag="$GITHUB_REF_NAME"
+          else
+            release_tag="v$(python -c 'from gpa import __release__; print(__release__)')"
+          fi
+          python scripts/generate_update_manifest.py "$release_tag" \
+            artifacts/GPA-macOS-"${architecture}"-*.dmg \
+            dist/*.whl \
+            --architecture "$architecture" \
+            --output "artifacts/gpa-update-${architecture}.json"
 
       - name: Write safety notice
         run: |
           architecture="$(uname -m)"
+          if [[ -n "${GPA_MACOS_SIGNING_IDENTITY:-}" ]]; then
+            release_heading='## GPA signed and notarized preview'
+            trust_notice='This build is signed with Apple Developer ID and notarized. macOS should verify it normally.'
+            install_notice='Install by dragging GPA.app into Applications, then launch it normally.'
+          else
+            release_heading='## GPA unsigned technical preview'
+            trust_notice='The macOS DMG is not signed with Apple Developer ID and is not notarized. Verify the SHA-256 file. Never disable Gatekeeper globally.'
+            install_notice='Install by dragging GPA.app into Applications. On first launch, use System Settings > Privacy & Security > Open Anyway only if the checksum matches.'
+          fi
           printf '%s\n' \
-            '## GPA unsigned technical preview' \
+            "$release_heading" \
             '' \
             'This release is intended for technical evaluation and real-workflow feedback.' \
-            'The macOS DMG is not signed with Apple Developer ID and is not notarized.' \
-            'Verify the SHA-256 file. Never disable Gatekeeper globally.' \
-            'Install by dragging GPA.app into Applications. On first launch, use System Settings > Privacy & Security > Open Anyway only if the checksum matches.' \
+            "$trust_notice" \
+            "$install_notice" \
             'Desktop automation is disabled by default. Review every Replay before granting local authority.' \
             '' \
             "Build architecture: ${architecture}" \
@@ -74,8 +140,9 @@ jobs:
         with:
           name: gpa-technical-preview
           path: |
-            artifacts/GPA-macOS-*-unsigned.dmg
-            artifacts/GPA-macOS-*-unsigned.dmg.sha256
+            artifacts/GPA-macOS-*.dmg
+            artifacts/GPA-macOS-*.dmg.sha256
+            artifacts/gpa-update-*.json
             artifacts/TECHNICAL_PREVIEW.md
             dist/*.whl
           if-no-files-found: error
@@ -87,9 +154,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            artifacts/GPA-macOS-*-unsigned.dmg \
-            artifacts/GPA-macOS-*-unsigned.dmg.sha256 \
+            artifacts/GPA-macOS-*.dmg \
+            artifacts/GPA-macOS-*.dmg.sha256 \
+            artifacts/gpa-update-*.json \
             dist/*.whl \
             --prerelease \
-            --title "GPA ${GITHUB_REF_NAME} — unsigned technical preview" \
+            --title "GPA ${GITHUB_REF_NAME} — technical preview" \
             --notes-file artifacts/TECHNICAL_PREVIEW.md
+
+      - name: Remove temporary signing keychain
+        if: ${{ always() }}
+        run: |
+          if [[ -n "${GPA_SIGNING_KEYCHAIN:-}" && -f "$GPA_SIGNING_KEYCHAIN" ]]; then
+            security delete-keychain "$GPA_SIGNING_KEYCHAIN"
+          fi

@@ -2512,9 +2512,10 @@ class Executor:
     def _maybe_recover(self, step: WorkflowStep, runtime_graph, reason_text: str) -> Optional[dict]:
         """Attempt a safe, targeted recovery for a common failure mode.
 
-        Opt-in via GPA_ENABLE_ERROR_RECOVERY. Only auto-applies strategies
-        flagged safe (currently: dismiss a blocking dialog with Esc). Returns a
-        record of what was applied, or None.
+        Enabled by default and disabled with GPA_ENABLE_ERROR_RECOVERY=0. Only
+        auto-applies strategies flagged safe (currently: dismiss a blocking
+        dialog with Esc or wait for loading). Returns a record of what was
+        applied, or None.
         """
         if not recovery_enabled():
             return None

@@ -142,6 +142,7 @@ class CloudOperationsTests(unittest.TestCase):
             "GPA_CLOUD_SERVER_IDENTITY_JWKS_URL": "https://identity.example/jwks.json",
             "GPA_CLOUD_SERVER_OBJECT_STORAGE_ENDPOINT": "https://objects.example",
             "GPA_CLOUD_SERVER_OBJECT_STORAGE_BUCKET": "gpa",
+            "GPA_CLOUD_SERVER_METRICS_TOKEN": "m" * 24,
         }
         findings = cloud_findings(environ=env, which=lambda _name: "/usr/bin/tool")
         self.assertFalse(any(item.blocking for item in findings))

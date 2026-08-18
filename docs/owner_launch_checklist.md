@@ -40,6 +40,8 @@ later without rewriting the desktop execution engine.
 - PostgreSQL application and migration-role connection strings.
 - Object-storage endpoint, bucket, access role and retention region.
 - Apple signing identity name and locally stored notary profile name.
+- A separate 24+ character metrics-scrape token kept in the deployment secret
+  manager; never reuse the session signing key.
 - Legal publisher name, support address, privacy contact and data region.
 
 ## Commands to run with those values
@@ -66,6 +68,8 @@ gpa-cloud-migrate
 - Two test tenants cannot read, mutate or enumerate each other's records.
 - Revoked sessions and devices lose access immediately.
 - Restore drill, key rotation and rollback are completed and timed.
+- Provider-level WAF/rate limits complement the in-process limiter, and
+  structured logs/aggregate metrics are connected to alerts without raw bodies.
 - Privacy policy, terms, acceptable-use rules, security contact, export and
   deletion flows are published before inviting public community uploads.
 - Community reports, quarantine, moderation queues and appeals have an owner.

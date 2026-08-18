@@ -1,0 +1,57 @@
+name: Cloud backup restore drill
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 2 * * 3"
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: gpa
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: drill-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gpa"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      GPA_CLOUD_SERVER_DATABASE_URL: postgresql://postgres:drill-password@127.0.0.1:5432/gpa
+      GPA_BACKUP_DATABASE_URL: postgresql://postgres:drill-password@127.0.0.1:5432/gpa
+      GPA_RESTORE_ADMIN_URL: postgresql://postgres:drill-password@127.0.0.1:5432/postgres
+      GPA_BACKUP_DIRECTORY: ${{ github.workspace }}/artifacts/backups
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e ".[cloud]"
+      - name: Apply migrations and create backup
+        run: |
+          gpa-cloud-migrate
+          ./scripts/backup_cloud_database.sh
+      - name: Restore into an isolated database and verify schema
+        run: |
+          backup_file="$(find artifacts/backups -name '*.dump' -type f -print -quit)"
+          test -n "$backup_file"
+          shasum -a 256 -c "$backup_file.sha256"
+          ./scripts/verify_cloud_backup.sh "$backup_file"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: backup-restore-drill-evidence
+          path: artifacts/backups/*.sha256
+          if-no-files-found: warn
+          retention-days: 14

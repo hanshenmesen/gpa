@@ -28,6 +28,10 @@ class CloudServerSettings(BaseSettings):
     identity_jwks_url: str = ""
     object_storage_endpoint: str = ""
     object_storage_bucket: str = ""
+    metrics_token: SecretStr = SecretStr("")
+    max_request_bytes: int = Field(default=1024 * 1024, ge=64 * 1024, le=64 * 1024 * 1024)
+    rate_limit_per_minute: int = Field(default=300, ge=10, le=100_000)
+    auth_rate_limit_per_minute: int = Field(default=30, ge=5, le=10_000)
     log_level: Literal["critical", "error", "warning", "info", "debug"] = "info"
 
     @model_validator(mode="after")
@@ -44,6 +48,8 @@ class CloudServerSettings(BaseSettings):
                 raise ValueError("staging and production require PostgreSQL")
             if len(self.session_signing_key.get_secret_value()) < 32:
                 raise ValueError("staging and production require a 32+ character signing key")
+            if self.environment == "production" and len(self.metrics_token.get_secret_value()) < 24:
+                raise ValueError("production requires a 24+ character metrics token")
             for label, value in (
                 ("identity issuer", self.identity_issuer),
                 ("identity JWKS URL", self.identity_jwks_url),
@@ -69,6 +75,7 @@ class CloudServerSettings(BaseSettings):
             and self.identity_jwks_url.strip()
             and self.object_storage_endpoint.strip()
             and self.object_storage_bucket.strip()
+            and len(self.metrics_token.get_secret_value()) >= 24
         )
 
 

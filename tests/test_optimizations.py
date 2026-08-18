@@ -272,8 +272,10 @@ class RecoveryTests(unittest.TestCase):
     def test_no_match_returns_none(self):
         self.assertIsNone(recovery.classify_failure("totally unrelated message"))
 
-    def test_recovery_disabled_by_default(self):
+    def test_safe_recovery_enabled_by_default_and_can_be_disabled(self):
         os.environ.pop(recovery.RECOVERY_ENABLED_ENV, None)
+        self.assertTrue(recovery.recovery_enabled())
+        os.environ[recovery.RECOVERY_ENABLED_ENV] = "0"
         self.assertFalse(recovery.recovery_enabled())
 
 

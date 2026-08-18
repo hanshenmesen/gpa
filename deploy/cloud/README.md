@@ -11,6 +11,15 @@ is not a substitute for managed backups, monitoring or an identity provider.
    checksummed migrations before it accepts traffic.
 5. Check `/health/live`; use `/health/ready` for traffic readiness.
 
+The API emits one bounded JSON access event per request (request id, route,
+status, latency and a salted client fingerprint; never headers, query strings or
+bodies). Point your log collector at stdout. Prometheus-compatible aggregate
+metrics are available at `/internal/metrics` only with
+`X-GPA-Metrics-Token`; keep that route private at the load balancer as well.
+Requests are size-limited and rate-limited in the process. Production should
+also enforce provider-level WAF/rate limits so limits remain global across
+replicas.
+
 The API port intentionally binds only to loopback on the host. Do not expose it
 directly to the Internet, and do not weaken staging/production TLS validation.
 Tenant-owned tables have forced PostgreSQL row-level-security policies and the

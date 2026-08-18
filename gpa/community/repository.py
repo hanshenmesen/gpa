@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -915,7 +916,47 @@ class CommunityRepository:
                 stats["success_count"] / stats["feedback_count"],
                 4,
             )
+        stats["quality"] = cls._quality_signal(stats)
         return stats
+
+    @staticmethod
+    def _quality_signal(stats: dict) -> dict:
+        sample_size = int(stats.get("feedback_count") or 0)
+        successes = int(stats.get("success_count") or 0)
+        environments = sum(
+            key != "unspecified" and (bucket.get("success", 0) + bucket.get("failure", 0) > 0)
+            for key, bucket in (stats.get("environment_matrix") or {}).items()
+            if isinstance(bucket, dict)
+        )
+        lower_bound = 0.0
+        if sample_size:
+            # Wilson lower bound prevents one successful run from looking like
+            # established reliability while remaining easy to explain.
+            z = 1.96
+            proportion = successes / sample_size
+            denominator = 1 + (z * z / sample_size)
+            centre = proportion + (z * z / (2 * sample_size))
+            spread = z * math.sqrt(
+                (proportion * (1 - proportion) / sample_size)
+                + (z * z / (4 * sample_size * sample_size))
+            )
+            lower_bound = max(0.0, (centre - spread) / denominator)
+        if sample_size >= 20 and environments >= 3 and lower_bound >= 0.75:
+            tier = "proven"
+        elif sample_size >= 8 and environments >= 2:
+            tier = "tested"
+        elif sample_size:
+            tier = "early"
+        else:
+            tier = "untested"
+        return {
+            "schema": "gpa.community-quality/v1",
+            "tier": tier,
+            "sample_size": sample_size,
+            "verified_environment_count": environments,
+            "confidence_lower_bound": round(lower_bound, 4),
+            "minimum_proven_sample": 20,
+        }
 
     @staticmethod
     def _safe_record_id(record_id: str) -> str:
@@ -934,6 +975,14 @@ class CommunityRepository:
             "failure_count": 0,
             "success_rate": 0.0,
             "environment_matrix": {},
+            "quality": {
+                "schema": "gpa.community-quality/v1",
+                "tier": "untested",
+                "sample_size": 0,
+                "verified_environment_count": 0,
+                "confidence_lower_bound": 0.0,
+                "minimum_proven_sample": 20,
+            },
         }
 
     @staticmethod

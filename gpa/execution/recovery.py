@@ -2,10 +2,10 @@
 
 Instead of a single generic retry, this module classifies common failure modes
 and proposes a targeted, *safe* recovery action, mirroring robustness-oriented
-work such as RoTS (arXiv:2605.29447). It is opt-in via
-``GPA_ENABLE_ERROR_RECOVERY`` and, when enabled, the executor only auto-applies
-recoveries flagged ``safe_autofix`` (currently just dismissing a blocking
-dialog with Esc and waiting for loads); other strategies are advisory.
+work such as RoTS (arXiv:2605.29447). Safe recovery is enabled by default and
+can be disabled with ``GPA_ENABLE_ERROR_RECOVERY=0``. The executor only
+auto-applies recoveries flagged ``safe_autofix`` (currently dismissing a
+blocking dialog with Esc and waiting for loads); other strategies are advisory.
 """
 from __future__ import annotations
 
@@ -48,9 +48,8 @@ class RecoveryStrategy:
 
 
 def recovery_enabled() -> bool:
-    return str(os.environ.get(RECOVERY_ENABLED_ENV, "") or "").strip().lower() in {
-        "1", "true", "yes", "y", "on",
-    }
+    value = str(os.environ.get(RECOVERY_ENABLED_ENV, "1") or "").strip().lower()
+    return value not in {"0", "false", "no", "n", "off"}
 
 
 def _graph_text(runtime_graph) -> str:

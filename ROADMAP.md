@@ -8,13 +8,16 @@ evidence establishes the work required.
 - Make source installation reliable on supported macOS systems.
 - Collect real workflow, failure and cross-machine compatibility reports.
 - Harden intent cleanup, evidence capture, preflight and emergency stop.
-- Publish unsigned developer DMGs with checksums for technical testers.
+- Publish unsigned developer DMGs with checksums and update manifests for technical testers.
 - Keep desktop automation disabled by default.
+- Let testers inspect and export redacted diagnostics without uploading raw
+  screens, recordings, environment variables or credentials.
 
 ## Next — reproducible community beta
 
 - Curate versioned Replay examples from public or synthetic data.
-- Add repeatable clean-machine installation and upgrade tests.
+- Expand the scheduled macOS build matrix into clean-machine install and
+  previous-version upgrade tests on real Intel and Apple Silicon devices.
 - Complete device pairing and optional cloud metadata synchronization.
 - Add package quarantine, scanning, moderation and privacy retention controls.
 - Reach native Windows execution safety parity before claiming support.
@@ -23,7 +26,9 @@ evidence establishes the work required.
 
 - Signed and notarized macOS installers and verified updates.
 - Production identity, deletion/export, monitoring and restore drills.
-- Community trust levels, reports, appeals and creator provenance.
+- Hosted community identity/reputation derived from verified cross-environment
+  samples; local catalogs already expose sample-aware reliability tiers,
+  reports, appeals and creator provenance.
 - Independent security review and incident exercises.
 
 ## Explicitly not promised yet

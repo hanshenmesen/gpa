@@ -50,6 +50,7 @@ codesign --verify --deep --strict "$app_path"
 plist="$app_path/Contents/Info.plist"
 bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")"
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")"
+release_channel="$(/usr/libexec/PlistBuddy -c 'Print :GPAReleaseChannel' "$plist")"
 if [[ "$bundle_id" != "com.gpareplay.desktop" ]]; then
   echo "Unexpected bundle identifier: $bundle_id" >&2
   exit 1
@@ -58,5 +59,14 @@ if [[ -z "$version" ]]; then
   echo "The application version is empty." >&2
   exit 1
 fi
+if [[ -z "$release_channel" ]]; then
+  echo "The application release channel is empty." >&2
+  exit 1
+fi
 
-echo "Verified $artifact_name ($bundle_id $version)."
+if [[ -n "${GPA_REQUIRE_NOTARIZATION:-}" ]]; then
+  xcrun stapler validate "$dmg_path"
+  spctl --assess --type execute --verbose "$app_path"
+fi
+
+echo "Verified $artifact_name ($bundle_id $version, $release_channel)."

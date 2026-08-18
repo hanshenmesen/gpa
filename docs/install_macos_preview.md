@@ -41,6 +41,9 @@ unofficial mirror.
 4. Inspect the generated goal, merged steps, target applications, environment
    evidence and permissions before enabling desktop automation.
 5. Keep the emergency stop visible during the first Replay.
+6. Open **运行准备 → 版本更新** to verify the updater reports the installed
+   release. If a run fails, use **诊断与反馈 → 下载诊断包**, inspect the JSON,
+   and attach it only to a report you choose to submit.
 
 macOS may ask for Accessibility, Input Monitoring or Screen Recording only when
 the relevant feature needs it. Grant the minimum required permission and revoke
@@ -61,5 +64,7 @@ destroy recordings. Delete that data only after exporting anything you need.
 - Use the real-world workflow form for a public or synthetic task GPA should
   learn to reproduce.
 
-Remove account names, local paths, customer data, cookies, credentials and
-private screen content before sharing logs or screenshots.
+The built-in support bundle removes home-directory names and credential-like
+values and excludes raw logs/media by construction. Still review its JSON before
+sharing. Remove account names, customer data and private screen content from any
+extra screenshots or notes you attach yourself.

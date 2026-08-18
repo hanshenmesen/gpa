@@ -63,8 +63,18 @@ if [[ ! -d "$app_path" ]]; then
 fi
 
 codesign --verify --deep --strict "$app_path"
-if [[ -n "${GPA_MACOS_SIGNING_IDENTITY:-}" ]]; then
-  spctl --assess --type execute --verbose "$app_path"
+
+if [[ -n "${GPA_MACOS_NOTARY_PROFILE:-}" ]]; then
+  if [[ -z "${GPA_MACOS_SIGNING_IDENTITY:-}" ]]; then
+    echo "Notarization requires GPA_MACOS_SIGNING_IDENTITY." >&2
+    exit 1
+  fi
+  app_archive="$build_dir/GPA.app.zip"
+  rm -f "$app_archive"
+  ditto -c -k --keepParent "$app_path" "$app_archive"
+  xcrun notarytool submit "$app_archive" --keychain-profile "$GPA_MACOS_NOTARY_PROFILE" --wait
+  xcrun stapler staple "$app_path"
+  xcrun stapler validate "$app_path"
 fi
 
 dmg_path="$artifact_dir/GPA-macOS.dmg"
@@ -77,8 +87,9 @@ hdiutil create -volname "GPA" -srcfolder "$image_root" -ov -format UDZO "$dmg_pa
 
 if [[ -n "${GPA_MACOS_NOTARY_PROFILE:-}" ]]; then
   xcrun notarytool submit "$dmg_path" --keychain-profile "$GPA_MACOS_NOTARY_PROFILE" --wait
-  xcrun stapler staple "$app_path"
   xcrun stapler staple "$dmg_path"
+  xcrun stapler validate "$dmg_path"
+  spctl --assess --type execute --verbose "$app_path"
 fi
 
 (

@@ -134,6 +134,10 @@ class CommunityRepositoryTests(unittest.TestCase):
         self.assertEqual(detail["stats"]["success_count"], 1)
         self.assertEqual(detail["stats"]["failure_count"], 1)
         self.assertEqual(detail["stats"]["success_rate"], 0.5)
+        self.assertEqual(detail["stats"]["quality"]["tier"], "early")
+        self.assertEqual(detail["stats"]["quality"]["sample_size"], 2)
+        self.assertEqual(detail["stats"]["quality"]["verified_environment_count"], 1)
+        self.assertLess(detail["stats"]["quality"]["confidence_lower_bound"], 0.5)
         self.assertEqual(len(detail["recent_feedback"]), 2)
 
     def test_import_without_requested_id_reuses_identical_local_source(self):

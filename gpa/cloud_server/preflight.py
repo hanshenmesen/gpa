@@ -108,6 +108,7 @@ def cloud_findings(
         ("GPA_CLOUD_SERVER_IDENTITY_JWKS_URL", "OIDC JWKS endpoint"),
         ("GPA_CLOUD_SERVER_OBJECT_STORAGE_ENDPOINT", "object storage endpoint"),
         ("GPA_CLOUD_SERVER_OBJECT_STORAGE_BUCKET", "object storage bucket"),
+        ("GPA_CLOUD_SERVER_METRICS_TOKEN", "protected metrics token"),
     )
     findings = [
         Finding(
@@ -124,6 +125,9 @@ def cloud_findings(
     signing_key = str(env.get("GPA_CLOUD_SERVER_SESSION_SIGNING_KEY") or "")
     if signing_key and len(signing_key) < 32:
         findings.append(Finding("cloud", "signing_key_length", "blocked", "must be 32+ chars"))
+    metrics_token = str(env.get("GPA_CLOUD_SERVER_METRICS_TOKEN") or "")
+    if metrics_token and len(metrics_token) < 24:
+        findings.append(Finding("cloud", "metrics_token_length", "blocked", "must be 24+ chars"))
     for variable in (
         "GPA_CLOUD_SERVER_IDENTITY_ISSUER",
         "GPA_CLOUD_SERVER_IDENTITY_JWKS_URL",

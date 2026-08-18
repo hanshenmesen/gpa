@@ -316,6 +316,8 @@ REPLAY_SERVICE_LOCK = threading.Lock()
 REPLAY_SERVICE_CACHE = {"key": None, "value": None}
 CLOUD_AGENT_LOCK = threading.Lock()
 CLOUD_AGENT_CACHE = {"key": None, "value": None}
+UPDATE_SERVICE_LOCK = threading.Lock()
+UPDATE_SERVICE_CACHE = {"key": None, "value": None}
 HEALTH_CACHE = {"expires_at": 0.0, "value": None}
 SHUTDOWN_EVENT = threading.Event()
 STATE = {
@@ -1602,6 +1604,41 @@ def _cloud_agent_service():
             CLOUD_AGENT_CACHE["key"] = key
             CLOUD_AGENT_CACHE["value"] = CloudAgentService(workflow_storage=_storage())
         return CLOUD_AGENT_CACHE["value"]
+
+
+def _desktop_update_service():
+    from gpa.update import DesktopUpdateService
+
+    key = str(STORAGE_DIR.resolve())
+    with UPDATE_SERVICE_LOCK:
+        if UPDATE_SERVICE_CACHE["key"] != key:
+            UPDATE_SERVICE_CACHE["key"] = key
+            UPDATE_SERVICE_CACHE["value"] = DesktopUpdateService(
+                cache_path=STORAGE_DIR / "update-status.json",
+            )
+        return UPDATE_SERVICE_CACHE["value"]
+
+
+def _support_diagnostics() -> dict:
+    from gpa.diagnostics import diagnostic_report
+
+    try:
+        workflows, _, _ = _workflow_library()
+        workflow_count = len(workflows)
+    except Exception:
+        workflow_count = 0
+    try:
+        cloud = _cloud_agent_service().status()
+    except Exception:
+        cloud = {"status": "unavailable"}
+    return diagnostic_report(
+        dependency_health=_cached_dependency_health(),
+        runtime=_runtime_settings_payload(),
+        crash=_python_crash_diagnostics(),
+        recent_runs=_list_run_history(limit=20),
+        workflow_count=workflow_count,
+        cloud=cloud,
+    )
 
 
 def _transition_replay_space(space_id: str, state: str, *, error: str = "") -> None:
@@ -7431,6 +7468,35 @@ class Handler(BaseHTTPRequestHandler):
             _json_response(self, {"ok": True, "cloud": _cloud_agent_service().status()})
             return
 
+        if path == "/api/update/status":
+            _json_response(self, {"ok": True, "update": _desktop_update_service().status()})
+            return
+
+        if path == "/api/diagnostics":
+            try:
+                _json_response(self, {"ok": True, "diagnostics": _support_diagnostics()})
+            except Exception as exc:
+                _log(f"Diagnostics collection failed: {exc}", "error")
+                _error(self, "Diagnostics could not be collected.", 500)
+            return
+
+        if path == "/api/diagnostics/export":
+            try:
+                from gpa.diagnostics import support_bundle
+
+                payload = support_bundle(_support_diagnostics())
+                stamp = time.strftime("%Y%m%d-%H%M%S")
+                _binary_response(
+                    self,
+                    payload,
+                    content_type="application/zip",
+                    filename=f"gpa-diagnostics-{stamp}.zip",
+                )
+            except Exception as exc:
+                _log(f"Diagnostics export failed: {exc}", "error")
+                _error(self, "Diagnostics could not be exported.", 500)
+            return
+
         if path == "/api/product/overview":
             try:
                 _json_response(self, _product_overview())
@@ -7580,6 +7646,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/settings/llm/test":
             _test_llm_settings(self)
+            return
+        if path == "/api/update/check":
+            try:
+                body = _read_json(self, max_bytes=16 * 1024)
+                result = _desktop_update_service().check(force=body.get("force") is True)
+                _json_response(self, {"ok": True, "update": result})
+            except (ValueError, TypeError, json.JSONDecodeError) as exc:
+                _error(self, str(exc), 422)
+            except Exception as exc:
+                _log(f"Update check failed safely: {exc}", "warn")
+                _error(self, "Could not check for updates.", 503)
             return
         if path == "/api/cloud/pair/start":
             _cloud_pair_start(self)
